@@ -40,9 +40,8 @@ local function getArtifactTestConfiguration(
 ): ({ string }, number?)
 	local args = { execpath }
 	local expectedExit = nil
-	local pathEnd = path.basename(path.parse(artifactPath))
 	local testname = ""
-	if pathEnd ~= nil then
+	if local pathEnd = path.basename(path.parse(artifactPath)) then
 		testname = strext.removeSuffix(pathEnd, ".snap")
 	end
 	-- configuration here is the discovered file with snapshot testing config

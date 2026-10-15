@@ -36,15 +36,13 @@ local function filtertests(
 			table.insert(filtered.suites, suite)
 		end
 	elseif caseName then
-		local caseEntry = env.caseindex[caseName]
-		if caseEntry then
+		if local caseEntry = env.caseindex[caseName] then
 			-- Add all anonymous tests with this case name
 			filtered.anonymous = caseEntry.anonymous
 
 			-- Add all suites that have tests with this case name
 			for sName, cases in caseEntry.suites do
-				local suite = env.suiteindex[sName]
-				if suite then
+				if local suite = env.suiteindex[sName] then
 					local filteredSuite = table.clone(suite)
 					filteredSuite.cases = cases
 					table.insert(filtered.suites, filteredSuite)

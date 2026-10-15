@@ -273,8 +273,7 @@ end
 
 local function reqassert<T...>(req: (boolean, T...) -> Failure?, negate: boolean?): (T...) -> Failure?
 	return function(...): Failure?
-		local result: Failure? = req(negate == true, ...)
-		if result ~= nil then
+		if local result: Failure? = req(negate == true, ...) then
 			error(result)
 		end
 		return nil

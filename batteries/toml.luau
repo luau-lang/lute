@@ -946,8 +946,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 		if sign == nil and c == 48 then
 			local nc = byteAt(1) or 0
 
-			local parser = numberPrefixTable[nc]
-			if parser then
+			if local parser = numberPrefixTable[nc] then
 				pos += 2
 				return parser()
 			end
@@ -1137,8 +1136,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 
 		local c = byteAt() :: number
 
-		local handler = valueDispatch[c]
-		if handler ~= nil then
+		if local handler = valueDispatch[c] then
 			return handler()
 		end
 
@@ -1284,8 +1282,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 
 				local m = getMeta(child)
 
-				local kindError = dottedKindErrors[m.kind]
-				if kindError ~= nil then
+				if local kindError = dottedKindErrors[m.kind] then
 					tomlParseError(kindError(k))
 				end
 
@@ -1496,9 +1493,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 			return existing :: { [string]: TomlValue }
 		end
 
-		local kindError = headerLeafKindErrors[m.kind]
-
-		if kindError ~= nil then
+		if local kindError = headerLeafKindErrors[m.kind] then
 			tomlParseError(kindError(leafKey))
 		end
 

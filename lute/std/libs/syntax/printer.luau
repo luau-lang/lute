@@ -143,8 +143,7 @@ local function printReplacement(self: PrintVisitor, node: types.CstNode, replace
 	local preserveTrivia = if typeof(replacement) == "table" then replacement.preserveTrivia ~= false else true
 
 	if preserveTrivia then
-		local leftmostTrivia = triviaUtils.leftmostTrivia(node)
-		if leftmostTrivia ~= nil then
+		if local leftmostTrivia = triviaUtils.leftmostTrivia(node) then
 			self:printTriviaList(leftmostTrivia)
 		end
 	end
@@ -152,8 +151,7 @@ local function printReplacement(self: PrintVisitor, node: types.CstNode, replace
 	self:write(replacementContent)
 
 	if preserveTrivia then
-		local rightmostTrivia = triviaUtils.rightmostTrivia(node)
-		if rightmostTrivia ~= nil then
+		if local rightmostTrivia = triviaUtils.rightmostTrivia(node) then
 			self:printTriviaList(rightmostTrivia)
 		end
 	end

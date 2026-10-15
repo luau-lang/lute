@@ -82,8 +82,7 @@ local function nameFromSlot(slotKey: string): string
 end
 
 local function resolveSlotKey(name: string, constraint: parser.Constraint, universe: Universe): string
-	local slot = slotFromConstraint(name, constraint)
-	if slot then
+	if local slot = slotFromConstraint(name, constraint) then
 		return slot
 	end
 
@@ -247,8 +246,7 @@ local function solve(universe: Universe, roots: { [string]: Requirement }, locke
 
 		-- Prefer the previously-locked version if it satisfies current constraints.
 		if locked and #candidates > 1 then
-			local lockedVersion = locked[name]
-			if lockedVersion then
+			if local lockedVersion = locked[name] then
 				for i, candidate in candidates do
 					if candidate.versionString == lockedVersion and i > 1 then
 						table.remove(candidates, i)

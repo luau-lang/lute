@@ -101,14 +101,11 @@ test.suite("JSONParsingTestSuite", function(suite)
 		]]
 
 		local maybeJson = json.deserialize(myjsonstr)
-		local obj = json.asObject(maybeJson)
-
-		if obj then
+		if local obj = json.asObject(maybeJson) then
 			assert.eq(type(obj), "table")
 			assert.that(obj.a)
 			assert.eq(type(obj.b), "table")
-			local obj_b = json.asObject(obj.b)
-			if obj_b then
+			if local obj_b = json.asObject(obj.b) then
 				assert.that(obj_b.c)
 				local obj_b_d = obj_b.d
 				if typeof(obj_b_d) ~= "table" then
