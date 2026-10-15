@@ -2717,6 +2717,7 @@ end
 			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.unused_variable, count = 1 },
+				{ expectedOutput = "violator.luau:4:14-15 ──", count = 1 },
 			},
 		})
 	end)
@@ -2786,6 +2787,7 @@ print(y)
 			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.unused_variable, count = 1 },
+				{ expectedOutput = "violator.luau:2:46-47 ──", count = 1 },
 			},
 		})
 	end)
