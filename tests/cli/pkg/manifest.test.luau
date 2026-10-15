@@ -105,4 +105,87 @@ test.suite("PackageManifest", function(suite)
 			manifest.parseFile(path.format(manifestPath))
 		end)
 	end)
+
+	suite:case("allowsAnIdentityLessRootManifest", function(assert)
+		writeManifest([[return {
+	package = {
+		dependencies = {
+			apple = {
+				sourceKind = "github",
+				source = "https://github.com/example/fruits",
+				rev = "v1.0.0",
+				target = "./modules/../package",
+			},
+		},
+	},
+}]])
+
+		local parsed = manifest.parseFile(path.format(manifestPath), true)
+		local apple = parsed.package.dependencies.apple :: manifest.GitHubDependencySpec
+		assert.eq(parsed.package.name, nil)
+		assert.eq(parsed.package.version, nil)
+		assert.eq(apple.target, "package")
+	end)
+
+	suite:case("rejectsGitHubTargetOutsideTheRepository", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "1.0.0",
+		dependencies = {
+			apple = {
+				sourceKind = "github",
+				source = "https://github.com/example/fruits",
+				rev = "v1.0.0",
+				target = "../apple",
+			},
+		},
+	},
+}]])
+
+		assert.throwsWith(
+			"'target' for github dependency 'apple' in dependencies must stay inside the repository",
+			function()
+				manifest.parseFile(path.format(manifestPath))
+			end
+		)
+	end)
+
+	suite:case("rejectsTargetForPathDependencies", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "1.0.0",
+		dependencies = {
+			apple = {
+				sourceKind = "path",
+				source = "./modules/apple",
+				target = "package",
+			},
+		},
+	},
+}]])
+
+		assert.throwsWith(
+			"Path dependency 'apple' in dependencies does not support a 'target' field; point 'source' directly at the package",
+			function()
+				manifest.parseFile(path.format(manifestPath))
+			end
+		)
+	end)
+
+	suite:case("requiresDependencyManifestsToHaveBothNameAndVersion", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "apple",
+	},
+}]])
+
+		assert.throwsWith(
+			"Package manifest must specify both 'name' and 'version', or neither for a virtual package",
+			function()
+				manifest.parseFile(path.format(manifestPath))
+			end
+		)
+	end)
 end)

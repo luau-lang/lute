@@ -67,7 +67,7 @@ local function install(...: string)
 	local rootAliases: { [string]: boolean } = {}
 
 	if fs.exists(manifestPath) then
-		local rootManifest = manifest.parseFile(manifestPath)
+		local rootManifest = manifest.parseFile(manifestPath, true)
 		for alias in rootManifest.package.dependencies do
 			rootAliases[alias] = true
 		end
@@ -79,7 +79,10 @@ local function install(...: string)
 		end
 	end
 
-	local lock = resolution.resolve(rootDirectory, nil, { excludeDev = excludeDev, locked = locked })
+	local lock = resolution.resolve(rootDirectory, nil, {
+		excludeDev = excludeDev,
+		locked = locked,
+	})
 	local reachablePackages = lockfile.getReachablePackageKeys(lock, rootAliases)
 
 	for key, pkg in lock.packages do

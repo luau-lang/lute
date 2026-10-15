@@ -1,4 +1,5 @@
 local luau = require("@std/luau")
+local path = require("@std/path")
 
 export type SourceKind = "path" | "github" | "registry"
 
@@ -13,6 +14,7 @@ export type GitHubDependencySpec = {
 	read name: string,
 	read source: string,
 	read rev: string,
+	read target: string?,
 }
 
 export type RegistryDependencySpec = {
@@ -27,8 +29,11 @@ export type RegistryDependencySpec = {
 export type DependencySpec = PathDependencySpec | GitHubDependencySpec | RegistryDependencySpec
 
 export type PackageManifest = {
-	read name: string,
-	read version: string,
+	-- A root manifest may omit both fields to act as a virtual package. Source
+	-- dependencies must always include both. If one field is included the other
+	-- must be included
+	read name: string?,
+	read version: string?,
 	read dependencies: { [string]: DependencySpec },
 	read devDependencies: { [string]: DependencySpec },
 }
@@ -49,6 +54,32 @@ local function parseSourceKind(s: unknown): SourceKind?
 	end
 
 	return s :: SourceKind
+end
+
+-- A GitHub target is always relative to the fetched repository root. Keep its
+-- lockfile/source identity canonical before resolution uses it.
+local function parseTarget(target: unknown, name: string, sectionName: string): string?
+	if target == nil then
+		return nil
+	end
+	assert(
+		typeof(target) == "string",
+		`Optional 'target' field for github dependency '{name}' in {sectionName} expected to be a string`
+	)
+	assert(
+		not path.isAbsolute(target),
+		`'target' for github dependency '{name}' in {sectionName} must be relative to the repository root`
+	)
+
+	local normalized = path.normalize(target)
+	assert(
+		normalized.parts[1] ~= "..",
+		`'target' for github dependency '{name}' in {sectionName} must stay inside the repository`
+	)
+	if #normalized.parts == 0 then
+		return nil
+	end
+	return path.format(normalized)
 end
 
 local function parseDependencyMap(raw: any, sectionName: string): { [string]: DependencySpec }
@@ -80,8 +111,11 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 			spec.source ~= nil and typeof(spec.source) == "string",
 			`Expected 'source' field in dependency spec for '{name}' in {sectionName}`
 		)
-
 		if spec.sourceKind == "path" then
+			assert(
+				spec.target == nil,
+				`Path dependency '{name}' in {sectionName} does not support a 'target' field; point 'source' directly at the package`
+			)
 			result[name] = table.freeze({
 				name = spec.name or name,
 				sourceKind = "path" :: "path",
@@ -94,6 +128,7 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 				sourceKind = "github" :: "github",
 				source = spec.source,
 				rev = spec.rev,
+				target = parseTarget(spec.target, name, sectionName),
 			})
 		elseif spec.sourceKind == "registry" then
 			assert(
@@ -103,6 +138,10 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 			assert(
 				spec.name == nil,
 				`Registry dependency '{name}' in {sectionName} does not support a 'name' field; use 'source' for the registry package name`
+			)
+			assert(
+				spec.target == nil,
+				`Registry dependency '{name}' in {sectionName} does not support a 'target' field`
 			)
 			result[name] = table.freeze({
 				name = spec.source,
@@ -117,19 +156,30 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 end
 
 -- TODO: We should do proper error handling because this is user input.
-local function parseManifest(t: unknown): ProjectManifest
+-- allowVirtual when true means that the manifest is valid if contains
+-- both name/version or neither name/version. If it is false, if a
+-- package does not contain name/version it is invalid
+local function parseManifest(t: unknown, allowVirtual: boolean): ProjectManifest
 	assert(t ~= nil and typeof(t) == "table", "Expected a table")
 	assert(t.package ~= nil and typeof(t.package) == "table", "Expected 'package' field in manifest")
 
 	local pkg = t.package
 
-	assert(pkg.name ~= nil and typeof(pkg.name) == "string", "Expected 'name' field in package manifest")
+	assert(pkg.name == nil or typeof(pkg.name) == "string", "Expected 'name' field in package manifest")
 	-- FIXME(Luau): Luau currently refines `pkg` to have `version` based on this check, but
 	-- also produces a type error for the access _in_ the condition without the cast here.
 	assert(
-		(pkg :: any).version ~= nil and typeof(pkg.version) == "string",
+		(pkg :: any).version == nil or typeof((pkg :: any).version) == "string",
 		"Expected 'version' field in package manifest"
 	)
+
+	local hasName = pkg.name ~= nil
+	local hasVersion = (pkg :: any).version ~= nil
+	assert(
+		hasName == hasVersion,
+		"Package manifest must specify both 'name' and 'version', or neither for a virtual package"
+	)
+	assert(allowVirtual or hasName, "Expected 'name' field in package manifest")
 
 	local dependencies = parseDependencyMap((pkg :: any).dependencies, "dependencies")
 	local devDependencies = parseDependencyMap((pkg :: any).dev_dependencies, "dev_dependencies")
@@ -158,9 +208,9 @@ local function parseManifest(t: unknown): ProjectManifest
 	})
 end
 
-local function parseFile(manifestPath: string): ProjectManifest
+local function parseFile(manifestPath: string, allowVirtual: boolean?): ProjectManifest
 	local manifestTable = luau.loadModule(manifestPath)
-	return parseManifest(manifestTable)
+	return parseManifest(manifestTable, allowVirtual == true)
 end
 
 return {

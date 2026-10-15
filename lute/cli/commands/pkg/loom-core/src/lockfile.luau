@@ -10,6 +10,7 @@ export type LockfileDependency = {
 	read rev: string?,
 	read source: string,
 	read sourceKind: manifest.SourceKind,
+	read target: string?,
 	read installPath: string,
 	read dependencies: { [string]: string },
 	read registry: string?,
@@ -32,8 +33,16 @@ local function validatePackageEntry(key: string, entry: any)
 	)
 	assert(typeof(entry.source) == "string", `Expected 'source' field in dependency '{key}'`)
 	assert(
+		entry.target == nil or typeof(entry.target) == "string",
+		`Expected 'target' field to be a string or nil for dependency '{key}'`
+	)
+	assert(
 		manifest.isSourceKind(entry.sourceKind),
 		`Expected 'sourceKind' to be 'path', 'github', or 'registry' for dependency '{key}', got '{entry.sourceKind}'`
+	)
+	assert(
+		entry.target == nil or entry.sourceKind == "github",
+		`Only github dependencies may have a 'target' field (dependency '{key}')`
 	)
 	assert(typeof(entry.installPath) == "string", `Expected 'installPath' field in dependency '{key}'`)
 	assert(typeof(entry.dependencies) == "table", `Expected 'dependencies' field in dependency '{key}'`)
@@ -105,7 +114,7 @@ local function serializeOverrides(overrides: { [string]: manifest.DependencySpec
 		elseif spec.sourceKind == "path" then
 			result[name] = `path:{spec.source}`
 		elseif spec.sourceKind == "github" then
-			result[name] = `github:{spec.source}@{spec.rev}`
+			result[name] = `github:{spec.source}@{spec.rev}:{spec.target or ""}`
 		end
 	end
 	return result
@@ -171,7 +180,7 @@ local function satisfiesManifest(
 		end
 
 		if spec.sourceKind == "github" then
-			if pkg.source ~= spec.source or pkg.rev ~= spec.rev then
+			if pkg.source ~= spec.source or pkg.rev ~= spec.rev or pkg.target ~= spec.target then
 				return false, `github source changed for: {alias}`
 			end
 		elseif spec.sourceKind == "path" then
@@ -211,6 +220,14 @@ local function satisfiesManifest(
 			local expectedInstallPath = store.toStorePath(store.qualifyRegistryKey(key, pkg.registry))
 			if pkg.installPath ~= expectedInstallPath then
 				return false, `registry store path changed: {key}`
+			end
+		elseif pkg.sourceKind == "github" then
+			if pkg.rev == nil then
+				return false, `github revision missing: {key}`
+			end
+			local expectedInstallPath = store.getGitHubInstallPath(pkg.source, pkg.rev, pkg.target)
+			if pkg.installPath ~= expectedInstallPath then
+				return false, `github store path changed: {key}`
 			end
 		end
 	end

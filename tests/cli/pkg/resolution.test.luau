@@ -2495,4 +2495,101 @@ test.suite("Overrides", function(suite)
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 		assert.eq(lock.registry, nil)
 	end)
+
+	suite:case("resolvesVirtualRootMembersThroughNormalPathDependencies", function(assert)
+		local appleDirectory = path.join(workingDirectory, "modules", "apple")
+		local coreDirectory = path.join(workingDirectory, "modules", "core")
+		local devToolDirectory = path.join(workingDirectory, "modules", "dev-tool")
+		fs.createDirectory(appleDirectory, { makeParents = true })
+		fs.createDirectory(coreDirectory, { makeParents = true })
+		fs.createDirectory(devToolDirectory, { makeParents = true })
+
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[local workspace = require("./workspace")
+return {
+	common = workspace.common,
+	package = {
+		dependencies = {
+			apple = { sourceKind = "path", source = "./modules/apple" },
+		},
+	},
+}]]
+		)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "workspace.luau"),
+			[[return { common = table.freeze({ version = "1.0.0" }) }]]
+		)
+		fs.writeStringToFile(
+			path.join(appleDirectory, "loom.config.luau"),
+			[[local root = require("../../workspace")
+return {
+	package = {
+		name = "apple",
+		version = root.common.version,
+		dependencies = {
+			core = { sourceKind = "path", source = "../core" },
+		},
+		dev_dependencies = {
+			["dev-tool"] = { sourceKind = "path", source = "../dev-tool" },
+		},
+	},
+}]]
+		)
+		fs.writeStringToFile(
+			path.join(coreDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "core",
+		version = "1.0.0",
+		dev_dependencies = {
+			["nested-dev-tool"] = { sourceKind = "path", source = "../nested-dev-tool" },
+		},
+	},
+}]]
+		)
+		fs.writeStringToFile(
+			path.join(devToolDirectory, "loom.config.luau"),
+			[[return { package = { name = "dev-tool", version = "1.0.0" } }]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.apple, "apple")
+		assert.eq(lock.packages.apple.dependencies.core, "core")
+		assert.eq(lock.packages.apple.dependencies["dev-tool"], "dev-tool")
+		assert.eq(lock.packages.core.dependencies["nested-dev-tool"], nil)
+
+		local withoutDev = resolution.resolve(path.format(workingDirectory), nil, { excludeDev = true })
+		assert.eq(withoutDev.packages.apple.dependencies["dev-tool"], nil)
+	end)
+
+	suite:case("resolvesPathDependenciesAtTheirExplicitPackageDirectory", function(assert)
+		local appleDirectory = path.join(workingDirectory, "repository", "modules", "apple")
+		fs.createDirectory(appleDirectory, { makeParents = true })
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		dependencies = {
+			apple = {
+				sourceKind = "path",
+				source = "./repository/modules/apple",
+			},
+		},
+	},
+}]]
+		)
+		fs.writeStringToFile(
+			path.join(appleDirectory, "loom.config.luau"),
+			[[return { package = { name = "apple", version = "1.0.0" } }]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.apple, "apple")
+		assert.eq(lock.packages.apple.source, "./repository/modules/apple")
+		assert.eq(lock.packages.apple.installPath, "repository/modules/apple")
+
+		local reused = resolution.resolve(path.format(workingDirectory), nil, { locked = true })
+		assert.eq(reused.packages.apple.installPath, "repository/modules/apple")
+	end)
 end)
