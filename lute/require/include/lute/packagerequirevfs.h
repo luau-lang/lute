@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lute/batteriesvfs.h"
 #include "lute/lutevfs.h"
 #include "lute/require.h"
 #include "lute/stdlibvfs.h"
@@ -44,6 +45,7 @@ private:
         Userland,
         Std,
         Lute,
+        Batteries, // Only for internal use
     };
 
     VFSType vfsType = VFSType::Userland;
@@ -51,6 +53,7 @@ private:
     Package::UserlandVfs userlandVfs;
     StdLibVfs stdLibVfs;
     LuteVfs luteVfs;
+    BatteriesVfs batteriesVfs;
 };
 
 } // namespace Package

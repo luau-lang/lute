@@ -135,3 +135,27 @@ TEST_CASE_FIXTURE(LuteFixture, "pkgrun_uses_registry_lockfile_identity_and_root_
 
     CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
 }
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_std_requires_batteries")
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_std_batteries/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_userland_cannot_require_batteries")
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_userland_batteries/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_NE(cliMain(argv.size(), argv.data(), getReporter()), 0);
+}
