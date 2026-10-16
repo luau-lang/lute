@@ -91,7 +91,7 @@ local function resolveDependencySource(spec: manifest.DependencySpec, from: Sour
 	})
 end
 
-local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string): SourceLocation
+local function fetchSource(spec: manifest.DependencySpec): SourceLocation
 	if spec.sourceKind == "path" then
 		if not fs.exists(spec.directory) then
 			error(`Path dependency directory not found: {spec.directory} (for package '{spec.name}')`)
@@ -213,7 +213,6 @@ end
 local function collectSourcePackageDependencies(
 	key: string,
 	location: SourceLocation,
-	rootDirectory: string,
 	overrides: { [string]: manifest.DependencySpec },
 	rootRegistryUrl: string?,
 	transitiveDependencies: { [string]: string },
@@ -314,12 +313,11 @@ local function resolveSourcePackage(
 	local transitiveDependencies: { [string]: string } = {}
 	openDependencies[key] = transitiveDependencies
 
-	local location = fetchSource(spec, rootDirectory)
+	local location = fetchSource(spec)
 
 	collectSourcePackageDependencies(
 		key,
 		location,
-		rootDirectory,
 		overrides,
 		rootRegistryUrl,
 		transitiveDependencies,

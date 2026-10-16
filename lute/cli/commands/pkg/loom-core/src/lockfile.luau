@@ -157,7 +157,8 @@ local function isSameSource(pkg: LockfileDependency, spec: manifest.DependencySp
 		return false
 	end
 	if spec.sourceKind == "github" then
-		return pkg.rev == spec.rev and pkg.target == spec.target
+		local target = if pkg.target then path.format(path.normalize(pkg.target)) else nil
+		return pkg.rev == spec.rev and target == spec.target
 	end
 	return true
 end

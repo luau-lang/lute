@@ -2586,11 +2586,12 @@ return {
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 		assert.eq(lock.dependencies.apple, "apple")
-		assert.eq(lock.packages.apple.source, "repository/modules/apple")
-		assert.eq(lock.packages.apple.installPath, "repository/modules/apple")
+		local applePath = path.format(path.join("repository", "modules", "apple"))
+		assert.eq(lock.packages.apple.source, applePath)
+		assert.eq(lock.packages.apple.installPath, applePath)
 
 		local reused = resolution.resolve(path.format(workingDirectory), nil, { locked = true })
-		assert.eq(reused.packages.apple.installPath, "repository/modules/apple")
+		assert.eq(reused.packages.apple.installPath, applePath)
 	end)
 
 	suite:case("rejectsDependenciesOnVirtualPackages", function(assert)
@@ -2657,7 +2658,7 @@ return {
 		)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
-		assert.eq(lock.packages.apple.source, "modules/apple")
+		assert.eq(lock.packages.apple.source, path.format(path.join("modules", "apple")))
 		assert.eq(lock.packages.banana.dependencies.apple, "apple")
 	end)
 
@@ -2699,9 +2700,10 @@ return {
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 		assert.eq(lock.packages.banana.dependencies.apple, "apple")
-		assert.eq(lock.packages.apple.source, "modules/apple")
+		local applePath = path.format(path.join("modules", "apple"))
+		assert.eq(lock.packages.apple.source, applePath)
 
 		local reused = resolution.resolve(path.format(workingDirectory), nil, { locked = true })
-		assert.eq(reused.packages.apple.source, "modules/apple")
+		assert.eq(reused.packages.apple.source, applePath)
 	end)
 end)
