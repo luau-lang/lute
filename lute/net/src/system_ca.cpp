@@ -30,17 +30,15 @@ struct CAEnv
 {
     const char* file;
     const char* dir;
-    // CURL_CA_BUNDLE replaces the CA file and skips SSL_CERT_DIR / the platform directory.
-    bool exclusiveFile;
 };
 
 CAEnv caFromEnv()
 {
     const char* bundle = envOrNull("CURL_CA_BUNDLE");
     if (bundle)
-        return {bundle, nullptr, true};
+        return {bundle, nullptr};
 
-    return {envOrNull("SSL_CERT_FILE"), envOrNull("SSL_CERT_DIR"), false};
+    return {envOrNull("SSL_CERT_FILE"), envOrNull("SSL_CERT_DIR")};
 }
 
 #if defined(__linux__)
@@ -93,7 +91,9 @@ void applySystemCA(CURL* curl)
 #elif defined(__linux__)
     if (!cafile)
         cafile = findPath(kCAFiles, sizeof(kCAFiles) / sizeof(kCAFiles[0]), false);
-    if (!fromEnv.exclusiveFile && !capath)
+    // A file from the environment replaces the platform locations. The distro
+    // directory remains only when the environment did not name a file.
+    if (!fromEnv.file && !capath)
         capath = findPath(kCADirs, sizeof(kCADirs) / sizeof(kCADirs[0]), true);
 #endif
 
