@@ -106,7 +106,7 @@ test.suite("PackageManifest", function(suite)
 		end)
 	end)
 
-	suite:case("allowsAnIdentityLessRootManifest", function(assert)
+	suite:case("allowsAnIdentityLessManifest", function(assert)
 		writeManifest([[return {
 	package = {
 		dependencies = {
@@ -120,7 +120,7 @@ test.suite("PackageManifest", function(suite)
 	},
 }]])
 
-		local parsed = manifest.parseFile(path.format(manifestPath), true)
+		local parsed = manifest.parseFile(path.format(manifestPath))
 		local apple = parsed.package.dependencies.apple :: manifest.GitHubDependencySpec
 		assert.eq(parsed.package.name, nil)
 		assert.eq(parsed.package.version, nil)

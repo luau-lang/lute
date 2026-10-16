@@ -2592,4 +2592,33 @@ return {
 		local reused = resolution.resolve(path.format(workingDirectory), nil, { locked = true })
 		assert.eq(reused.packages.apple.installPath, "repository/modules/apple")
 	end)
+
+	suite:case("rejectsDependenciesOnVirtualPackages", function(assert)
+		local appleDirectory = path.join(workingDirectory, "modules", "apple")
+		fs.createDirectory(appleDirectory, { makeParents = true })
+
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "1.0.0",
+		dependencies = {
+			apple = { sourceKind = "path", source = "./modules/apple" },
+		},
+	},
+}]]
+		)
+		fs.writeStringToFile(
+			path.join(appleDirectory, "loom.config.luau"),
+			[[return { package = { dependencies = {} } }]]
+		)
+
+		assert.throwsWith(
+			"'apple' points at a virtual package, which cannot be depended on; point at one of its packages' directories instead (for GitHub, set 'target')",
+			function()
+				resolution.resolve(path.format(workingDirectory), nil)
+			end
+		)
+	end)
 end)

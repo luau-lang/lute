@@ -67,7 +67,7 @@ local function install(...: string)
 	local rootAliases: { [string]: boolean } = {}
 
 	if fs.exists(manifestPath) then
-		local rootManifest = manifest.parseFile(manifestPath, true)
+		local rootManifest = manifest.parseFile(manifestPath)
 		for alias in rootManifest.package.dependencies do
 			rootAliases[alias] = true
 		end

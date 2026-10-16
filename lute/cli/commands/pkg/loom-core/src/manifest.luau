@@ -156,10 +156,7 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 end
 
 -- TODO: We should do proper error handling because this is user input.
--- allowVirtual when true means that the manifest is valid if contains
--- both name/version or neither name/version. If it is false, if a
--- package does not contain name/version it is invalid
-local function parseManifest(t: unknown, allowVirtual: boolean): ProjectManifest
+local function parseManifest(t: unknown): ProjectManifest
 	assert(t ~= nil and typeof(t) == "table", "Expected a table")
 	assert(t.package ~= nil and typeof(t.package) == "table", "Expected 'package' field in manifest")
 
@@ -179,7 +176,6 @@ local function parseManifest(t: unknown, allowVirtual: boolean): ProjectManifest
 		hasName == hasVersion,
 		"Package manifest must specify both 'name' and 'version', or neither for a virtual package"
 	)
-	assert(allowVirtual or hasName, "Expected 'name' field in package manifest")
 
 	local dependencies = parseDependencyMap((pkg :: any).dependencies, "dependencies")
 	local devDependencies = parseDependencyMap((pkg :: any).dev_dependencies, "dev_dependencies")
@@ -208,9 +204,9 @@ local function parseManifest(t: unknown, allowVirtual: boolean): ProjectManifest
 	})
 end
 
-local function parseFile(manifestPath: string, allowVirtual: boolean?): ProjectManifest
+local function parseFile(manifestPath: string): ProjectManifest
 	local manifestTable = luau.loadModule(manifestPath)
-	return parseManifest(manifestTable, allowVirtual == true)
+	return parseManifest(manifestTable)
 end
 
 return {

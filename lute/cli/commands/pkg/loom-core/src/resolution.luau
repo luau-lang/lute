@@ -245,6 +245,14 @@ local function getRegistryLockKey(state: ResolutionState, registryPackageName: s
 	return `{packageName}@{version}`
 end
 
+local function assertNotVirtualPackage(key: string, packageManifest: manifest.ProjectManifest)
+	if packageManifest.package.name == nil then
+		error(
+			`'{key}' points at a virtual package, which cannot be depended on; point at one of its packages' directories instead (for GitHub, set 'target')`
+		)
+	end
+end
+
 local function collectSourcePackageDependencies(
 	key: string,
 	location: SourceLocation,
@@ -266,6 +274,7 @@ local function collectSourcePackageDependencies(
 	end
 
 	local dependencyManifest = manifest.parseFile(nestedManifestPath)
+	assertNotVirtualPackage(key, dependencyManifest)
 
 	local function collectDependencies(dependencies: { [string]: manifest.DependencySpec })
 		for dependencyAlias, dependencySpec in dependencies do
@@ -500,7 +509,7 @@ local function pathDepsAreStale(
 			return true
 		end
 
-		local ok, depManifest = pcall(manifest.parseFile, depManifestPath, false)
+		local ok, depManifest = pcall(manifest.parseFile, depManifestPath)
 		if not ok then
 			return true
 		end
@@ -1005,7 +1014,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 	end
 
 	local lockfilePath = getLockfilePath(rootDirectory)
-	local rootManifest = manifest.parseFile(rootManifestPath, true)
+	local rootManifest = manifest.parseFile(rootManifestPath)
 
 	local reusedLock, lockedRegistryVersions =
 		tryReuseLockfile(rootManifest, lockfilePath, rootDirectory, excludeDev, options)
