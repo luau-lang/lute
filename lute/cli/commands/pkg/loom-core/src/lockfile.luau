@@ -115,7 +115,7 @@ local function serializeOverrides(overrides: { [string]: manifest.DependencySpec
 		elseif spec.sourceKind == "path" then
 			result[name] = `path:{spec.source}`
 		elseif spec.sourceKind == "github" then
-			result[name] = `github:{spec.source}@{spec.rev}:{spec.target or ""}`
+			result[name] = `github:{spec.source}@{spec.rev}{if spec.target then `:{spec.target}` else ""}`
 		end
 	end
 	return result

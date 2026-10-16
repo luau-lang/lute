@@ -46,6 +46,29 @@ test.suite("RegistryLockfileIdentity", function(suite)
 		assert.eq(store.getGitHubInstallPath(source, "feature/member", "modules/apple"), `@pkg/{key}/modules/apple`)
 	end)
 
+	suite:case("serializesGitHubOverrideTargetsOnlyWhenPresent", function(assert)
+		local withoutTarget = lockfile.serializeOverrides({
+			apple = {
+				name = "apple",
+				sourceKind = "github",
+				source = "https://github.com/example/fruits",
+				rev = "v1.0.0",
+			},
+		})
+		local withTarget = lockfile.serializeOverrides({
+			apple = {
+				name = "apple",
+				sourceKind = "github",
+				source = "https://github.com/example/fruits",
+				rev = "v1.0.0",
+				target = "modules/apple",
+			},
+		})
+
+		assert.eq(withoutTarget.apple, "github:https://github.com/example/fruits@v1.0.0")
+		assert.eq(withTarget.apple, "github:https://github.com/example/fruits@v1.0.0:modules/apple")
+	end)
+
 	suite:case("parsesOptionalRegistryFieldsInVersionThreeLockfiles", function(assert)
 		writeLockfile([[return {
 	version = 3,
