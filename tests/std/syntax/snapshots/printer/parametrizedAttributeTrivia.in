@@ -1,0 +1,5 @@
+-- hello
+@[
+deprecated({ reason = "reason" })]
+function foo() return end
+-- world
