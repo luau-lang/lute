@@ -1,0 +1,10 @@
+warning[unused_variable]: This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.
+
+   ┌── <ROOT>/tests/cli/lint/default/snapshots/unused_var_literal_still_unused.snap.luau:2:7-8 ──
+   │
+ 2 │ local x = { a = 1 }
+   │       ^
+   │
+
+For additional info: https://lute.luau.org/cli/lint/unused_variable.html
+
