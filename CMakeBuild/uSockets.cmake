@@ -7,13 +7,6 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(USOCKETS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/uSockets)
 
-# Include directories
-include_directories(${USOCKETS_SOURCE_DIR}/src)
-include_directories(${USOCKETS_SOURCE_DIR}/src/eventing)
-include_directories(${USOCKETS_SOURCE_DIR}/src/crypto)
-include_directories(${USOCKETS_SOURCE_DIR}/src/io_uring)
-include_directories(${LIBUV_INCLUDE_DIR})
-
 # Source files
 file(GLOB USOCKETS_SOURCES
     ${USOCKETS_SOURCE_DIR}/src/*.c
@@ -26,6 +19,9 @@ file(GLOB USOCKETS_SOURCES
 # Add the uSockets library
 add_library(uSockets STATIC ${USOCKETS_SOURCES})
 
+# Include directories
+target_include_directories(uSockets PUBLIC ${USOCKETS_SOURCE_DIR}/src)
+
 # Set C++17 standard for uSockets target (only affects .cpp files)
 target_compile_features(uSockets PRIVATE cxx_std_17)
 
@@ -37,15 +33,15 @@ if(MSVC)
     target_compile_options(uSockets PRIVATE /GL-)
 endif()
 
+option(WITH_OPENSSL "Build with OpenSSL support" OFF)
 option(WITH_BORINGSSL "Build with BoringSSL support" OFF)
 option(WITH_WOLFSSL "Build with WolfSSL support" OFF)
 option(WITH_LIBUV "Build with libuv support" ON)
 option(WITH_ASAN "Build with AddressSanitizer support" OFF)
 
-if(WITH_BORINGSSL)
-    target_include_directories(uSockets PRIVATE ${BORINGSSL_INCLUDE_DIR})
-    target_compile_definitions(uSockets PRIVATE LIBUS_USE_OPENSSL)
-    target_link_libraries(uSockets PRIVATE ssl crypto)
+if(WITH_OPENSSL OR WITH_BORINGSSL)
+  target_link_libraries(uSockets PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+  target_compile_definitions(uSockets PRIVATE LIBUS_USE_OPENSSL)
 endif()
 
 if(WITH_WOLFSSL)
@@ -57,8 +53,7 @@ endif()
 
 if(WITH_LIBUV)
     target_compile_definitions(uSockets PRIVATE LIBUS_USE_LIBUV)
-    target_include_directories(uSockets PRIVATE ${LIBUV_INCLUDE_DIR})
-    target_link_libraries(uSockets PRIVATE ${LIBUV_LIBRARY})
+    target_link_libraries(uSockets PRIVATE libuv::libuv)
 endif()
 
 if(WITH_ASAN)
