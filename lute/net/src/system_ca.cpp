@@ -14,9 +14,10 @@ namespace net
 namespace
 {
 
-// libcurl ignores SSL_CERT_FILE / CURL_CA_BUNDLE once CURLOPT_CAINFO is set,
-// and SSL_CERT_DIR / CURL_CA_PATH once CURLOPT_CAPATH is set. Apply them
-// ourselves so a process-level bundle wins over the platform default.
+// libcurl ignores these once CURLOPT_CAINFO / CURLOPT_CAPATH are set. The curl
+// tool reads them itself, in this order: CURL_CA_BUNDLE replaces the CA file
+// and skips the other two; otherwise SSL_CERT_DIR is the CA directory and
+// SSL_CERT_FILE is the CA file. Match that so enterprise bundles are trusted.
 const char* envOrNull(const char* name)
 {
     const char* value = std::getenv(name);
@@ -25,20 +26,21 @@ const char* envOrNull(const char* name)
     return value;
 }
 
-const char* caFileFromEnv()
+struct CAEnv
 {
-    const char* sslCertFile = envOrNull("SSL_CERT_FILE");
-    if (sslCertFile)
-        return sslCertFile;
-    return envOrNull("CURL_CA_BUNDLE");
-}
+    const char* file;
+    const char* dir;
+    // CURL_CA_BUNDLE replaces the CA file and skips SSL_CERT_DIR / the platform directory.
+    bool exclusiveFile;
+};
 
-const char* caDirFromEnv()
+CAEnv caFromEnv()
 {
-    const char* sslCertDir = envOrNull("SSL_CERT_DIR");
-    if (sslCertDir)
-        return sslCertDir;
-    return envOrNull("CURL_CA_PATH");
+    const char* bundle = envOrNull("CURL_CA_BUNDLE");
+    if (bundle)
+        return {bundle, nullptr, true};
+
+    return {envOrNull("SSL_CERT_FILE"), envOrNull("SSL_CERT_DIR"), false};
 }
 
 #if defined(__linux__)
@@ -79,24 +81,24 @@ void applySystemCA(CURL* curl)
 {
 #if defined(_WIN32)
     curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
-#elif defined(__APPLE__)
-    // macOS 12+ always ships /etc/ssl/cert.pem. Prefer SSL_CERT_FILE / CURL_CA_BUNDLE.
-    const char* cafile = caFileFromEnv();
-    curl_easy_setopt(curl, CURLOPT_CAINFO, cafile ? cafile : "/etc/ssl/cert.pem");
+#else
+    CAEnv fromEnv = caFromEnv();
+    const char* cafile = fromEnv.file;
+    const char* capath = fromEnv.dir;
 
-    const char* capath = caDirFromEnv();
-    if (capath)
-        curl_easy_setopt(curl, CURLOPT_CAPATH, capath);
+#if defined(__APPLE__)
+    // macOS 12+ always ships /etc/ssl/cert.pem.
+    if (!cafile)
+        cafile = "/etc/ssl/cert.pem";
 #elif defined(__linux__)
-    const char* cafile = caFileFromEnv();
     if (!cafile)
         cafile = findPath(kCAFiles, sizeof(kCAFiles) / sizeof(kCAFiles[0]), false);
+    if (!fromEnv.exclusiveFile && !capath)
+        capath = findPath(kCADirs, sizeof(kCADirs) / sizeof(kCADirs[0]), true);
+#endif
+
     if (cafile)
         curl_easy_setopt(curl, CURLOPT_CAINFO, cafile);
-
-    const char* capath = caDirFromEnv();
-    if (!capath)
-        capath = findPath(kCADirs, sizeof(kCADirs) / sizeof(kCADirs[0]), true);
     if (capath)
         curl_easy_setopt(curl, CURLOPT_CAPATH, capath);
 #endif
