@@ -84,7 +84,12 @@ local function resolveDependencySource(spec: manifest.DependencySpec, from: Sour
 		sourceKind = "github" :: "github",
 		source = checkout.spec.source,
 		rev = checkout.spec.rev,
-		target = if #target.parts == 0 then nil else path.format(target),
+		target = if #target.parts == 0
+			then nil
+			else path.posix.format({
+				parts = target.parts,
+				absolute = false,
+			}),
 	})
 end
 
@@ -114,7 +119,10 @@ end
 
 local function getSourceInstallPath(spec: manifest.DependencySpec, rootDirectory: string, selectedPath: string): string
 	if spec.sourceKind == "path" then
-		return path.format(path.relative(rootDirectory, selectedPath))
+		return path.posix.format({
+			parts = path.relative(rootDirectory, selectedPath).parts,
+			absolute = false,
+		})
 	end
 
 	assert(spec.sourceKind == "github", `Unsupported source kind: {spec.sourceKind} for package {spec.name}`)
@@ -331,7 +339,10 @@ local function resolveSourcePackage(
 		name = spec.name,
 		rev = if spec.sourceKind == "github" then spec.rev else nil,
 		source = if spec.sourceKind == "path"
-			then path.format(path.relative(rootDirectory, spec.directory))
+			then path.posix.format({
+				parts = path.relative(rootDirectory, spec.directory).parts,
+				absolute = false,
+			})
 			else spec.source,
 		sourceKind = spec.sourceKind,
 		target = if spec.sourceKind == "github" then spec.target else nil,

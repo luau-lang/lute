@@ -82,7 +82,10 @@ local function parseTarget(target: unknown, name: string, sectionName: string): 
 	if #normalized.parts == 0 then
 		return nil
 	end
-	return path.format(normalized)
+	return path.posix.format({
+		parts = normalized.parts,
+		absolute = false,
+	})
 end
 
 local function parseDependencyMap(

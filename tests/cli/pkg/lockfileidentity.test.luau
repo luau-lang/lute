@@ -43,10 +43,7 @@ test.suite("RegistryLockfileIdentity", function(suite)
 		local revisionHash = string.match(key, "@(.+)$")
 		assert.neq(revisionHash, nil)
 		assert.eq(#(revisionHash :: string), 64)
-		assert.eq(
-			store.getGitHubInstallPath(source, "feature/member", "modules/apple"),
-			path.format(path.join("@pkg", key, "modules", "apple"))
-		)
+		assert.eq(store.getGitHubInstallPath(source, "feature/member", "modules/apple"), `@pkg/{key}/modules/apple`)
 	end)
 
 	suite:case("parsesOptionalRegistryFieldsInVersionThreeLockfiles", function(assert)
