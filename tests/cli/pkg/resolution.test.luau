@@ -653,7 +653,7 @@ test.suite("DevDependencies", function(suite)
 			"",
 			[[
 
-			 testlib = {
+			testlib = {
 				sourceKind = "path",
 				source = "./testlib",
 			},]]
@@ -695,7 +695,7 @@ test.suite("DevDependencies", function(suite)
 			"root",
 			[[
 
-			 lib = {
+			lib = {
 				sourceKind = "path",
 				source = "./lib",
 			},]]
