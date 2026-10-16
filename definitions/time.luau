@@ -3,6 +3,7 @@ local time = {}
 
 local duration_ops = {}
 local instant = {}
+local systemInstance = {}
 
 --- Returns the current time as an `Instant`.
 function time.now(): Instant
@@ -11,6 +12,22 @@ end
 
 --- Returns the number of seconds elapsed since `instant`.
 function time.since(instant: Instant): number
+	error("not implemented")
+end
+
+function time.systemNow(): SystemInstance
+	error("not implemented")
+end
+
+function systemInstance.unix(): number
+	error("not implemented")
+end
+
+function systemInstance.unixMilliseconds(): number
+	error("not implemented")
+end
+
+function systemInstance.unixNanoseconds(): number
 	error("not implemented")
 end
 
@@ -131,6 +148,15 @@ export type Instant = setmetatable<Frozen, {
 	read __eq: (Instant, Instant) -> boolean,
 	read __lt: (Instant, Instant) -> boolean,
 	read __le: (Instant, Instant) -> boolean,
+}>
+
+export type SystemInstance = setmetatable<Frozen, {
+	read __metatable: "The metatable is locked!",
+	read __index: typeof(table.freeze(systemInstance)),
+	read __sub: (SystemInstance, SystemInstance) -> Duration,
+	read __eq: (SystemInstance, SystemInstance) -> boolean,
+	read __lt: (SystemInstance, SystemInstance) -> boolean,
+	read __le: (SystemInstance, SystemInstance) -> boolean,
 }>
 
 return time
