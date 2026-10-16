@@ -27,6 +27,7 @@ struct ProcessOptions
     std::string stdioKind = kStdioKindDefault;
     std::map<std::string, std::string> env;
     std::string customShell; // only used by system()
+    double timeout = 0; // milliseconds; 0 means no timeout
 };
 
 void convertCRLFtoLF(std::string& str);
@@ -124,6 +125,13 @@ struct ProcessHandle
     std::vector<std::string> environmentStrings;
     std::vector<char*> environmentVarString;
 
+    uv_timer_t timeoutTimer;
+    uv_timer_t killTimer;
+    bool timedOut = false;
+    bool timeoutTimerInitialized = false;
+    bool killTimerInitialized = false;
+    double timeoutMs = 0;
+
     ProcessHandle(lua_State* L, ProcessOptions& opts, std::vector<std::string>& args, std::string context = "Process Spawn");
 
     void spawn(lua_State* L);
@@ -131,6 +139,8 @@ struct ProcessHandle
     void closePipe(std::unique_ptr<uvutils::PipeStream>& pipe);
     void closeHandles();
     static void onProcessExit(uv_process_t* process, int64_t exitStatus, int termSignal);
+    static void onTimeout(uv_timer_t* timer);
+    static void onKillTimeout(uv_timer_t* timer);
     void tryComplete(std::optional<std::string> errorMessage = std::nullopt);
     void completeProcessExecution();
 };

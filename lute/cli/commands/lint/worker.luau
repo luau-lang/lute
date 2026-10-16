@@ -1,7 +1,7 @@
 local internalTypes = require("./internaltypes")
-local pathLib = require("@std/path")
-local types = require("./types")
 local lintCore = require("./lintCore")
+local pathLib = require("@std/path")
+local types = require("@lint")
 
 -- populate in initialize
 local lintRules: { types.LintRule } = {}

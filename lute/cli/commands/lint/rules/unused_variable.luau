@@ -1,4 +1,4 @@
-local lintTypes = require("../types")
+local lintTypes = require("@lint")
 local path = require("@std/path")
 local syntax = require("@std/syntax")
 local utils = require("@std/syntax/utils")
@@ -6,7 +6,7 @@ local tableext = require("@std/tableext")
 local visitorLib = require("@std/syntax/visitor")
 
 local name = "unused_variable"
-local message = "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+local message = "This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused."
 local target = "https://lute.luau.org/cli/lint/unused_variable.html"
 
 type leaf = { tag: "leaf", vals: { [number]: true } }
@@ -149,6 +149,74 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 	end
 
 	visitor.visitStatForInEnd = popAndSaveUnusedLocals
+
+	local function visitIfLocalBranch(
+		conditionLocal: syntax.CstLocal?,
+		condition: syntax.CstExpr,
+		thenBlock: syntax.CstStatBlock
+	)
+		-- `if local` binding isn't in scope within its own initializer.
+		visitorLib.visitExpression(condition, visitor)
+
+		if conditionLocal then
+			-- `if local` binding is only in scope for the then-block.
+			table.insert(visitor.scopes, { [conditionLocal] = false })
+			if conditionLocal.annotation then
+				visitorLib.visitType(conditionLocal.annotation, visitor)
+			end
+			visitorLib.visitBlock(thenBlock, visitor)
+			popAndSaveUnusedLocals(thenBlock)
+		else
+			visitorLib.visitBlock(thenBlock, visitor)
+		end
+	end
+
+	function visitor.visitStatIf(stat: syntax.CstStatIf)
+		visitIfLocalBranch(stat.conditionLocal, stat.condition, stat.thenBlock)
+
+		for _, elseifNode in stat.elseifs do
+			visitIfLocalBranch(elseifNode.conditionLocal, elseifNode.condition, elseifNode.thenBlock)
+		end
+
+		if stat.elseBlock then
+			visitorLib.visitBlock(stat.elseBlock, visitor)
+		end
+
+		return false
+	end
+
+	local function visitIfElseExprBranch(
+		conditionLocal: syntax.CstLocal?,
+		condition: syntax.CstExpr,
+		thenExpr: syntax.CstExpr
+	)
+		-- `if local` binding isn't in scope within its own initializer.
+		visitorLib.visitExpression(condition, visitor)
+
+		if conditionLocal then
+			-- `if local` binding is only in scope for the then-expression.
+			table.insert(visitor.scopes, { [conditionLocal] = false })
+			if conditionLocal.annotation then
+				visitorLib.visitType(conditionLocal.annotation, visitor)
+			end
+			visitorLib.visitExpression(thenExpr, visitor)
+			popAndSaveUnusedLocals(thenExpr)
+		else
+			visitorLib.visitExpression(thenExpr, visitor)
+		end
+	end
+
+	function visitor.visitExprIfElse(expr: syntax.CstExprIfElse)
+		visitIfElseExprBranch(expr.conditionLocal, expr.condition, expr.thenExpr)
+
+		for _, elseifNode in expr.elseifs do
+			visitIfElseExprBranch(elseifNode.conditionLocal, elseifNode.condition, elseifNode.thenExpr)
+		end
+
+		visitorLib.visitExpression(expr.elseExpr, visitor)
+
+		return false
+	end
 
 	function visitor.visitStatAssign(stat: syntax.CstStatAssign)
 		local i = 1
@@ -401,9 +469,7 @@ local function lint(
 		end
 
 		if #parts == 1 then
-			local entry = writeOnlyAPIs.entries[parts[1]]
-
-			if entry then
+			if local entry = writeOnlyAPIs.entries[parts[1]] then
 				error(
 					`API '{parts[1]}' is already defined as {if entry.tag == "branch" then "part of " else ""}a write-only API, so '{k}' cannot be added as a write-only API.`
 				)

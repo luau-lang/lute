@@ -11,12 +11,12 @@ namespace
 
 BundleVfs makeBundle()
 {
-    Luau::DenseHashMap<std::string, std::string> bundleMap{""};
+    Luau::DenseHashMap<std::string, std::string> bundleMap;
     bundleMap["modules/main.luau"] = "bytecode-main";
     bundleMap[".loom/store/package@v0.2.0/modules/init.luau"] = "bytecode-init";
     bundleMap[".loom/store/package@v0.2.0/modules/locate.luau"] = "bytecode-locate";
 
-    Luau::DenseHashMap<std::string, std::string> configs{""};
+    Luau::DenseHashMap<std::string, std::string> configs;
     return BundleVfs{std::move(configs), std::move(bundleMap)};
 }
 

@@ -5,7 +5,7 @@ Generate type definition files for the language server.
 ## Usage
 
 ```bash
-lute setup
+lute setup [options]
 ```
 
 ## Options

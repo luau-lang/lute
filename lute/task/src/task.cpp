@@ -185,6 +185,11 @@ private:
 int lua_spawn(lua_State* L)
 {
     LuaThread newThread{L, "task.spawn"};
+    // In debug mode, if we run new thread inline, our pausing mechanism
+    // does not work, so we switch to deferring.
+    Runtime* runtime = getRuntime(L);
+    if (runtime && runtime->debugMode)
+        return newThread.defer();
     return newThread.resume();
 }
 

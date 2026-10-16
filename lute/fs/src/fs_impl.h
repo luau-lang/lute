@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 
 struct lua_State;
@@ -38,6 +39,7 @@ int read_impl(lua_State* L, UVFile* handle);
 int write_impl(lua_State* L, UVFile* handle, const char* toWrite, size_t numBytes);
 int close_impl(lua_State* L, UVFile* handle);
 
+int readIntoBuffer_impl(lua_State* L, UVFile* handle, void* buf, size_t bufLen, int64_t fileOffset, size_t numBytes, size_t bufferOffset);
 int remove_impl(lua_State* L, const char* path);
 
 int stat_impl(lua_State* L, const char* path);

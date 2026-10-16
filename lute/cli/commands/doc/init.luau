@@ -5,7 +5,6 @@ local path = require("@std/path")
 local process = require("@std/process")
 local stringext = require("@std/stringext")
 
-local USAGE = "Usage: lute doc [OPTIONS] [...MODULE_PATHS]"
 local DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "docs")
 
 local STDLIB_MODULE_ALIASES = {
@@ -47,17 +46,14 @@ type Mapping = {
 	[string]: { alias: string, destination: string },
 }
 
-local function printHelp()
-	print(USAGE)
+local function printHelp(args: cli.Parser)
+	print(args:usage("lute doc"))
+	print("\nGenerate Markdown documentation for Luau modules.\n")
+	print(args:help())
 	print([[
-Generate Markdown documentation for Luau module(s).
-
-OPTIONS:
-  -h, --help              Show this help message
-  -o, --output=DIR        Output directory for generated docs (default: ./docs in current working directory)
 
 MODULE_PATHS:
-  Path(s) to Luau module(s) to generate documentation for. Only files with .luau or .lua extensions will be processed.
+  Paths to Luau modules to generate documentation for. Only files with .luau or .lua extensions will be processed.
   Paths can be absolute or relative to the current working directory.
 
 EXAMPLES:
@@ -142,8 +138,7 @@ local function extractPropertySignature(
 		local eq = string.match(line, blockCommentStartPattern)
 		if eq ~= nil then
 			-- start of block comment, capture part after the opening delimiter, if any
-			local after = string.match(line, "^%s*%-%-%[" .. eq .. "%[(.*)$")
-			if after then
+			if local after = string.match(line, "^%s*%-%-%[" .. eq .. "%[(.*)$") then
 				after = stringext.trim(after)
 				if after ~= "" then
 					table.insert(pendingDoc, after)
@@ -163,8 +158,7 @@ local function extractPropertySignature(
 		local eq = blockEq or ""
 		-- find the closing pattern "]=]" that matches the # of "=" used in opening
 		local closingPattern = "%]" .. eq .. "%]"
-		local before = string.match(line, "^(.-)" .. closingPattern)
-		if before then
+		if local before = string.match(line, "^(.-)" .. closingPattern) then
 			-- closing found on this line
 			before = stringext.trim(before)
 			if before ~= "" then
@@ -191,8 +185,7 @@ local function extractPropertySignature(
 	end
 
 	-- 4) Triple dash comment? (---)
-	local triple = string.match(line, tripleDashCommentPattern)
-	if triple then
+	if local triple = string.match(line, tripleDashCommentPattern) then
 		local txt = stringext.trim(triple)
 		if txt ~= "" then
 			table.insert(pendingDoc, txt)
@@ -299,9 +292,49 @@ type ParseResult = {
 	typeDefinitions: { TypeDefinition },
 }
 
+-- Collapses multiline function declarations into a single line so extractPropertySignature can parse them like any other signature.
+local function joinMultilineFunctions(module: string, lines: { string }): { string }
+	local function parenDelta(s: string): number
+		local delta = 0
+		for char in string.gmatch(s, ".") do
+			if char == "(" then
+				delta += 1
+			elseif char == ")" then
+				delta -= 1
+			end
+		end
+		return delta
+	end
+
+	local merged: { string } = {}
+	local i = 1
+	while i <= #lines do
+		local line = lines[i]
+		local depth = parenDelta(line)
+		-- Only merge when a `function {module}.name(` line leaves its parens open.
+		if depth > 0 and string.match(line, `^function%s+{module}%.`) then
+			local parts = { stringext.trim(line) }
+			while depth > 0 and i < #lines do
+				i += 1
+				depth += parenDelta(lines[i])
+				table.insert(parts, stringext.trim(lines[i]))
+			end
+			local joined = string.gsub(table.concat(parts, " "), "%s+", " ")
+			-- Strip the padding the joins introduced just inside the parentheses.
+			joined = string.gsub(joined, "%(%s+", "(")
+			joined = string.gsub(joined, "%s+%)", ")")
+			table.insert(merged, joined)
+		else
+			table.insert(merged, line)
+		end
+		i += 1
+	end
+	return merged
+end
+
 local function parseModule(module: path.Pathlike, filePath: path.Pathlike): ParseResult
 	local content = fs.readFileToString(filePath)
-	local lines = string.split(content, "\n")
+	local lines = joinMultilineFunctions(tostring(module), string.split(content, "\n"))
 
 	local moduleDefinitions: { Definition } = {}
 	local typeDefinitions: { TypeDefinition } = {}
@@ -661,11 +694,12 @@ local function main(...: string)
 		"option",
 		{ help = "Output directory for generated docs", default = tostring(DEFAULT_OUTPUT_DIR), aliases = { "o" } }
 	)
+	args:add("module-paths", "variadic", { help = "Luau modules to generate documentation for" })
 
 	args:parse({ ... })
 
 	if args:has("help") then
-		printHelp()
+		printHelp(args)
 		return
 	end
 
@@ -674,8 +708,7 @@ local function main(...: string)
 		outputDir = path.resolve(process.cwd(), outputDir)
 	end
 
-	local mapFile = args:get("mapping")
-	if mapFile then
+	if local mapFile = args:get("mapping") then
 		local mapPath = path.join(process.cwd(), mapFile)
 		local mod = luau.loadModule(mapPath) :: Mapping
 		print(`Using custom mapping from file {tostring(mapPath)}`)
@@ -683,10 +716,14 @@ local function main(...: string)
 		return
 	end
 
-	local modulePaths = args:forwarded()
+	-- Paths land in variadics, but anything after `--` still arrives as forwarded args.
+	local modulePaths = table.clone(args:variadics())
+	local fwdArgs = args:forwarded() or {}
+	table.move(fwdArgs, 1, #fwdArgs, #modulePaths + 1, modulePaths)
+
 	assert(
-		modulePaths ~= nil and #modulePaths > 0,
-		"Error: No module paths specified.\n\n" .. USAGE .. "\n\nUse --help for more information."
+		#modulePaths > 0,
+		`Error: No module paths specified.\n\n{args:usage("lute doc")}\n\nUse --help for more information.`
 	)
 
 	print("Generating documentation...")

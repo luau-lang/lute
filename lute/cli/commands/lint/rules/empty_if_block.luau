@@ -1,11 +1,11 @@
-local lintTypes = require("../types")
+local lintTypes = require("@lint")
 local path = require("@std/path")
 local query = require("@std/syntax/query")
 local syntax = require("@std/syntax")
 local utils = require("@std/syntax/utils")
 
 local name = "empty_if_block"
-local message = "Empty if block detected. Consider removing it or adding to it."
+local message = "This `if` block is empty. Consider removing it or adding to it."
 local target = "https://lute.luau.org/cli/lint/empty_if_block.html"
 
 local function containsComment(trivia: { syntax.Trivia }): boolean

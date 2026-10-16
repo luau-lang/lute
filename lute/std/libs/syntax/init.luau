@@ -111,6 +111,8 @@ export type CstStatExpr = cst.CstStatExpr
 
 export type CstStatLocal = cst.CstStatLocal
 
+export type CstStatConst = cst.CstStatConst
+
 export type CstStatFor = cst.CstStatFor
 
 export type CstStatForIn = cst.CstStatForIn
@@ -154,8 +156,6 @@ export type CstTypeIntersection = cst.CstTypeIntersection
 export type CstTypeArray = cst.CstTypeArray
 
 export type CstTableTypeItemIndexer = cst.CstTableTypeItemIndexer
-
-export type CstTableTypeItemStringProperty = cst.CstTableTypeItemStringProperty
 
 export type CstTableTypeItemProperty = cst.CstTableTypeItemProperty
 

@@ -261,6 +261,7 @@ add_subdirectory(lute/time)
 add_subdirectory(lute/io)
 add_subdirectory(lute/ffi)
 add_subdirectory(lute/syntax)
+add_subdirectory(lute/debug)
 
 # executables
 add_subdirectory(lute/cli)

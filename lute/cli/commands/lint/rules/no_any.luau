@@ -1,4 +1,4 @@
-local lintTypes = require("../types")
+local lintTypes = require("@lint")
 local path = require("@std/path")
 local query = require("@std/syntax/query")
 local syntax = require("@std/syntax")
@@ -6,7 +6,7 @@ local utils = require("@std/syntax/utils")
 
 local name = "no_any"
 local message =
-	"Explicit 'any' type detected. Use 'unknown' for type-safe alternatives that require narrowing before use."
+	"Consider using `unknown` instead of `any` as a type-safe alternative that requires narrowing before use."
 local target = "https://lute.luau.org/cli/lint/no_any.html"
 
 local function lint(

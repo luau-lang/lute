@@ -18,14 +18,29 @@ test.suite("LuteRun", function(suite)
 	end)
 
 	suite:case("sameNamedFileAndDirectory", function(assert)
-		-- Setup
+		-- A bare directory (no init file) should not prevent the sibling file from resolving.
 		fs.createDirectory(rundir)
 		fs.createDirectory(pathlib.join(rundir, "hello"))
 
 		local helloFilePath = pathlib.join(rundir, "hello.luau")
 		fs.writeStringToFile(helloFilePath, "print('Hello world')")
 
-		-- Execute
+		local result = process.run({ lutePath, pathlib.format(helloFilePath) })
+
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, "Hello world")
+	end)
+
+	suite:case("sameNamedFileAndDirectoryWithInit", function(assert)
+		-- A directory with an init file is ambiguous with a sibling file.
+		fs.createDirectory(rundir)
+		local helloDir = pathlib.join(rundir, "hello")
+		fs.createDirectory(helloDir)
+		fs.writeStringToFile(pathlib.join(helloDir, "init.luau"), "print('Init')")
+
+		local helloFilePath = pathlib.join(rundir, "hello.luau")
+		fs.writeStringToFile(helloFilePath, "print('Hello world')")
+
 		local result = process.run({ lutePath, pathlib.format(helloFilePath) })
 
 		assert.eq(result.exitcode, 1)

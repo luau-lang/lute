@@ -6,7 +6,7 @@ Individual code transformers can specify custom migration options, which are par
 ## Usage
 
 ```bash
-lute transform <transformer script> [options...] <files...>
+lute transform [migration-path] [options] [files...] [-- [--option value...]]
 ```
 
 ## Options

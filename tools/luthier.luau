@@ -18,6 +18,7 @@ type Tune = {
 		remote: string,
 		branch: string,
 		revision: string,
+		patches: { string }?,
 	},
 }
 
@@ -101,8 +102,7 @@ local function findLast(haystack: string, needle: string): number?
 	local lastPos
 	local currentPos = 1
 	while true do
-		local foundPos = string.find(haystack, needle, currentPos, true)
-		if foundPos then
+		if local foundPos = string.find(haystack, needle, currentPos, true) then
 			lastPos = foundPos
 			currentPos = foundPos + 1
 		else
@@ -129,8 +129,7 @@ local function getSourceRoot()
 			return cwd
 		end
 
-		local lastSep = findLast(cwd, pathSep)
-		if lastSep then
+		if local lastSep = findLast(cwd, pathSep) then
 			cwd = string.sub(cwd, 1, lastSep - 1)
 		else
 			break
@@ -422,9 +421,6 @@ local function generateTypeDefinitionFiles()
 	traverseDefs(libsPath, "lute")
 	traverseDefs(stdPath, "std")
 
-	dictionaryEntries["lint/types.luau"] =
-		readFileToString(projectRelative("lute", "cli", "commands", "lint", "types.luau"))
-
 	local stringDictionary = ""
 	for key, value in dictionaryEntries do
 		stringDictionary ..= string.format('["%*"] = [==[%*]==],', key, value)
@@ -546,13 +542,11 @@ local function getConfigureArguments()
 		table.insert(configArgs, "-DCMAKE_C_COMPILER_LAUNCHER=ccache")
 	end
 
-	local cxx_compiler = args:get("cxx-compiler")
-	if cxx_compiler then
+	if local cxx_compiler = args:get("cxx-compiler") then
 		table.insert(configArgs, "-DCMAKE_CXX_COMPILER=" .. cxx_compiler)
 	end
 
-	local c_compiler = args:get("c-compiler")
-	if c_compiler then
+	if local c_compiler = args:get("c-compiler") then
 		table.insert(configArgs, "-DCMAKE_C_COMPILER=" .. c_compiler)
 	end
 
@@ -577,15 +571,15 @@ end
 
 local function printHelp()
 	print("luthier — a build tool for lute")
-	args:help(function(str)
+	print(args:help(function(str)
 		return richterm.combine(richterm.bold, richterm.yellow)(str)
-	end)
+	end))
 end
 
 local function usageError(message: string, details: string?, usage: string?)
 	local lowercased = string.lower(string.sub(message, 1, 1)) .. string.sub(message, 2)
 	print(richterm.combine(richterm.bold, richterm.red)(`Error: {lowercased}`))
-	print(richterm.combine(richterm.bold, richterm.yellow)(`Usage: {usage or args:usage("luthier <subcommand>")}`))
+	print(richterm.combine(richterm.bold, richterm.yellow)(usage or args:usage("luthier <subcommand>")))
 	if details then
 		print(richterm.combine(richterm.bold, richterm.yellow)(details))
 	end
@@ -625,6 +619,20 @@ local function availableTargets(): string
 	end
 	table.sort(targets)
 	return `available targets: {table.concat(targets, ", ")}`
+end
+
+local function applyLuauPatch(patchPath: string): number
+	-- Git patch application is not idempotent - applying a patch twice will fail.
+	-- Instead, we need to check if applying the patch in reverse succeeds (-R, --check).
+	-- If so, the changes already exist and we can skip patch application
+	print("Applying luau specific patches ...")
+	local undo = call({ "git", "apply", "-R", "--check", patchPath, "--directory=extern/luau" })
+	if undo == 0 then
+		print(`Patch already applied to Luau tree, skipping application of {patchPath}`)
+	else
+		return call({ "git", "apply", patchPath, "--directory=extern/luau" })
+	end
+	return 0
 end
 
 local function fetchDependency(dependencyInfo: Tune)
@@ -706,6 +714,28 @@ local function areTuneFilesUpToDate(): boolean
 	return hash == getTuneFilesHash()
 end
 
+local function applyPatches(): number
+	local files = fs.listdir(projectRelative("extern"))
+	for _, file in files do
+		if string.find(file.name, "%.tune$") then
+			local dep: Tune = readTuneFile(projectRelative("extern", file.name))
+			local patches = dep.dependency.patches
+			if not patches then
+				continue
+			end
+			assert(patches)
+			for _, patch in patches do
+				local res = applyLuauPatch(`extern/{patch}`)
+				if res ~= 0 then
+					return res
+				end
+			end
+		end
+	end
+
+	return 0
+end
+
 local function fetchDependencies(): number
 	local files = fs.listdir(projectRelative("extern"))
 
@@ -742,6 +772,7 @@ local function configure()
 	table.move(arguments, 1, #arguments, 2, cmd)
 
 	check(fetchDependenciesIfNeeded())
+	check(applyPatches())
 
 	local result = call(cmd)
 	fs.copy(joinPath(getProjectPath(), "compile_commands.json"), projectRelative(BUILD_DIR, "compile_commands.json"))

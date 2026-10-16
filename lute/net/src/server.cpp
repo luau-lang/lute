@@ -390,7 +390,7 @@ static void pushRequestUpgradeContext(lua_State* L, const RequestUpgradeContextP
     auto* storage = static_cast<RequestUpgradeContextPtr<SSL>*>(lua_newuserdatadtor(
         L,
         sizeof(RequestUpgradeContextPtr<SSL>),
-        [](void* ptr)
+        [](lua_State*, void* ptr)
         {
             std::destroy_at(static_cast<RequestUpgradeContextPtr<SSL>*>(ptr));
         }
@@ -948,7 +948,14 @@ static bool closeServer(int serverId)
 
 int serve(lua_State* L)
 {
-    uWS::Loop::get(getRuntimeLoop(L));
+    uWS::Loop* loop = uWS::Loop::get(getRuntimeLoop(L));
+    getRuntime(L)->addShutdownHook(
+        loop,
+        [loop]()
+        {
+            loop->free();
+        }
+    );
 
     std::string hostname = "127.0.0.1";
     int port = 3000;

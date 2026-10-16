@@ -20,7 +20,6 @@
 namespace net::client
 {
 
-static const std::string kEmptyHeaderKey = "";
 static constexpr long kDefaultRequestTimeoutMs = 5 * 60 * 1000;
 static constexpr long kDefaultConnectTimeoutMs = 30 * 1000;
 
@@ -31,7 +30,6 @@ struct CurlResponse
     long status = 0;
 
     CurlResponse()
-        : headers(kEmptyHeaderKey)
     {
     }
 };

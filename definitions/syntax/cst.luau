@@ -210,12 +210,13 @@ export type CstExprFunction = {
 	read attributes: { CstAttribute },
 	read functionKeyword: CstToken<"function">,
 	read openGenerics: CstToken<"<">?,
-	read generics: CstPunctuated<CstGenericType>?,
-	read genericPacks: CstPunctuated<CstGenericTypePack>?,
+	read generics: CstPunctuated<CstGenericType>,
+	read genericPacks: CstPunctuated<CstGenericTypePack>,
 	read closeGenerics: CstToken<">">?,
 	read openParens: CstToken<"(">,
 	read self: CstLocal?,
 	read parameters: CstPunctuated<CstLocal>,
+	read hasVararg: boolean, -- Present so AstExprFunction subtypes structurally against CstExprFunction
 	read vararg: CstToken<"...">?,
 	read varargColon: CstToken<":">?,
 	read varargAnnotation: CstTypePack?,
@@ -315,6 +316,9 @@ export type CstExprTypeAssertion = {
 --- An `elseif` clause in an if-else expression.
 export type CstElseIfExpr = {
 	read elseIfKeyword: CstToken<"elseif">,
+	read localKeyword: CstToken<"local" | "const">?,
+	read conditionLocal: CstLocal?,
+	read equals: CstToken<"=">?,
 	read condition: CstExpr,
 	read thenKeyword: CstToken<"then">,
 	read thenExpr: CstExpr,
@@ -326,6 +330,9 @@ export type CstExprIfElse = {
 	read kind: "expr",
 	read tag: "conditional",
 	read ifKeyword: CstToken<"if">,
+	read localKeyword: CstToken<"local" | "const">?,
+	read conditionLocal: CstLocal?,
+	read equals: CstToken<"=">?,
 	read condition: CstExpr,
 	read thenKeyword: CstToken<"then">,
 	read thenExpr: CstExpr,
@@ -378,6 +385,9 @@ export type CstStatDo = {
 --- An `elseif` clause in an if statement.
 export type CstElseIfStat = {
 	read elseIfKeyword: CstToken<"elseif">,
+	read localKeyword: CstToken<"local" | "const">?,
+	read conditionLocal: CstLocal?,
+	read equals: CstToken<"=">?,
 	read condition: CstExpr,
 	read thenKeyword: CstToken<"then">,
 	read thenBlock: CstStatBlock,
@@ -389,6 +399,9 @@ export type CstStatIf = {
 	read kind: "stat",
 	read tag: "conditional",
 	read ifKeyword: CstToken<"if">,
+	read localKeyword: CstToken<"local" | "const">?,
+	read conditionLocal: CstLocal?,
+	read equals: CstToken<"=">?,
 	read condition: CstExpr,
 	read thenKeyword: CstToken<"then">,
 	read thenBlock: CstStatBlock,
@@ -519,7 +532,7 @@ export type CstStatCompoundAssign = {
 	read kind: "stat",
 	read tag: "compoundassign",
 	read variable: CstExpr,
-	read operand: CstToken, -- TODO: Enforce token type
+	read operator: CstToken, -- TODO: Enforce token type
 	read value: CstExpr,
 }
 
@@ -554,6 +567,7 @@ export type CstStatTypeAlias = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "typealias",
+	read isExported: boolean,
 	read export: CstToken<"export">?,
 	read typeToken: CstToken<"type">,
 	read name: CstToken,
@@ -571,6 +585,7 @@ export type CstStatTypeFunction = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "typefunction",
+	read isExported: boolean,
 	read export: CstToken<"export">?,
 	read type: CstToken<"type">,
 	read name: CstToken,
@@ -714,30 +729,21 @@ export type CstTableTypeItemIndexer = {
 	read separator: CstToken<"," | ";">?,
 }
 
---- A string-literal-keyed property entry in a table type (e.g., `["key"]: T`).
-export type CstTableTypeItemStringProperty = {
-	read kind: "stringproperty",
-	read access: CstToken<"read" | "write">?,
-	read indexerOpen: CstToken<"[">,
-	read key: CstTypeSingletonString,
-	read indexerClose: CstToken<"]">,
-	read colon: CstToken<":">,
-	read value: CstType,
-	read separator: CstToken<"," | ";">?,
-}
-
 --- A named property entry in a table type (e.g., `key: T`).
 export type CstTableTypeItemProperty = {
 	read kind: "property",
 	read access: CstToken<"read" | "write">?,
+	read indexerOpen: CstToken<"[">?,
+	read quoteStyle: ("single" | "double")?,
 	read key: CstToken,
+	read indexerClose: CstToken<"]">?,
 	read colon: CstToken<":">,
 	read value: CstType,
 	read separator: CstToken<"," | ";">?,
 }
 
 --- Union of all table type entry kinds.
-export type CstTableTypeItem = CstTableTypeItemIndexer | CstTableTypeItemStringProperty | CstTableTypeItemProperty
+export type CstTableTypeItem = CstTableTypeItemIndexer | CstTableTypeItemProperty
 
 --- A table type annotation node.
 export type CstTypeTable = {

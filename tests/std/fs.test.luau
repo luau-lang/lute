@@ -211,8 +211,6 @@ test.suite("FsSuite", function(suite)
 
 		fs.writeStringToFile(watched, "hi")
 
-		-- Note: we had a timeout for this loop before, but it was leading to a flaky test where event = nil, so we're removing it.
-		-- If this hangs indefinitely at, we'll see this test fail later and revisit.
 		local start = os.clock()
 		local event
 		repeat
@@ -220,9 +218,8 @@ test.suite("FsSuite", function(suite)
 			if not event then
 				task.wait(0.01)
 			end
-		until event
+		until event or (os.clock() - start > 2)
 
-		print("Watch iterator time taken: " .. (os.clock() - start))
 		if event == nil then
 			failure.assertion("watcher event was nil")
 			return
@@ -426,5 +423,89 @@ test.suite("FsSuite", function(suite)
 		end
 
 		fs.removeDirectory(baseDir, { recursive = true })
+	end)
+
+	suite:case("readIntoBuffer", function(assert)
+		local file = path.join(tmpdir, "read_into_buffer.txt")
+		fs.writeStringToFile(file, "hello")
+
+		local readBuf = buffer.create(5)
+		local h = fs.open(file, "r")
+		local bytesRead = fs.readIntoBuffer(h, readBuf, 0, 5)
+		fs.close(h)
+
+		assert.eq(bytesRead, 5)
+		assert.eq(buffer.readstring(readBuf, 0, 5), "hello")
+
+		fs.remove(file)
+	end)
+
+	suite:case("readIntoBufferWithOffsets", function(assert)
+		local file = path.join(tmpdir, "read_into_buffer_offsets.txt")
+		fs.writeStringToFile(file, "abcdefghijklmnopqrstuvwxyz")
+
+		local readBuf = buffer.create(10)
+		local h = fs.open(file, "r")
+		local bytesRead = fs.readIntoBuffer(h, readBuf, 5, 4, 2)
+		fs.close(h)
+
+		assert.eq(bytesRead, 4)
+		assert.eq(buffer.readstring(readBuf, 2, 4), "fghi")
+
+		fs.remove(file)
+	end)
+
+	suite:case("readIntoBufferPartialEOF", function(assert)
+		local file = path.join(tmpdir, "read_into_buffer_eof.txt")
+		fs.writeStringToFile(file, "abc")
+
+		local readBuf = buffer.create(10)
+		local h = fs.open(file, "r")
+		local bytesRead = fs.readIntoBuffer(h, readBuf, 0, 10)
+		fs.close(h)
+
+		assert.eq(bytesRead, 3)
+		assert.eq(buffer.readstring(readBuf, 0, 3), "abc")
+
+		fs.remove(file)
+	end)
+
+	suite:case("readIntoBufferDoesNotAdvanceCursor", function(assert)
+		local file = path.join(tmpdir, "read_into_buffer_cursor.txt")
+		fs.writeStringToFile(file, "abcdefghij")
+
+		local h = fs.open(file, "r")
+
+		local readBuf = buffer.create(3)
+		local bytesRead = fs.readIntoBuffer(h, readBuf, 5, 3)
+		assert.eq(bytesRead, 3)
+		assert.eq(buffer.readstring(readBuf, 0, 3), "fgh")
+
+		local content = fs.read(h)
+		assert.eq(content, "abcdefghij")
+
+		fs.close(h)
+		fs.remove(file)
+	end)
+
+	suite:case("readIntoBufferErrors", function(assert)
+		local file = path.join(tmpdir, "read_into_buffer_errors.txt")
+		fs.writeStringToFile(file, "abc")
+
+		local readBuf = buffer.create(4)
+		local h = fs.open(file, "r")
+
+		local success = pcall(function()
+			fs.readIntoBuffer(h, readBuf, 0, 2, 3)
+		end)
+		assert.never.that(success)
+
+		success = pcall(function()
+			fs.readIntoBuffer(h, readBuf, -1, 1)
+		end)
+		assert.never.that(success)
+
+		fs.close(h)
+		fs.remove(file)
 	end)
 end)

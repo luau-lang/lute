@@ -168,6 +168,37 @@ test.suite("ProcessSuite", function(suite)
 		assert.strContains(r.stdout, "saw-eof")
 	end)
 
+	suite:case("runTimesOutProcess", function(assert)
+		local lutePath = pathlib.format(process.execPath())
+		local scriptPath = pathlib.join(system.tmpdir(), "process_timeout_sleep.luau")
+		fs.writeStringToFile(pathlib.format(scriptPath), [[require("@lute/task").wait(10)]])
+
+		local r = process.run({ lutePath, pathlib.format(scriptPath) }, { timeout = 0.2 })
+		fs.remove(scriptPath)
+
+		assert.eq(r.ok, false)
+		assert.that(r.timedOut)
+	end)
+
+	suite:case("runExitsBeforeTimeout", function(assert)
+		local r = process.run({ "echo", "hello" }, { timeout = 5 })
+		assert.that(r.ok)
+		assert.eq(r.timedOut, nil)
+		assert.eq(r.stdout, "hello\n")
+	end)
+
+	suite:case("systemTimesOutProcess", function(assert)
+		local lutePath = pathlib.format(process.execPath())
+		local scriptPath = pathlib.join(system.tmpdir(), "process_timeout_system.luau")
+		fs.writeStringToFile(pathlib.format(scriptPath), [[require("@lute/task").wait(10)]])
+
+		local r = process.system(`{lutePath} {pathlib.format(scriptPath)}`, { timeout = 0.2 })
+		fs.remove(scriptPath)
+
+		assert.eq(r.ok, false)
+		assert.that(r.timedOut)
+	end)
+
 	suite:case("processSystemOptionsErrorCases", function(assert)
 		-- All of these tests intentionally pass values of the incorrect
 		-- type to `process.system`: this is to ensure that the error

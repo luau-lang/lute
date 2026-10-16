@@ -55,7 +55,7 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
     }
 
     // Temporary set to collect absolute paths to .luaurc files
-    Luau::DenseHashSet<std::string> configAbsolutePaths{""};
+    Luau::DenseHashSet<std::string> configAbsolutePaths;
 
     Luau::VecDeque<std::string> toProcess;
     toProcess.push_back(entryPoint);

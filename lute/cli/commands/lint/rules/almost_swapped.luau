@@ -1,4 +1,4 @@
-local lintTypes = require("../types")
+local lintTypes = require("@lint")
 local path = require("@std/path")
 local query = require("@std/syntax/query")
 local stringext = require("@std/stringext")

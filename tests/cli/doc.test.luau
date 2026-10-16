@@ -8,7 +8,7 @@ local tmpDir = system.tmpdir()
 local tmpOutputDir = path.join(tmpDir, "lute-doc-output")
 local lutePath = path.format(process.execPath())
 
-local USAGE = "Usage: lute doc [OPTIONS]"
+local USAGE = "Usage: lute doc [options] [module-paths...]"
 
 -- Will add specific module test case (see examples/docs) once --module option is added
 test.suite("LuteDoc", function(suite)

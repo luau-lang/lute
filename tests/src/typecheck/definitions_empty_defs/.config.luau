@@ -1,0 +1,7 @@
+return {
+    lute = {
+        check = {
+            definitions = {},
+        },
+    },
+}

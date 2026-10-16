@@ -16,14 +16,9 @@ args:add("with-luaurc", "flag", { help = "Also write a .luaurc file in the curre
 args:parse({ ... })
 
 if args:has("help") then
-	print("Usage: lute setup [options]")
-	print([[
-Install Lute type definitions to ~/.lute/typedefs/{version}.
-
-OPTIONS:
-  --with-luaurc     Also write a .luaurc file in the current directory
-  -h, --help        Show this help message
-]])
+	print(args:usage("lute setup"))
+	print("\nInstall Lute type definitions to ~/.lute/typedefs/{version}.\n")
+	print(args:help())
 	return
 end
 

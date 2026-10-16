@@ -61,7 +61,7 @@ fetch_dependency() {
 }
 
 stage_start "fetch dependencies"
-find "extern" -mindepth 1 ! -name "*.tune" -prune -exec rm -rf {} +
+find "extern" -mindepth 1 ! -name "*.tune" ! -name "*.patch" -prune -exec rm -rf {} +
 for file in extern/*.tune; do
   if [[ -f "$file" ]]; then
     echo "fetching $(basename "$file")"
@@ -79,6 +79,20 @@ mkdir -p extern/generated
   done
 } | b2sum -l 256 | cut -d' ' -f1 | tr -d '\n' > extern/generated/hash.txt
 stage_end "fetch dependencies"
+
+# Apply local patches:
+stage_start "apply patches"
+for patch in extern/*.patch; do
+    if [[ -f "$patch" ]]; then
+        echo "Checking if we can apply $patch.."
+        if exe git apply -R --check $patch --directory=extern/luau/; then
+            echo "Patch already applied to Luau tree, skipping application of $patch"
+        else
+            exe git apply $patch --directory=extern/luau/
+        fi
+    fi
+done
+stage_end "apply patches"
 
 ## configure the build system for lute0
 os_type="$(uname)"
@@ -132,20 +146,10 @@ exe $OUT_BINARY tools/luthier.luau build --config $build_config --clean $LUTHIER
 stage_end "build lute"
 
 # optionally install the final built lute version
-INSTALL_DIR=$HOME/.lute/bin
 BUILD_PATH=$BUILD_ROOT/release
 LUTESTRAP=./$BUILD_PATH/$EXE_PATH
 if $install_requested; then
-  # TODO: give the lute executable a self-install subcommand and just invoke that here instead
-  read -p "where would you like to install lute? (default: $INSTALL_DIR): " USER_PATH
-
-  # If user_input is empty, keep default_path; else update it
-  if [[ -n "$USER_PATH" ]]; then
-    INSTALL_DIR=$USER_PATH
-  fi
-  mkdir -p $INSTALL_DIR
-  cp $LUTESTRAP $INSTALL_DIR
-  echo ""
-  echo "installed lute to $INSTALL_DIR/lute"
-  echo "please ensure this is accessible on your \$PATH"
+  stage_start "install lute"
+  exe "$LUTESTRAP" self install
+  stage_end "install lute"
 fi

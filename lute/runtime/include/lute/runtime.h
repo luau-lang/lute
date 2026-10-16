@@ -3,6 +3,7 @@
 #include "lute/ref.h"
 #include "lute/reporter.h"
 
+#include "Luau/DenseHash.h"
 #include "Luau/Variant.h"
 #include "Luau/VecDeque.h"
 
@@ -30,6 +31,8 @@ struct ThreadToContinue
     std::shared_ptr<Ref> ref;
     int argumentCount = 0;
     std::function<void()> cont;
+    ThreadToContinue() = default;
+    ThreadToContinue(bool success, std::shared_ptr<Ref> ref, int argumentCount);
 };
 
 // Optional completion hook for threads that need native follow-up work once
@@ -57,7 +60,7 @@ using RuntimeStep = Luau::Variant<StepSuccess, StepErr, StepEmpty>;
 
 struct Runtime
 {
-    Runtime(LuteReporter& reporter);
+    Runtime(LuteReporter& reporter, bool debugMode = false);
     ~Runtime();
 
     bool runToCompletion();
@@ -88,6 +91,8 @@ struct Runtime
     // Attach native follow-up work to a specific Luau thread. The hook will run
     // once that thread eventually returns or errors after any number of yields.
     void addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion);
+
+    void addShutdownHook(const void* key, std::function<void()> hook);
 
     // Run 'f' in a libuv work queue
     void runInWorkQueue(std::function<void()> f);
@@ -137,6 +142,20 @@ struct Runtime
     // Runtimes. Set during parent Runtime's setup.
     std::function<void*(lua_State*)> requireContextFactory;
 
+    // for debug mode only:
+    const bool debugMode;
+    std::atomic<int> numLaunchedDebuggees = 0;
+    std::function<void()> pendingDebugStopNotification;
+    void stopDebug();
+    void continueDebug();
+    void waitForDebugContinue();
+    // Same as scheduleLuauCallback but we since we don't call this within a libuv completion callback
+    // we need to wake up the libuv event loop.
+    void scheduleDebugLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher);
+    // uncaught exceptions are handled by the runtime when we finish a thread that has an erroring state.
+    std::function<bool(lua_State* L)> onUncaughtError;
+    bool runUncaughtExceptionCompletion(lua_State* L);
+
 private:
     bool runThreadCompletionHandler(lua_State* L, int status);
     void clearThreadCompletionHandler(lua_State* L);
@@ -144,6 +163,7 @@ private:
     std::mutex continuationMutex;
     std::vector<std::function<void()>> continuations;
     std::unordered_map<lua_State*, ThreadCompletionHandler> threadCompletionHandlers;
+    Luau::DenseHashMap<const void*, std::function<void()>> shutdownHooks;
 
     std::atomic<bool> stop;
     std::condition_variable runLoopCv;
@@ -152,6 +172,12 @@ private:
 
     std::atomic<int> activeTokens;
     uv_loop_t eventLoop;
+    uv_async_t wakeupEventLoop;
+
+    // for debug mode only:
+    std::mutex debugMutex;
+    std::atomic<bool> debugStopped = false;
+    std::condition_variable debugStoppedCv;
 };
 
 Runtime* getRuntime(lua_State* L);

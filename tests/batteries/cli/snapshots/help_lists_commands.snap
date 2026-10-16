@@ -1,0 +1,6 @@
+Commands:
+  plugin - Build the plugin
+  package (pkg) - Build a single package
+
+Options:
+  --verbose (-v) - Enable verbose output

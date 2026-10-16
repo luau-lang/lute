@@ -10,7 +10,7 @@ You can find the full suite of `lute lint`'s default rules documented as sub-pag
 ## Usage
 
 ```bash
-lute lint [OPTIONS] [...PATHS]
+lute lint [options] [paths...]
 ```
 
 ## Options
@@ -50,7 +50,7 @@ type Config = {
                     -- Array of globs (.gitignore style) that are EXEMPT from this rule
                     ignores: { string }?,
                     -- Override a rule's default severity
-                    severity: ("warn" | "error" | "info" | "hint")?,
+                    severity: ("warning" | "error" | "info" | "hint")?,
                     -- Pass custom options through to a rule;
                     -- see specific rule's implementation / docs for expected options structure
                     options: { [string]: unknown }?,

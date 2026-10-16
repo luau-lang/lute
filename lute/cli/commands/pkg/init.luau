@@ -14,6 +14,7 @@ Loom package manager for Luau projects.
 COMMANDS:
   install                                   Install dependencies from loom.config.luau
   auth --token <token> [--domain <domain>]  Save authentication credentials
+  run <script.luau> [args...]               Run a Luau script from loom.lock.
 
 Use --help with any command for more information.
 ]])
@@ -30,7 +31,7 @@ local function main(...: string)
 	local command = args[1]
 
 	if command == "install" then
-		install()
+		install(table.unpack(args, 2))
 	elseif command == "auth" then
 		authenticate(table.unpack(args, 2))
 	else

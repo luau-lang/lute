@@ -1,13 +1,13 @@
 -- Check out lute/cli/commands/lint/rules for the default rules used by lute lint!
 
-local lintTypes = require("@commands/lint/types")
+local lintTypes = require("@lint")
 local path = require("@std/path")
 local query = require("@std/syntax/query")
 local syntax = require("@std/syntax")
 local utils = require("@std/syntax/utils")
 
 local name = "divide_by_zero"
-local message = "Division by zero detected."
+local message = "Dividing by zero will always result in NaN, consider using `math.nan` instead."
 
 local function lint(cst: syntax.CstStatBlock, sourcepath: path.Path?): { lintTypes.LintViolation }
 	return query

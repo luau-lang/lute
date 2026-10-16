@@ -6,6 +6,7 @@ local testTypes = require("@std/test/types")
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
 local syntax = require("@std/syntax")
+local trivia = require("@std/syntax/utils/trivia")
 
 local function assertEqualsLocation(
 	assert: testTypes.Asserts,
@@ -362,14 +363,15 @@ test.suite("parseExpr", function(suite)
 		assert.eq(#funcExpr.attributes, 0)
 		assert.eq(funcExpr.functionKeyword.text, "function")
 		assert.eq(funcExpr.openGenerics, nil)
-		assert.eq(funcExpr.generics, nil)
-		assert.eq(funcExpr.genericPacks, nil)
+		assert.eq(#funcExpr.generics, 0)
+		assert.eq(#funcExpr.genericPacks, 0)
 		assert.eq(funcExpr.closeGenerics, nil)
 		assert.eq(funcExpr.self, nil)
 		assert.eq(funcExpr.openParens.text, "(")
 		assert.eq(#funcExpr.parameters, 2)
 		assert.eq(funcExpr.parameters[1].name.text, "a")
 		assert.eq(funcExpr.parameters[2].name.text, "b")
+		assert.eq(funcExpr.hasVararg, false)
 		assert.eq(funcExpr.vararg, nil)
 		assert.eq(funcExpr.varargColon, nil)
 		assert.eq(funcExpr.varargAnnotation, nil)
@@ -416,6 +418,7 @@ test.suite("parseExpr", function(suite)
 		assert.neq(param.annotation, nil)
 		assert.eq((param.annotation :: syntax.CstType).tag, "reference")
 
+		assert.eq(funcExpr.hasVararg, true)
 		assert.neq(funcExpr.vararg, nil)
 		assert.eq((funcExpr.vararg :: syntax.CstToken<"...">).text, "...")
 		assert.neq(funcExpr.varargColon, nil)
@@ -644,6 +647,76 @@ test.suite("parse", function(suite)
 		assert.eq(simpleIfStat.elseKeyword, nil)
 		assert.eq(simpleIfStat.elseBlock, nil)
 		assert.eq(simpleIfStat.endKeyword.text, "end")
+
+		-- A plain `if` leaves the `if local` binding fields unset.
+		assert.eq(simpleIfStat.localKeyword, nil)
+		assert.eq(simpleIfStat.conditionLocal, nil)
+		assert.eq(simpleIfStat.equals, nil)
+
+		-- `if local` populates the binding fields.
+		local localBlock = parser.parseBlock("if local handler = dispatch[c] then handler() end")
+		local localIfStat = localBlock.statements[1] :: syntax.CstStatIf
+		assert.neq(localIfStat.localKeyword, nil)
+		assert.eq((localIfStat.localKeyword :: syntax.CstToken<"local" | "const">).text, "local")
+		assert.neq(localIfStat.conditionLocal, nil)
+		assert.eq((localIfStat.conditionLocal :: syntax.CstLocal).name.text, "handler")
+		assert.neq(localIfStat.equals, nil)
+		assert.eq((localIfStat.equals :: syntax.CstToken<"=">).text, "=")
+		-- `condition` holds the binding's initializer.
+		assert.eq(localIfStat.condition.tag, "index")
+
+		-- `if const` reports the keyword text as `const`.
+		local constBlock = parser.parseBlock("if const handler = dispatch[c] then handler() end")
+		local constIfStat = constBlock.statements[1] :: syntax.CstStatIf
+		assert.eq((constIfStat.localKeyword :: syntax.CstToken<"local" | "const">).text, "const")
+
+		-- `elseif local` populates the same fields on the elseif clause.
+		local elseifBlock = parser.parseBlock("if c then f() elseif local handler = dispatch[c] then handler() end")
+		local elseifIfStat = elseifBlock.statements[1] :: syntax.CstStatIf
+		assert.eq(#elseifIfStat.elseifs, 1)
+		local localElseIf = elseifIfStat.elseifs[1]
+		assert.neq(localElseIf.localKeyword, nil)
+		assert.eq((localElseIf.localKeyword :: syntax.CstToken<"local" | "const">).text, "local")
+		assert.neq(localElseIf.conditionLocal, nil)
+		assert.eq((localElseIf.conditionLocal :: syntax.CstLocal).name.text, "handler")
+		assert.neq(localElseIf.equals, nil)
+	end)
+
+	suite:case("parseExprIfElse", function(assert)
+		local expr = parser.parseExpr("if local v = t.x then v else 0") :: syntax.CstExprIfElse
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "conditional")
+		assert.eq(expr.ifKeyword.text, "if")
+		assert.neq(expr.localKeyword, nil)
+		assert.eq((expr.localKeyword :: syntax.CstToken<"local" | "const">).text, "local")
+		assert.neq(expr.conditionLocal, nil)
+		assert.eq((expr.conditionLocal :: syntax.CstLocal).name.text, "v")
+		assert.neq(expr.equals, nil)
+		assert.eq((expr.equals :: syntax.CstToken<"=">).text, "=")
+		-- `condition` holds the binding's initializer.
+		assert.eq(expr.condition.tag, "indexname")
+		assert.eq(expr.thenKeyword.text, "then")
+
+		-- `if const` reports the keyword text as `const`.
+		local constExpr = parser.parseExpr("if const v = t.x then v else 0") :: syntax.CstExprIfElse
+		assert.eq((constExpr.localKeyword :: syntax.CstToken<"local" | "const">).text, "const")
+
+		-- `elseif local` populates the same fields on the elseif clause.
+		local elseifExpr = parser.parseExpr("if c then 1 elseif local v = t.x then v else 0") :: syntax.CstExprIfElse
+		assert.eq(#elseifExpr.elseifs, 1)
+		local elseIf = elseifExpr.elseifs[1]
+		assert.eq(elseIf.elseIfKeyword.text, "elseif")
+		assert.neq(elseIf.localKeyword, nil)
+		assert.eq((elseIf.localKeyword :: syntax.CstToken<"local" | "const">).text, "local")
+		assert.neq(elseIf.conditionLocal, nil)
+		assert.eq((elseIf.conditionLocal :: syntax.CstLocal).name.text, "v")
+		assert.neq(elseIf.equals, nil)
+
+		-- A plain if-else expression leaves the binding fields unset.
+		local plainExpr = parser.parseExpr("if c then 1 else 0") :: syntax.CstExprIfElse
+		assert.eq(plainExpr.localKeyword, nil)
+		assert.eq(plainExpr.conditionLocal, nil)
+		assert.eq(plainExpr.equals, nil)
 	end)
 
 	suite:case("parseStatWhile", function(assert)
@@ -838,7 +911,7 @@ test.suite("parse", function(suite)
 		local compound = block.statements[1] :: syntax.CstStatCompoundAssign
 		assert.eq(compound.tag, "compoundassign")
 		assert.eq(compound.variable.tag, "global")
-		assert.eq(compound.operand.text, "+=")
+		assert.eq(compound.operator.text, "+=")
 		assert.eq(compound.value.tag, "number")
 	end)
 
@@ -879,6 +952,7 @@ test.suite("parse", function(suite)
 
 		local typeAlias = block.statements[1] :: syntax.CstStatTypeAlias
 		assert.eq(typeAlias.tag, "typealias")
+		assert.eq(typeAlias.isExported, false)
 		assert.eq(typeAlias.export, nil)
 		assert.eq(typeAlias.typeToken.text, "type")
 		assert.eq(typeAlias.name.text, "Vector3")
@@ -895,6 +969,7 @@ test.suite("parse", function(suite)
 
 		typeAlias = block.statements[1] :: syntax.CstStatTypeAlias
 		assert.neq(typeAlias.export, nil)
+		assert.eq(typeAlias.isExported, true)
 		assert.eq((typeAlias.export :: syntax.CstToken<"export">).text, "export")
 		assert.neq(typeAlias.openGenerics, nil)
 		assert.eq((typeAlias.openGenerics :: syntax.CstToken<"<">).text, "<")
@@ -913,6 +988,7 @@ test.suite("parse", function(suite)
 
 		local typeFunc = block.statements[1] :: syntax.CstStatTypeFunction
 		assert.eq(typeFunc.tag, "typefunction")
+		assert.eq(typeFunc.isExported, false)
 		assert.eq(typeFunc.export, nil)
 		assert.eq(typeFunc.type.text, "type")
 		assert.eq(typeFunc.body.functionKeyword.text, "function")
@@ -923,6 +999,7 @@ test.suite("parse", function(suite)
 		assert.eq(#block.statements, 1)
 
 		typeFunc = block.statements[1] :: syntax.CstStatTypeFunction
+		assert.eq(typeFunc.isExported, true)
 		assert.neq(typeFunc.export, nil)
 		assert.eq((typeFunc.export :: syntax.CstToken<"export">).text, "export")
 	end)
@@ -1070,6 +1147,29 @@ test.suite("parse types", function(suite)
 		assert.eq(unionType.types.separators[3], nil)
 	end)
 
+	suite:case("parseTypePackExplicitWithCst", function(assert)
+		local result = parser.parse("type T = () -> (number, ...string)\n")
+		local tAlias = result.root.statements[1] :: syntax.CstStatTypeAlias
+		assert.eq(#result.root.statements, 1)
+		assert.eq(tAlias.name.text, "T")
+		local rhsAlias = tAlias.type :: syntax.CstTypeFunction
+		local explicit = rhsAlias.returnTypes :: syntax.CstTypePackExplicit
+		assert.eq(#explicit.types, 1)
+
+		local first = (explicit.types[1]) :: syntax.CstTypeReference
+		assert.eq(first.tag, "reference")
+		assert.eq(first.name.text, "number")
+
+		assert.that(explicit.tailType)
+		local tt = explicit.tailType :: syntax.CstTypePackVariadic
+		assert.eq((tt.type :: syntax.CstTypeReference).name.text, "string")
+		-- The rightmost trivia of the statement node must not contain the closing parenthesis from the typepack
+		local details = trivia.rightmostTrivia(tAlias)
+		assert.eq(#details, 1)
+		assert.eq(details[1].tag, "whitespace")
+		assert.eq(details[1].text, "\n")
+	end)
+
 	suite:case("testTypeIntersection", function(assert)
 		local block = parser.parseBlock("type T = A & B & C")
 		local typeAlias = block.statements[1] :: syntax.CstStatTypeAlias
@@ -1147,33 +1247,37 @@ test.suite("parse types", function(suite)
 		assert.eq(tableTypeItem.value.tag, "reference")
 		assert.eq(tableTypeItem.separator, nil)
 
-		block = parser.parseBlock("type T = {['hello'] : 'world', read ['foo'] : number; write ['bar'] : boolean}")
+		block = parser.parseBlock([[type T = {['hello'] : 'world', read ["foo"] : number; write ['bar'] : boolean}]])
 		typeAlias = block.statements[1] :: syntax.CstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "table")
 		tableType = typeAlias.type :: syntax.CstTypeTable
 		assert.eq(#tableType.entries, 3)
 		tableTypeItem = tableType.entries[1]
-		assert.eq(tableTypeItem.kind, "stringproperty")
+		assert.eq(tableTypeItem.kind, "property")
 		assert.eq(tableTypeItem.access, nil)
-		assert.eq(tableTypeItem.indexerOpen.text, "[")
-		assert.eq((tableTypeItem.key :: syntax.CstTypeSingletonString).kind, "type")
-		assert.eq((tableTypeItem.key :: syntax.CstTypeSingletonString).tag, "string")
-		assert.eq((tableTypeItem.key :: syntax.CstTypeSingletonString).value.text, "hello")
-		assert.eq(tableTypeItem.indexerClose.text, "]")
+		assert.neq(tableTypeItem.indexerOpen, nil)
+		assert.eq((tableTypeItem.indexerOpen :: syntax.CstToken<"[">).text, "[")
+		assert.neq(tableTypeItem.quoteStyle, nil)
+		assert.eq(tableTypeItem.quoteStyle, "single")
+		assert.eq((tableTypeItem.key :: syntax.CstToken).text, "hello")
+		assert.neq(tableTypeItem.indexerClose, nil)
+		assert.eq((tableTypeItem.indexerClose :: syntax.CstToken<"]">).text, "]")
 		assert.eq(tableTypeItem.colon.text, ":")
 		assert.eq(tableTypeItem.value.tag, "string")
 		assert.neq(tableTypeItem.separator, nil)
 		assert.eq((tableTypeItem.separator :: syntax.CstToken<"," | ";">).text, ",")
 
 		tableTypeItem = tableType.entries[2]
-		assert.eq(tableTypeItem.kind, "stringproperty")
+		assert.eq(tableTypeItem.kind, "property")
 		assert.neq(tableTypeItem.access, nil)
 		assert.eq((tableTypeItem.access :: syntax.CstToken<"read" | "write">).text, "read")
+		assert.neq(tableTypeItem.quoteStyle, nil)
+		assert.eq(tableTypeItem.quoteStyle, "double")
 		assert.neq(tableTypeItem.separator, nil)
 		assert.eq((tableTypeItem.separator :: syntax.CstToken<"," | ";">).text, ";")
 
 		tableTypeItem = tableType.entries[3]
-		assert.eq(tableTypeItem.kind, "stringproperty")
+		assert.eq(tableTypeItem.kind, "property")
 		assert.neq(tableTypeItem.access, nil)
 		assert.eq((tableTypeItem.access :: syntax.CstToken<"read" | "write">).text, "write")
 		assert.eq(tableTypeItem.separator, nil)
@@ -1186,7 +1290,9 @@ test.suite("parse types", function(suite)
 		tableTypeItem = tableType.entries[1]
 		assert.eq(tableTypeItem.kind, "property")
 		assert.eq(tableTypeItem.access, nil)
+		assert.eq(tableTypeItem.indexerOpen, nil)
 		assert.eq((tableTypeItem.key :: syntax.CstToken).text, "hello")
+		assert.eq(tableTypeItem.indexerClose, nil)
 		assert.eq(tableTypeItem.colon.text, ":")
 		assert.eq(tableTypeItem.value.tag, "string")
 		assert.neq(tableTypeItem.separator, nil)

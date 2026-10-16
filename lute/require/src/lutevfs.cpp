@@ -3,6 +3,7 @@
 #include "lute/common.h"
 #include "lute/crypto.h"
 #include "lute/ffi.h"
+#include "lute/debug.h"
 #include "lute/fs.h"
 #include "lute/io.h"
 #include "lute/luau.h"
@@ -22,7 +23,7 @@
 
 const Luau::DenseHashMap<std::string, lua_CFunction> kLuteModules = []()
 {
-    Luau::DenseHashMap<std::string, lua_CFunction> map{""};
+    Luau::DenseHashMap<std::string, lua_CFunction> map;
     map["@lute/crypto.luau"] = luteopen_crypto;
     map["@lute/fs.luau"] = luteopen_fs;
     map["@lute/io.luau"] = luteopen_io;
@@ -40,6 +41,7 @@ const Luau::DenseHashMap<std::string, lua_CFunction> kLuteModules = []()
     map["@lute/ffi/init.luau"] = luteopen_ffi;
     map["@lute/ffi/c.luau"] = luteopen_ffi_c;
     map["@lute/vm.luau"] = luteopen_vm;
+    map["@lute/debugger.luau"] = luteopen_debugger;
     return map;
 }();
 

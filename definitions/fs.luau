@@ -77,6 +77,19 @@ function fs.close(handle: FileHandle): ()
 	error("not implemented")
 end
 
+--- Reads up to `numBytes` bytes from `handle` at `fileOffset` into `buf` starting at `bufferOffset`.
+--- Returns the number of bytes actually read (may be less than `count` if EOF is reached).
+--- - `bufferOffset` defaults to 0.
+function fs.readIntoBuffer(
+	handle: FileHandle,
+	buf: buffer,
+	fileOffset: number,
+	numBytes: number,
+	bufferOffset: number?
+): number
+	error("not implemented")
+end
+
 --- Removes the file at `path`.
 function fs.remove(path: string): ()
 	error("not implemented")

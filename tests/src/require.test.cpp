@@ -88,6 +88,11 @@ TEST_CASE_FIXTURE(LuteFixture, "require_modules")
             doPassingSubcase(argv, {"./without_config/nested_module_requirer"}, {"result from submodule", "required into module"});
         }
 
+        SUBCASE("task_wait")
+        {
+            doPassingSubcase(argv, {"./without_config/task_wait_requirer"}, {"result from task_wait_requirer"});
+        }
+
         SUBCASE("with_directory_ambiguity")
         {
             doFailingSubcase(

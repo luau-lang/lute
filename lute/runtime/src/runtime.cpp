@@ -20,10 +20,18 @@ static void lua_close_checked(lua_State* L)
         lua_close(L);
 }
 
-Runtime::Runtime(LuteReporter& reporter)
+ThreadToContinue::ThreadToContinue(bool success, std::shared_ptr<Ref> ref, int argumentCount)
+    : success(success)
+    , ref(std::move(ref))
+    , argumentCount(argumentCount)
+{
+}
+
+Runtime::Runtime(LuteReporter& reporter, bool debugMode)
     : reporter(reporter)
     , globalState(nullptr, lua_close_checked)
     , dataCopy(nullptr, lua_close_checked)
+    , debugMode(debugMode)
 {
 
     stop.store(false);
@@ -31,8 +39,15 @@ Runtime::Runtime(LuteReporter& reporter)
 
     if (uv_loop_init(&eventLoop) < 0)
     {
-        LUTE_ASSERT("Couldn't initialize runtime event loop");
+        LUTE_ASSERT(!"Couldn't initialize runtime event loop");
     }
+    // We need a way to communicate from other uv threads to the main event loop for scheduleDebugLuauCallback.
+    if (uv_async_init(&eventLoop, &wakeupEventLoop, [](uv_async_t*) {}) < 0)
+    {
+        LUTE_ASSERT(!"Couldn't initialize uv_async handle to wake up main event");
+    }
+    // This unreferences wakeupEventLoop so that it does not count towards hasWork() through uv_loop_alive
+    uv_unref((uv_handle_t*)&wakeupEventLoop);
 }
 
 Runtime::~Runtime()
@@ -50,9 +65,20 @@ Runtime::~Runtime()
         uv_thread_join(&runLoopThread);
         runLoopThreadStarted = false;
     }
-    // At this point, Runtime::hasWork will have returned false (i.e uv_loop_alive is false)
-    // This means there are no outstanding handles, or file descriptors or work, to do, and we can exit
-    uv_loop_close(&eventLoop);
+
+    for (auto& [key, hook] : shutdownHooks)
+        hook();
+    shutdownHooks.clear();
+
+    uv_close((uv_handle_t*)&wakeupEventLoop, nullptr);
+    //  We need to run the event loop to process the uv_close since it is asynchronous
+    uv_run(&eventLoop, UV_RUN_ONCE);
+    //  At this point, Runtime::hasWork will have returned false (i.e uv_loop_alive is false)
+    //  This means there are no outstanding handles, or file descriptors or work, to do, and we can exit
+    if (uv_loop_close(&eventLoop) < 0)
+    {
+        LUTE_ASSERT(!"uv main loop failed to destruct due to active handles");
+    }
 }
 
 bool Runtime::hasWork()
@@ -126,7 +152,16 @@ RuntimeStep Runtime::runOnce()
     else
         status = lua_resume(L, nullptr, next.argumentCount);
 
-    if (status == LUA_YIELD)
+    // if we're in debugmode and encounter an exception, return step sucess here to pause execution.
+    // We then call the thread completion callback with LUA_ERRRUN on target.continueProcess()
+    // We can never return StepErr here, so in the debug mode, the entirety of
+    // error reporting is the responsibility of the debugger onUncaughtException callback.
+    if (debugMode && status == LUA_ERRRUN && onUncaughtError && onUncaughtError(L))
+    {
+        return StepSuccess{L};
+    }
+
+    if (status == LUA_YIELD || status == LUA_BREAK)
     {
         return StepSuccess{L};
     }
@@ -152,7 +187,19 @@ bool Runtime::runToCompletion()
 {
     while (hasWork())
     {
+        if (debugMode)
+        {
+            waitForDebugContinue();
+        }
+
         auto step = runOnce();
+
+        if (debugMode && pendingDebugStopNotification)
+        {
+            auto debugStopNotification = std::move(pendingDebugStopNotification);
+            pendingDebugStopNotification = nullptr;
+            debugStopNotification();
+        }
 
         if (auto err = Luau::get_if<StepErr>(&step))
         {
@@ -193,32 +240,32 @@ void Runtime::reportError(lua_State* L)
 void Runtime::runContinuously()
 {
     runLoopThreadStarted = uv_thread_create(
-        &runLoopThread,
-        [](void* arg)
-        {
-            Runtime* self = static_cast<Runtime*>(arg);
-            while (!self->stop)
-            {
-                {
-                    std::unique_lock lock(self->continuationMutex);
+                               &runLoopThread,
+                               [](void* arg)
+                               {
+                                   Runtime* self = static_cast<Runtime*>(arg);
+                                   while (!self->stop)
+                                   {
+                                       {
+                                           std::unique_lock lock(self->continuationMutex);
 
-                    self->runLoopCv.wait(
-                        lock,
-                        [self]
-                        {
-                            return !self->continuations.empty() || self->stop;
-                        }
-                    );
-                }
+                                           self->runLoopCv.wait(
+                                               lock,
+                                               [self]
+                                               {
+                                                   return !self->continuations.empty() || self->stop;
+                                               }
+                                           );
+                                       }
 
-                self->runToCompletion();
-            }
-        },
-        this
-    ) == 0;
+                                       self->runToCompletion();
+                                   }
+                               },
+                               this
+                           ) == 0;
 
     if (!runLoopThreadStarted)
-        LUTE_ASSERT("Failed to create runtime runloop thread");
+        LUTE_ASSERT(!"Failed to create runtime runloop thread");
 }
 
 bool Runtime::hasContinuations()
@@ -235,6 +282,11 @@ bool Runtime::hasThreads()
 void Runtime::addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion)
 {
     threadCompletionHandlers[L] = std::move(completion);
+}
+
+void Runtime::addShutdownHook(const void* key, std::function<void()> hook)
+{
+    shutdownHooks.try_insert(key, std::move(hook));
 }
 
 bool Runtime::runThreadCompletionHandler(lua_State* L, int status)
@@ -329,6 +381,15 @@ void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::functi
     runLoopCv.notify_one();
 }
 
+void Runtime::scheduleDebugLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher)
+{
+    LUTE_ASSERT(numLaunchedDebuggees > 0);
+    scheduleLuauCallback(callbackRef, std::move(argPusher));
+    // We may be blocked on uv_run(getEventLoop(), UV_RUN_ONCE) in runOnce().
+    // This signals the uv_loop and unblocks it to run the continuation.
+    uv_async_send(&wakeupEventLoop);
+}
+
 void Runtime::runInWorkQueue(std::function<void()> f)
 {
     auto loop = getEventLoop();
@@ -361,6 +422,39 @@ void Runtime::releasePendingToken()
 {
     [[maybe_unused]] int before = activeTokens.fetch_sub(1);
     assert(before > 0);
+}
+
+void Runtime::continueDebug()
+{
+    LUTE_ASSERT(debugMode);
+    std::unique_lock<std::mutex> lock(debugMutex);
+    debugStopped = false;
+    debugStoppedCv.notify_one();
+}
+
+// stopDebug() actually allows for some C bookkeeping when we are unwinding the stack
+// when it is called within a callback such as debugbreak or debugInterrupt.
+// We thus schedule any Luau callbacks to run after we are guaranteed to be stopped
+// in runToCompletion().
+void Runtime::stopDebug()
+{
+    LUTE_ASSERT(debugMode);
+    std::unique_lock<std::mutex> lock(debugMutex);
+    debugStopped = true;
+}
+
+void Runtime::waitForDebugContinue()
+{
+    LUTE_ASSERT(debugMode);
+    std::unique_lock<std::mutex> lock(debugMutex);
+    while (debugStopped)
+        debugStoppedCv.wait(lock);
+}
+
+bool Runtime::runUncaughtExceptionCompletion(lua_State* L)
+{
+    LUTE_ASSERT(debugMode);
+    return runThreadCompletionHandler(L, LUA_ERRRUN);
 }
 
 uv_loop_t* Runtime::getEventLoop()

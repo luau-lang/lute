@@ -1,11 +1,11 @@
-local lintTypes = require("../types")
+local lintTypes = require("@lint")
 local path = require("@std/path")
 local query = require("@std/syntax/query")
 local syntax = require("@std/syntax")
 local utils = require("@std/syntax/utils")
 
 local name = "duplicate_keys"
-local message = "Duplicate keys detected in table literal."
+local message = "Duplicate keys in table literals will result in only the last one being included."
 local target = "https://lute.luau.org/cli/lint/duplicate_keys.html"
 
 local function lint(

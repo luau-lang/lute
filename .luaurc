@@ -1,8 +1,0 @@
-{
-    "languageMode": "strict",
-    "aliases": {
-        "std": "./lute/std/libs",
-        "lute": "./definitions",
-        "commands": "./lute/cli/commands"
-    }
-}

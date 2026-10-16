@@ -77,12 +77,25 @@ local function newSelectVisitor<T>(nodes: { T }, fn: (Node) -> T?): visitor.Visi
 	end
 
 	local selectVisitor = visitor.create(visit)
+	selectVisitor.visitStat = function(_)
+		return true
+	end
 	selectVisitor.visitStatBlockEnd = function(_) end
 	selectVisitor.visitStatLocalDeclarationEnd = function(_) end
+	selectVisitor.visitStatConstDeclarationEnd = function(_) end
+	selectVisitor.visitStatForEnd = function(_) end
+	selectVisitor.visitStatForInEnd = function(_) end
 	selectVisitor.visitExpr = function(_)
 		return true
 	end
 	selectVisitor.visitExprEnd = function(_) end
+	selectVisitor.visitExprFunctionEnd = function(_) end
+	selectVisitor.visitType = function(_)
+		return true
+	end
+	selectVisitor.visitTypePack = function(_)
+		return true
+	end
 
 	return selectVisitor
 end
@@ -133,7 +146,9 @@ function queryLib.findAllFromRoot<T>(cst: types.CstParseResult | Node, fn: (Node
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
 
-	local root: Node = if (cst :: any).root ~= nil then (cst :: any).root else cst :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
+	local root: Node = if (cst :: types.CstParseResult).root ~= nil
+		then (cst :: types.CstParseResult).root
+		else cst :: any -- LUAUFIX: Remove any cast once code too complex no longer emitted
 	visitor.visit(root, selectVisitor)
 
 	return {

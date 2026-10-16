@@ -27,6 +27,11 @@ function utils.isExprConstantNumber(n: types.CstNode): types.CstExprConstantNumb
 	return if n.kind == "expr" and n.tag == "number" then n else nil
 end
 
+--- Returns `n` narrowed to `CstExprConstantNumber` if it is a number literal expression, or `nil` otherwise.
+function utils.isExprConstantInteger(n: types.CstNode): types.CstExprConstantInteger?
+	return if n.kind == "expr" and n.tag == "integer" then n else nil
+end
+
 --- Returns `n` narrowed to `CstExprConstantString` if it is a string literal expression, or `nil` otherwise.
 function utils.isExprConstantString(n: types.CstNode): types.CstExprConstantString?
 	return if n.kind == "expr" and n.tag == "string" then n else nil
@@ -57,6 +62,11 @@ function utils.isRequireCall(n: types.CstNode): types.CstExprCall?
 	local call = utils.isExprCall(n)
 	local global = call and utils.isExprGlobal(call.func)
 	return if global and global.name.text == "require" then call else nil
+end
+
+--- Returns `n` narrowed to `CstExprIndexName` if it is a field access expression (e.g. `a.b`), or `nil` otherwise.
+function utils.isExprInstantiate(n: types.CstNode): types.CstExprInstantiate?
+	return if n.kind == "expr" and n.tag == "instantiate" then n else nil
 end
 
 --- Returns `n` narrowed to `CstExprIndexName` if it is a field access expression (e.g. `a.b`), or `nil` otherwise.
@@ -114,9 +124,14 @@ function utils.isExpr(n: types.CstNode): types.CstExpr?
 	return if n.kind == "expr" then n else nil
 end
 
---- Returns `n` narrowed to `CstStatBlock` if it is a block statement (do...end), or `nil` otherwise.
+--- Returns `n` narrowed to `CstStatBlock` if it is a block statement, or `nil` otherwise.
 function utils.isStatBlock(n: types.CstNode): types.CstStatBlock?
 	return if n.kind == "stat" and n.tag == "block" then n else nil
+end
+
+--- Returns `n` narrowed to `CstStatDo` if it is a do block statement (do...end), or `nil` otherwise.
+function utils.isStatDo(n: types.CstNode): types.CstStatDo?
+	return if n.kind == "stat" and n.tag == "do" then n else nil
 end
 
 --- Returns `n` narrowed to `CstStatIf` if it is an if statement, or `nil` otherwise.

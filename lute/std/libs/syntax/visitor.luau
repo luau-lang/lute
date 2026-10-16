@@ -11,6 +11,7 @@ local visitorlib = {}
 --- returns `true` to continue visiting its children, or `false` to skip them. "End" callbacks fire after all children
 --- of that sort have been visited. Override only the callbacks you care about; unset callbacks default to visiting all children.
 export type Visitor = {
+	visitStat: (types.CstStat) -> boolean,
 	visitStatBlock: (types.CstStatBlock) -> boolean,
 	visitStatBlockEnd: (types.CstStatBlock) -> (),
 	visitStatDo: (types.CstStatDo) -> boolean,
@@ -61,6 +62,7 @@ export type Visitor = {
 	visitExprIfElse: (types.CstExprIfElse) -> boolean,
 	visitExprVarargs: (types.CstExprVarargs) -> boolean,
 
+	visitType: (types.CstType) -> boolean,
 	visitTypeReference: (types.CstTypeReference) -> boolean,
 	visitTypeSingletonBool: (types.CstTypeSingletonBool) -> boolean,
 	visitTypeSingletonString: (types.CstTypeSingletonString) -> boolean,
@@ -70,9 +72,11 @@ export type Visitor = {
 	visitTypeUnion: (types.CstTypeUnion) -> boolean,
 	visitTypeIntersection: (types.CstTypeIntersection) -> boolean,
 	visitTypeArray: (types.CstTypeArray) -> boolean,
+	visitTableTypeItem: (types.CstTableTypeItem) -> boolean,
 	visitTypeTable: (types.CstTypeTable) -> boolean,
 	visitTypeFunction: (types.CstTypeFunction) -> boolean,
 
+	visitTypePack: (types.CstTypePack) -> boolean,
 	visitTypePackExplicit: (types.CstTypePackExplicit) -> boolean,
 	visitTypePackGeneric: (types.CstTypePackGeneric) -> boolean,
 	visitTypePackVariadic: (types.CstTypePackVariadic) -> boolean,
@@ -89,6 +93,7 @@ local function alwaysVisit(...: types.CstNode)
 end
 
 local defaultVisitor: Visitor = {
+	visitStat = alwaysVisit,
 	visitStatBlock = alwaysVisit,
 	visitStatBlockEnd = alwaysVisit :: (types.CstNode) -> (),
 	visitStatDo = alwaysVisit,
@@ -139,6 +144,7 @@ local defaultVisitor: Visitor = {
 	visitExprIfElse = alwaysVisit,
 	visitExprVarargs = alwaysVisit,
 
+	visitType = alwaysVisit,
 	visitTypeReference = alwaysVisit,
 	visitTypeSingletonBool = alwaysVisit,
 	visitTypeSingletonString = alwaysVisit,
@@ -148,9 +154,11 @@ local defaultVisitor: Visitor = {
 	visitTypeUnion = alwaysVisit,
 	visitTypeIntersection = alwaysVisit,
 	visitTypeArray = alwaysVisit,
-	visitTypeTable = alwaysVisit :: (types.CstTypeTable) -> boolean, -- LUAUFIX: Code too complex emitted in absence of cast
+	visitTableTypeItem = alwaysVisit :: (types.CstTableTypeItem) -> boolean,
+	visitTypeTable = alwaysVisit,
 	visitTypeFunction = alwaysVisit,
 
+	visitTypePack = alwaysVisit,
 	visitTypePackExplicit = alwaysVisit,
 	visitTypePackGeneric = alwaysVisit,
 	visitTypePackVariadic = alwaysVisit,
@@ -173,8 +181,7 @@ end
 local function visitPunctuated<T, Separator>(list: types.CstPunctuated<T, Separator>, visitor: Visitor, apply: (T, Visitor) -> ())
 	for i, item in list do
 		apply(item, visitor)
-		local sep = list.separators[i]
-		if sep then
+		if local sep = list.separators[i] then
 			visitToken(sep, visitor)
 		end
 	end
@@ -221,11 +228,21 @@ end
 local function visitStatIf(node: types.CstStatIf, visitor: Visitor)
 	if visitor.visitStatIf(node) then
 		visitToken(node.ifKeyword, visitor)
+		if node.localKeyword and node.conditionLocal and node.equals then
+			visitToken(node.localKeyword, visitor)
+			visitLocal(node.conditionLocal, visitor)
+			visitToken(node.equals, visitor)
+		end
 		visitExpr(node.condition, visitor)
 		visitToken(node.thenKeyword, visitor)
 		visitStatBlock(node.thenBlock, visitor)
 		for _, elseifNode in node.elseifs do
 			visitToken(elseifNode.elseIfKeyword, visitor)
+			if elseifNode.localKeyword and elseifNode.conditionLocal and elseifNode.equals then
+				visitToken(elseifNode.localKeyword, visitor)
+				visitLocal(elseifNode.conditionLocal, visitor)
+				visitToken(elseifNode.equals, visitor)
+			end
 			visitExpr(elseifNode.condition, visitor)
 			visitToken(elseifNode.thenKeyword, visitor)
 			visitStatBlock(elseifNode.thenBlock, visitor)
@@ -349,7 +366,7 @@ end
 local function visitStatCompoundAssign(node: types.CstStatCompoundAssign, visitor: Visitor)
 	if visitor.visitStatCompoundAssign(node) then
 		visitExpr(node.variable, visitor)
-		visitToken(node.operand, visitor)
+		visitToken(node.operator, visitor)
 		visitExpr(node.value, visitor)
 	end
 end
@@ -377,7 +394,8 @@ end
 
 local function visitStatTypeAlias(node: types.CstStatTypeAlias, visitor: Visitor)
 	if visitor.visitStatTypeAlias(node) then
-		if node.export then
+		if node.isExported then
+			assert(node.export)
 			visitToken(node.export, visitor)
 		end
 		visitToken(node.typeToken, visitor)
@@ -438,6 +456,7 @@ end
 local function visitExprLocal(node: types.CstExprLocal, visitor: Visitor)
 	if visitor.visitExprLocal(node) then
 		visitor.visitToken(node.token)
+		visitor.visitLocal(node["local"])
 	end
 end
 
@@ -505,18 +524,15 @@ local function visitExprFunction(
 		if node.openGenerics then
 			visitToken(node.openGenerics, visitor)
 		end
-		if node.generics then
-			visitPunctuated(node.generics, visitor, visitGeneric)
-		end
-		if node.genericPacks then
-			visitPunctuated(node.genericPacks, visitor, visitGenericPack)
-		end
+		visitPunctuated(node.generics, visitor, visitGeneric)
+		visitPunctuated(node.genericPacks, visitor, visitGenericPack)
 		if node.closeGenerics then
 			visitToken(node.closeGenerics, visitor)
 		end
 		visitToken(node.openParens, visitor)
 		visitPunctuated(node.parameters, visitor, visitLocal)
-		if node.vararg then
+		if node.hasVararg then
+			assert(node.vararg)
 			visitToken(node.vararg, visitor)
 		end
 		if node.varargColon then
@@ -575,7 +591,8 @@ end
 
 local function visitStatTypeFunction(node: types.CstStatTypeFunction, visitor: Visitor)
 	if visitor.visitStatTypeFunction(node) then
-		if node.export then
+		if node.isExported then
+			assert(node.export)
 			visitToken(node.export, visitor)
 		end
 		visitToken(node.type, visitor)
@@ -666,11 +683,21 @@ end
 local function visitExprIfElse(node: types.CstExprIfElse, visitor: Visitor)
 	if visitor.visitExprIfElse(node) then
 		visitToken(node.ifKeyword, visitor)
+		if node.localKeyword and node.conditionLocal and node.equals then
+			visitToken(node.localKeyword, visitor)
+			visitLocal(node.conditionLocal, visitor)
+			visitToken(node.equals, visitor)
+		end
 		visitExpr(node.condition, visitor)
 		visitToken(node.thenKeyword, visitor)
 		visitExpr(node.thenExpr, visitor)
 		for _, elseifs in node.elseifs do
 			visitToken(elseifs.elseIfKeyword, visitor)
+			if elseifs.localKeyword and elseifs.conditionLocal and elseifs.equals then
+				visitToken(elseifs.localKeyword, visitor)
+				visitLocal(elseifs.conditionLocal, visitor)
+				visitToken(elseifs.equals, visitor)
+			end
 			visitExpr(elseifs.condition, visitor)
 			visitToken(elseifs.thenKeyword, visitor)
 			visitExpr(elseifs.thenExpr, visitor)
@@ -773,29 +800,39 @@ local function visitTypeArray(node: types.CstTypeArray, visitor: Visitor)
 	end
 end
 
+local function visitTableTypeItem(node: types.CstTableTypeItem, visitor: Visitor)
+	if visitor.visitTableTypeItem(node) then
+		if node.access then
+			visitToken(node.access, visitor)
+		end
+		if node.kind == "indexer" then
+			visitToken(node.indexerOpen, visitor)
+			visitType(node.key, visitor)
+			visitToken(node.indexerClose, visitor)
+		elseif node.kind == "property" then
+			if node.indexerOpen then
+				visitToken(node.indexerOpen, visitor)
+			end
+			visitToken(node.key, visitor)
+			if node.indexerClose then
+				visitToken(node.indexerClose, visitor)
+			end
+		else
+			exhaustiveMatch(node.kind)
+		end
+		visitToken(node.colon, visitor)
+		visitType(node.value, visitor)
+		if node.separator then
+			visitToken(node.separator, visitor)
+		end
+	end
+end
+
 local function visitTypeTable(node: types.CstTypeTable, visitor: Visitor)
 	if visitor.visitTypeTable(node) then
 		visitToken(node.openBrace, visitor)
 		for _, entry in node.entries do
-			if entry.access then
-				visitToken(entry.access, visitor)
-			end
-			if entry.kind == "indexer" then
-				visitToken(entry.indexerOpen, visitor)
-				visitType(entry.key, visitor)
-				visitToken(entry.indexerClose, visitor)
-			elseif entry.kind == "stringproperty" then
-				visitToken(entry.indexerOpen, visitor)
-				visitTypeSingletonString(entry.key, visitor)
-				visitToken(entry.indexerClose, visitor)
-			else
-				visitToken(entry.key, visitor)
-			end
-			visitToken(entry.colon, visitor)
-			visitType(entry.value, visitor)
-			if entry.separator then
-				visitToken(entry.separator, visitor)
-			end
+			visitTableTypeItem(entry, visitor)
 		end
 		visitToken(node.closeBrace, visitor)
 	end
@@ -918,86 +955,92 @@ function visitExpr(expression: types.CstExpr, visitor: Visitor)
 end
 
 function visitStatement(statement: types.CstStat, visitor: Visitor)
-	if statement.tag == "block" then
-		visitStatBlock(statement, visitor)
-	elseif statement.tag == "do" then
-		visitStatDo(statement, visitor)
-	elseif statement.tag == "conditional" then
-		visitStatIf(statement, visitor)
-	elseif statement.tag == "expression" then
-		visitStatExpr(statement, visitor)
-	elseif statement.tag == "local" then
-		visitLocalStatement(statement, visitor)
-	elseif statement.tag == "const" then
-		visitConstStatement(statement, visitor)
-	elseif statement.tag == "return" then
-		visitStatReturn(statement, visitor)
-	elseif statement.tag == "while" then
-		visitStatWhile(statement, visitor)
-	elseif statement.tag == "break" then
-		visitStatBreak(statement, visitor)
-	elseif statement.tag == "continue" then
-		visitStatContinue(statement, visitor)
-	elseif statement.tag == "repeat" then
-		visitStatRepeat(statement, visitor)
-	elseif statement.tag == "for" then
-		visitStatFor(statement, visitor)
-	elseif statement.tag == "forin" then
-		visitStatForIn(statement, visitor)
-	elseif statement.tag == "assign" then
-		visitStatAssign(statement, visitor)
-	elseif statement.tag == "compoundassign" then
-		visitStatCompoundAssign(statement, visitor)
-	elseif statement.tag == "function" then
-		visitStatFunction(statement, visitor)
-	elseif statement.tag == "localfunction" then
-		visitStatLocalFunction(statement, visitor)
-	elseif statement.tag == "typealias" then
-		visitStatTypeAlias(statement, visitor)
-	elseif statement.tag == "typefunction" then
-		visitStatTypeFunction(statement, visitor)
-	else
-		exhaustiveMatch(statement.tag)
+	if visitor.visitStat(statement) then
+		if statement.tag == "block" then
+			visitStatBlock(statement, visitor)
+		elseif statement.tag == "do" then
+			visitStatDo(statement, visitor)
+		elseif statement.tag == "conditional" then
+			visitStatIf(statement, visitor)
+		elseif statement.tag == "expression" then
+			visitStatExpr(statement, visitor)
+		elseif statement.tag == "local" then
+			visitLocalStatement(statement, visitor)
+		elseif statement.tag == "const" then
+			visitConstStatement(statement, visitor)
+		elseif statement.tag == "return" then
+			visitStatReturn(statement, visitor)
+		elseif statement.tag == "while" then
+			visitStatWhile(statement, visitor)
+		elseif statement.tag == "break" then
+			visitStatBreak(statement, visitor)
+		elseif statement.tag == "continue" then
+			visitStatContinue(statement, visitor)
+		elseif statement.tag == "repeat" then
+			visitStatRepeat(statement, visitor)
+		elseif statement.tag == "for" then
+			visitStatFor(statement, visitor)
+		elseif statement.tag == "forin" then
+			visitStatForIn(statement, visitor)
+		elseif statement.tag == "assign" then
+			visitStatAssign(statement, visitor)
+		elseif statement.tag == "compoundassign" then
+			visitStatCompoundAssign(statement, visitor)
+		elseif statement.tag == "function" then
+			visitStatFunction(statement, visitor)
+		elseif statement.tag == "localfunction" then
+			visitStatLocalFunction(statement, visitor)
+		elseif statement.tag == "typealias" then
+			visitStatTypeAlias(statement, visitor)
+		elseif statement.tag == "typefunction" then
+			visitStatTypeFunction(statement, visitor)
+		else
+			exhaustiveMatch(statement.tag)
+		end
 	end
 end
 
 function visitType(type: types.CstType, visitor: Visitor)
-	if type.tag == "reference" then
-		visitTypeReference(type, visitor)
-	elseif type.tag == "boolean" then
-		visitTypeSingletonBool(type, visitor)
-	elseif type.tag == "string" then
-		visitTypeSingletonString(type, visitor)
-	elseif type.tag == "typeof" then
-		visitTypeTypeof(type, visitor)
-	elseif type.tag == "group" then
-		visitTypeGroup(type, visitor)
-	elseif type.tag == "union" then
-		visitTypeUnion(type, visitor)
-	elseif type.tag == "intersection" then
-		visitTypeIntersection(type, visitor)
-	elseif type.tag == "optional" then
-		visitTypeOptional(type, visitor)
-	elseif type.tag == "array" then
-		visitTypeArray(type, visitor)
-	elseif type.tag == "table" then
-		visitTypeTable(type, visitor)
-	elseif type.tag == "function" then
-		visitTypeFunction(type, visitor)
-	else
-		exhaustiveMatch(type.tag)
+	if visitor.visitType(type) then
+		if type.tag == "reference" then
+			visitTypeReference(type, visitor)
+		elseif type.tag == "boolean" then
+			visitTypeSingletonBool(type, visitor)
+		elseif type.tag == "string" then
+			visitTypeSingletonString(type, visitor)
+		elseif type.tag == "typeof" then
+			visitTypeTypeof(type, visitor)
+		elseif type.tag == "group" then
+			visitTypeGroup(type, visitor)
+		elseif type.tag == "union" then
+			visitTypeUnion(type, visitor)
+		elseif type.tag == "intersection" then
+			visitTypeIntersection(type, visitor)
+		elseif type.tag == "optional" then
+			visitTypeOptional(type, visitor)
+		elseif type.tag == "array" then
+			visitTypeArray(type, visitor)
+		elseif type.tag == "table" then
+			visitTypeTable(type, visitor)
+		elseif type.tag == "function" then
+			visitTypeFunction(type, visitor)
+		else
+			exhaustiveMatch(type.tag)
+		end
 	end
 end
 
 function visitTypePack(type: types.CstTypePack, visitor: Visitor)
-	if type.tag == "explicit" then
-		visitTypePackExplicit(type, visitor)
-	elseif type.tag == "generic" then
-		visitTypePackGeneric(type, visitor)
-	elseif type.tag == "variadic" then
-		visitTypePackVariadic(type, visitor)
-	else
-		exhaustiveMatch(type.tag)
+	if visitor.visitTypePack(type) then
+		if type.tag == "explicit" then
+			visitTypePackExplicit(type, visitor)
+		elseif type.tag == "generic" then
+			visitTypePackGeneric(type, visitor)
+		elseif type.tag == "variadic" then
+			visitTypePackVariadic(type, visitor)
+		else
+			exhaustiveMatch(type.tag)
+		end
 	end
 end
 
@@ -1005,6 +1048,7 @@ end
 local function create(visit: ((types.CstNode) -> boolean)?): Visitor
 	if visit then
 		return {
+			visitStat = visit,
 			visitStatBlock = visit,
 			visitStatBlockEnd = function(s)
 				visit(s)
@@ -1063,6 +1107,7 @@ local function create(visit: ((types.CstNode) -> boolean)?): Visitor
 			visitExprTypeAssertion = visit,
 			visitExprIfElse = visit,
 
+			visitType = visit,
 			visitTypeReference = visit,
 			visitTypeSingletonBool = visit,
 			visitTypeSingletonString = visit,
@@ -1072,9 +1117,11 @@ local function create(visit: ((types.CstNode) -> boolean)?): Visitor
 			visitTypeUnion = visit,
 			visitTypeIntersection = visit,
 			visitTypeArray = visit,
-			visitTypeTable = visit :: (types.CstTypeTable) -> boolean, -- LUAUFIX: Remove cast once code too complex no longer emitted
+			visitTableTypeItem = visit :: (types.CstTableTypeItem) -> boolean,
+			visitTypeTable = visit,
 			visitTypeFunction = visit,
 
+			visitTypePack = visit,
 			visitTypePackExplicit = visit,
 			visitTypePackGeneric = visit,
 			visitTypePackVariadic = visit,

@@ -5,7 +5,7 @@ Run tests discovered in .test.luau and .spec.luau files (defaults to looking for
 ## Usage
 
 ```bash
-lute test [OPTIONS] [PATHS...]
+lute test [options] [paths...]
 ```
 
 ## Options
