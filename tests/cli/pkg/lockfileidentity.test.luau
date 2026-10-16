@@ -172,7 +172,7 @@ test.suite("RegistryLockfileIdentity", function(suite)
 
 		local lock = lockfile.parseFile(path.format(lockfilePath))
 		local rootManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
-		local satisfied, reason = lockfile.satisfiesManifest(lock, rootManifest, false)
+		local satisfied, reason = lockfile.satisfiesManifest(lock, rootManifest, path.format(workingDirectory), false)
 		assert.eq(satisfied, false)
 		assert.eq(reason, "github store path changed: apple@v1.0.0")
 	end)

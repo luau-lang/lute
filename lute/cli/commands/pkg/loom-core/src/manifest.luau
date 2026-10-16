@@ -7,6 +7,9 @@ export type PathDependencySpec = {
 	read sourceKind: "path",
 	read name: string,
 	read source: string,
+	-- normalized absolute path resolved from the declaring manifest, everything
+	-- after parsing uses this
+	read directory: string,
 }
 
 export type GitHubDependencySpec = {
@@ -82,7 +85,11 @@ local function parseTarget(target: unknown, name: string, sectionName: string): 
 	return path.format(normalized)
 end
 
-local function parseDependencyMap(raw: any, sectionName: string): { [string]: DependencySpec }
+local function parseDependencyMap(
+	raw: any,
+	sectionName: string,
+	manifestDirectory: string
+): { [string]: DependencySpec }
 	local result: { [string]: DependencySpec } = {}
 	if raw == nil then
 		return table.freeze(result)
@@ -120,6 +127,7 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 				name = spec.name or name,
 				sourceKind = "path" :: "path",
 				source = spec.source,
+				directory = path.format(path.resolve(manifestDirectory, spec.source)),
 			})
 		elseif spec.sourceKind == "github" then
 			assert(typeof(spec.rev) == "string", `Expected 'rev' field for github dependency '{name}' in {sectionName}`)
@@ -156,7 +164,7 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 end
 
 -- TODO: We should do proper error handling because this is user input.
-local function parseManifest(t: unknown): ProjectManifest
+local function parseManifest(t: unknown, manifestDirectory: string): ProjectManifest
 	assert(t ~= nil and typeof(t) == "table", "Expected a table")
 	assert(t.package ~= nil and typeof(t.package) == "table", "Expected 'package' field in manifest")
 
@@ -177,14 +185,14 @@ local function parseManifest(t: unknown): ProjectManifest
 		"Package manifest must specify both 'name' and 'version', or neither for a virtual package"
 	)
 
-	local dependencies = parseDependencyMap((pkg :: any).dependencies, "dependencies")
-	local devDependencies = parseDependencyMap((pkg :: any).dev_dependencies, "dev_dependencies")
+	local dependencies = parseDependencyMap((pkg :: any).dependencies, "dependencies", manifestDirectory)
+	local devDependencies = parseDependencyMap((pkg :: any).dev_dependencies, "dev_dependencies", manifestDirectory)
 
 	for alias in devDependencies do
 		assert(dependencies[alias] == nil, `Alias '{alias}' appears in both dependencies and dev_dependencies`)
 	end
 
-	local overrides = parseDependencyMap((t :: any).overrides, "overrides")
+	local overrides = parseDependencyMap((t :: any).overrides, "overrides", manifestDirectory)
 
 	local registry: string? = nil
 	if (t :: any).registry ~= nil then
@@ -206,7 +214,7 @@ end
 
 local function parseFile(manifestPath: string): ProjectManifest
 	local manifestTable = luau.loadModule(manifestPath)
-	return parseManifest(manifestTable)
+	return parseManifest(manifestTable, path.dirname(path.format(path.resolve(manifestPath))))
 end
 
 return {

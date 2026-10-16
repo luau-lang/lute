@@ -1,6 +1,7 @@
 local fs = require("@std/fs")
 local luau = require("@std/luau")
 local manifest = require("./manifest")
+local path = require("@std/path")
 local registryUrlUtil = require("./registryurl")
 local semver = require("./semver")
 local store = require("./store")
@@ -145,9 +146,26 @@ local function getEffectiveRootSpec(
 	return overrides[spec.name] or spec
 end
 
+local function isSameSource(pkg: LockfileDependency, spec: manifest.DependencySpec, rootDirectory: string): boolean
+	if pkg.sourceKind ~= spec.sourceKind then
+		return false
+	end
+	if spec.sourceKind == "path" then
+		return path.format(path.resolve(rootDirectory, pkg.source)) == spec.directory
+	end
+	if pkg.source ~= spec.source then
+		return false
+	end
+	if spec.sourceKind == "github" then
+		return pkg.rev == spec.rev and pkg.target == spec.target
+	end
+	return true
+end
+
 local function satisfiesManifest(
 	lock: Lockfile,
 	rootManifest: manifest.ProjectManifest,
+	rootDirectory: string,
 	excludeDev: boolean
 ): (boolean, string?)
 	local expectedAliases: { [string]: manifest.DependencySpec } = {}
@@ -175,19 +193,11 @@ local function satisfiesManifest(
 			return false, `broken lockfile entry for: {alias}`
 		end
 
-		if pkg.sourceKind ~= spec.sourceKind then
-			return false, `source kind changed for: {alias}`
+		if not isSameSource(pkg, spec, rootDirectory) then
+			return false, `{spec.sourceKind} source changed for: {alias}`
 		end
 
-		if spec.sourceKind == "github" then
-			if pkg.source ~= spec.source or pkg.rev ~= spec.rev or pkg.target ~= spec.target then
-				return false, `github source changed for: {alias}`
-			end
-		elseif spec.sourceKind == "path" then
-			if pkg.source ~= spec.source then
-				return false, `path changed for: {alias}`
-			end
-		elseif spec.sourceKind == "registry" then
+		if spec.sourceKind == "registry" then
 			if pkg.source ~= spec.source then
 				return false, `registry source changed for: {alias}`
 			end
@@ -266,6 +276,7 @@ return {
 	parseFile = parseFile,
 	tryParseFile = tryParseFile,
 	satisfiesManifest = satisfiesManifest,
+	isSameSource = isSameSource,
 	getReachablePackageKeys = getReachablePackageKeys,
 	serializeOverrides = serializeOverrides,
 }

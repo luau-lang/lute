@@ -653,7 +653,7 @@ test.suite("DevDependencies", function(suite)
 			"",
 			[[
 
-			testlib = {
+			 testlib = {
 				sourceKind = "path",
 				source = "./testlib",
 			},]]
@@ -665,7 +665,7 @@ test.suite("DevDependencies", function(suite)
 		assert.eq(lock.packages["testlib"], {
 			name = "testlib",
 			sourceKind = "path",
-			source = "./testlib",
+			source = "testlib",
 			installPath = "testlib",
 			dependencies = {},
 		})
@@ -695,7 +695,7 @@ test.suite("DevDependencies", function(suite)
 			"root",
 			[[
 
-			lib = {
+			 lib = {
 				sourceKind = "path",
 				source = "./lib",
 			},]]
@@ -707,7 +707,7 @@ test.suite("DevDependencies", function(suite)
 		assert.eq(lock.packages["lib"], {
 			name = "lib",
 			sourceKind = "path",
-			source = "./lib",
+			source = "lib",
 			installPath = "lib",
 			dependencies = {},
 		})
@@ -905,7 +905,7 @@ test.suite("DevDependencies", function(suite)
 		assert.eq(lock.packages["lib"], {
 			name = "lib",
 			sourceKind = "path",
-			source = "./lib",
+			source = "lib",
 			installPath = "lib",
 			dependencies = {},
 		})
@@ -2586,7 +2586,7 @@ return {
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 		assert.eq(lock.dependencies.apple, "apple")
-		assert.eq(lock.packages.apple.source, "./repository/modules/apple")
+		assert.eq(lock.packages.apple.source, "repository/modules/apple")
 		assert.eq(lock.packages.apple.installPath, "repository/modules/apple")
 
 		local reused = resolution.resolve(path.format(workingDirectory), nil, { locked = true })
@@ -2620,5 +2620,88 @@ return {
 				resolution.resolve(path.format(workingDirectory), nil)
 			end
 		)
+	end)
+
+	suite:case("resolvesSiblingPathsFromVirtualRootMembers", function(assert)
+		local appleDirectory = path.join(workingDirectory, "modules", "apple")
+		local bananaDirectory = path.join(workingDirectory, "modules", "banana")
+		fs.createDirectory(appleDirectory, { makeParents = true })
+		fs.createDirectory(bananaDirectory, { makeParents = true })
+
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		dependencies = {
+			apple = { sourceKind = "path", source = "./modules/apple" },
+			banana = { sourceKind = "path", source = "./modules/banana" },
+		},
+	},
+}]]
+		)
+		fs.writeStringToFile(
+			path.join(appleDirectory, "loom.config.luau"),
+			[[return { package = { name = "apple", version = "1.0.0" } }]]
+		)
+		fs.writeStringToFile(
+			path.join(bananaDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "banana",
+		version = "1.0.0",
+		dependencies = {
+			apple = { sourceKind = "path", source = "../apple" },
+		},
+	},
+}]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.packages.apple.source, "modules/apple")
+		assert.eq(lock.packages.banana.dependencies.apple, "apple")
+	end)
+
+	suite:case("resolvesPathOverridesAgainstVirtualRootMembers", function(assert)
+		local appleDirectory = path.join(workingDirectory, "modules", "apple")
+		local bananaDirectory = path.join(workingDirectory, "modules", "banana")
+		fs.createDirectory(appleDirectory, { makeParents = true })
+		fs.createDirectory(bananaDirectory, { makeParents = true })
+
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		dependencies = {
+			banana = { sourceKind = "path", source = "./modules/banana" },
+		},
+	},
+	overrides = {
+		apple = { sourceKind = "path", source = "./modules/apple" },
+	},
+}]]
+		)
+		fs.writeStringToFile(
+			path.join(appleDirectory, "loom.config.luau"),
+			[[return { package = { name = "apple", version = "1.0.0" } }]]
+		)
+		fs.writeStringToFile(
+			path.join(bananaDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "banana",
+		version = "1.0.0",
+		dependencies = {
+			apple = { sourceKind = "path", source = "../apple" },
+		},
+	},
+}]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.packages.banana.dependencies.apple, "apple")
+		assert.eq(lock.packages.apple.source, "modules/apple")
+
+		local reused = resolution.resolve(path.format(workingDirectory), nil, { locked = true })
+		assert.eq(reused.packages.apple.source, "modules/apple")
 	end)
 end)

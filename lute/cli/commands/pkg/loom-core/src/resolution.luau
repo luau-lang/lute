@@ -28,31 +28,12 @@ local function getKey(spec: manifest.DependencySpec): string
 	return spec.name
 end
 
-local function getTarget(spec: manifest.DependencySpec): string?
-	if spec.sourceKind == "github" then
-		return spec.target
-	end
-	return nil
-end
-
-local function hasConflict(resolved: lockfile.LockfileDependency, incoming: manifest.DependencySpec): boolean
-	if resolved.sourceKind ~= incoming.sourceKind then
-		return true
-	end
-
-	if resolved.source ~= incoming.source then
-		return true
-	end
-
-	if resolved.target ~= getTarget(incoming) then
-		return true
-	end
-
-	if incoming.sourceKind == "github" then
-		return resolved.rev ~= incoming.rev
-	end
-
-	return false
+local function hasConflict(
+	resolved: lockfile.LockfileDependency,
+	incoming: manifest.DependencySpec,
+	rootDirectory: string
+): boolean
+	return not lockfile.isSameSource(resolved, incoming, rootDirectory)
 end
 
 local function selectGitHubTarget(spec: manifest.GitHubDependencySpec, sourcePath: string): string
@@ -90,12 +71,11 @@ local function resolveDependencySource(spec: manifest.DependencySpec, from: Sour
 		return spec
 	end
 
-	local sourcePath = path.format(path.resolve(from.directory, spec.source))
-	if not fs.exists(sourcePath) then
-		error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
+	if not fs.exists(spec.directory) then
+		error(`Path dependency directory not found: {spec.directory} (for package '{spec.name}')`)
 	end
 
-	local target = path.relative(checkout.root, sourcePath)
+	local target = path.relative(checkout.root, spec.directory)
 	if target.parts[1] == ".." then
 		error(
 			`Path dependency '{spec.name}' leaves its GitHub checkout {checkout.spec.source}; use a GitHub or registry dependency instead`
@@ -111,35 +91,12 @@ local function resolveDependencySource(spec: manifest.DependencySpec, from: Sour
 	})
 end
 
-local function normalizePathDependency(
-	spec: manifest.DependencySpec,
-	installPath: string,
-	rootDirectory: string
-): manifest.DependencySpec
-	-- normalization is a no-op if it's not a path dependency
-	if spec.sourceKind ~= "path" then
-		return spec
-	end
-
-	local sourcePath = path.format(path.resolve(installPath, spec.source))
-	if not fs.exists(sourcePath) then
-		error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
-	end
-
-	return table.freeze({
-		name = spec.name,
-		sourceKind = "path",
-		source = path.format(path.relative(rootDirectory, sourcePath)),
-	}) :: manifest.PathDependencySpec
-end
-
 local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string): SourceLocation
 	if spec.sourceKind == "path" then
-		local sourcePath = path.format(path.resolve(rootDirectory, spec.source))
-		if not fs.exists(sourcePath) then
-			error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
+		if not fs.exists(spec.directory) then
+			error(`Path dependency directory not found: {spec.directory} (for package '{spec.name}')`)
 		end
-		return { directory = sourcePath }
+		return { directory = spec.directory }
 	elseif spec.sourceKind == "github" then
 		store.ensureStoreDirectory()
 
@@ -279,14 +236,13 @@ local function collectSourcePackageDependencies(
 	local function collectDependencies(dependencies: { [string]: manifest.DependencySpec })
 		for dependencyAlias, dependencySpec in dependencies do
 			local sourceSpec = resolveDependencySource(dependencySpec, location)
-			local normalizedSpec = normalizePathDependency(sourceSpec, location.directory, rootDirectory)
-			local overrideSpec = overrides[normalizedSpec.name]
-			local effectiveSpec = overrideSpec or normalizedSpec
+			local overrideSpec = overrides[sourceSpec.name]
+			local effectiveSpec = overrideSpec or sourceSpec
 
-			if normalizedSpec.sourceKind == "registry" then
+			if sourceSpec.sourceKind == "registry" then
 				assert(
 					dependencyManifest.registry ~= nil,
-					`Package '{key}' has registry dependency '{normalizedSpec.name}' but no 'registry' field in its manifest.`
+					`Package '{key}' has registry dependency '{sourceSpec.name}' but no 'registry' field in its manifest.`
 				)
 			end
 
@@ -343,7 +299,7 @@ local function resolveSourcePackage(
 	local key = getKey(spec)
 
 	if packages[key] then
-		if hasConflict(packages[key], spec) then
+		if hasConflict(packages[key], spec, rootDirectory) then
 			error(
 				`Source mismatch for package '{spec.name}':\n`
 					.. `  resolved: {packages[key].source} ({packages[key].sourceKind})\n`
@@ -379,7 +335,9 @@ local function resolveSourcePackage(
 	packages[key] = table.freeze({
 		name = spec.name,
 		rev = if spec.sourceKind == "github" then spec.rev else nil,
-		source = spec.source,
+		source = if spec.sourceKind == "path"
+			then path.format(path.relative(rootDirectory, spec.directory))
+			else spec.source,
 		sourceKind = spec.sourceKind,
 		target = if spec.sourceKind == "github" then spec.target else nil,
 		installPath = getSourceInstallPath(spec, rootDirectory, location.directory),
@@ -537,13 +495,8 @@ local function pathDepsAreStale(
 		end
 
 		for alias, depSpec in expectedDependencies do
-			local normalizeOk, normalizedDepSpec =
-				pcall(normalizePathDependency, depSpec, packageInstallPath, rootDirectory)
-			if not normalizeOk then
-				return true
-			end
-			local overrideSpec = overrides[(normalizedDepSpec :: manifest.DependencySpec).name]
-			depSpec = overrideSpec or normalizedDepSpec
+			local overrideSpec = overrides[depSpec.name]
+			depSpec = overrideSpec or depSpec
 
 			local recordedKey = pkg.dependencies[alias]
 			if recordedKey == nil then
@@ -553,22 +506,10 @@ local function pathDepsAreStale(
 			if recordedPkg == nil then
 				return true
 			end
-			if recordedPkg.sourceKind ~= depSpec.sourceKind then
+			if not lockfile.isSameSource(recordedPkg, depSpec, rootDirectory) then
 				return true
 			end
-			if depSpec.sourceKind == "github" then
-				if
-					recordedPkg.source ~= depSpec.source
-					or recordedPkg.rev ~= depSpec.rev
-					or recordedPkg.target ~= depSpec.target
-				then
-					return true
-				end
-			elseif depSpec.sourceKind == "path" then
-				if recordedPkg.source ~= depSpec.source then
-					return true
-				end
-			elseif depSpec.sourceKind == "registry" then
+			if depSpec.sourceKind == "registry" then
 				local registryUrl = if overrideSpec then rootRegistryUrl else depManifest.registry
 				if
 					recordedPkg.source ~= depSpec.source
@@ -628,7 +569,7 @@ local function tryReuseLockfile(
 	end
 
 	if existingLock then
-		local satisfied, reason = lockfile.satisfiesManifest(existingLock, rootManifest, excludeDev)
+		local satisfied, reason = lockfile.satisfiesManifest(existingLock, rootManifest, rootDirectory, excludeDev)
 		local pathsAreStale = pathDepsAreStale(
 			existingLock,
 			rootDirectory,
