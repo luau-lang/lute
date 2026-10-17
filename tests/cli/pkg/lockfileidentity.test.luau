@@ -1,5 +1,6 @@
 local fs = require("@std/fs")
 local lockfile = require("@commands/pkg/loom-core/src/lockfile")
+local manifest = require("@commands/pkg/loom-core/src/manifest")
 local path = require("@std/path")
 local store = require("@commands/pkg/loom-core/src/store")
 local system = require("@std/system")
@@ -30,6 +31,66 @@ test.suite("RegistryLockfileIdentity", function(suite)
 		assert.neq(identity, store.getRegistryIdentity("https://other-registry.example.com"))
 		assert.eq(qualified, `citrus@1.0.0--registry-{identity}`)
 		assert.eq(store.qualifyRegistryKey(qualified, registryUrl), qualified)
+	end)
+
+	suite:case("usesReadableCollisionSafeGitHubCheckoutKeys", function(assert)
+		local source = "https://github.com/example/fruits/"
+		local key = store.getGitHubCheckoutKey(source, "feature/member")
+
+		assert.eq(key, store.getGitHubCheckoutKey("https://github.com/example/fruits", "feature/member"))
+		assert.neq(key, store.getGitHubCheckoutKey(source, "feature-member"))
+		assert.strContains(key, "fruits--github-")
+		local revisionHash = string.match(key, "@(.+)$")
+		assert.neq(revisionHash, nil)
+		assert.eq(#(revisionHash :: string), 64)
+		assert.eq(store.getGitHubInstallPath(source, "feature/member", "modules/apple"), `@pkg/{key}/modules/apple`)
+	end)
+
+	suite:case("serializesGitHubOverrideTargetsOnlyWhenPresent", function(assert)
+		local withoutTarget = lockfile.serializeOverrides({
+			apple = {
+				name = "apple",
+				sourceKind = "github",
+				source = "https://github.com/example/fruits",
+				rev = "v1.0.0",
+			},
+		})
+		local withTarget = lockfile.serializeOverrides({
+			apple = {
+				name = "apple",
+				sourceKind = "github",
+				source = "https://github.com/example/fruits",
+				rev = "v1.0.0",
+				target = "modules/apple",
+			},
+		})
+
+		assert.eq(withoutTarget.apple, "github:https://github.com/example/fruits@v1.0.0")
+		assert.eq(withTarget.apple, "github:https://github.com/example/fruits@v1.0.0:modules/apple")
+	end)
+
+	suite:case("matchesGitHubTargetsExactly", function(assert)
+		local spec: manifest.GitHubDependencySpec = {
+			name = "apple",
+			sourceKind = "github",
+			source = "https://github.com/example/fruits",
+			rev = "v1.0.0",
+			target = "modules/apple",
+		}
+		local function makePackage(target: string): lockfile.LockfileDependency
+			return {
+				name = "apple",
+				sourceKind = "github",
+				source = "https://github.com/example/fruits",
+				rev = "v1.0.0",
+				target = target,
+				installPath = "@pkg/fruits/modules/apple",
+				dependencies = {},
+			}
+		end
+
+		assert.that(lockfile.isSameSource(makePackage("modules/apple"), spec, path.format(workingDirectory)))
+		assert.eq(lockfile.isSameSource(makePackage("./modules/apple"), spec, path.format(workingDirectory)), false)
 	end)
 
 	suite:case("parsesOptionalRegistryFieldsInVersionThreeLockfiles", function(assert)
@@ -117,5 +178,49 @@ test.suite("RegistryLockfileIdentity", function(suite)
 		assert.throwsWith("Expected 'registry' field to be a string or nil for dependency 'citrus@1.0.0'", function()
 			lockfile.parseFile(path.format(lockfilePath))
 		end)
+	end)
+
+	suite:case("doesNotReuseGitHubEntriesWithAnIncorrectTargetInstallPath", function(assert)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "1.0.0",
+		dependencies = {
+			apple = {
+				sourceKind = "github",
+				source = "https://github.com/example/fruits",
+				rev = "v1.0.0",
+				target = "modules/apple",
+			},
+		},
+	},
+}]]
+		)
+		writeLockfile([[return {
+	version = 3,
+	dependencies = {
+		apple = "apple@v1.0.0",
+	},
+	packages = {
+		["apple@v1.0.0"] = {
+			name = "apple",
+			rev = "v1.0.0",
+			source = "https://github.com/example/fruits",
+			sourceKind = "github",
+			target = "modules/apple",
+			installPath = "@pkg/not-the-github-artifact/modules/apple",
+			dependencies = {},
+		},
+	},
+}
+]])
+
+		local lock = lockfile.parseFile(path.format(lockfilePath))
+		local rootManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		local satisfied, reason = lockfile.satisfiesManifest(lock, rootManifest, path.format(workingDirectory), false)
+		assert.eq(satisfied, false)
+		assert.eq(reason, "github store path changed: apple@v1.0.0")
 	end)
 end)

@@ -25,64 +25,103 @@ local function getKey(spec: manifest.DependencySpec): string
 	return spec.name
 end
 
-local function hasConflict(resolved: lockfile.LockfileDependency, incoming: manifest.DependencySpec): boolean
-	if resolved.sourceKind ~= incoming.sourceKind then
-		return true
-	end
-
-	if resolved.source ~= incoming.source then
-		return true
-	end
-
-	if incoming.sourceKind == "github" then
-		return resolved.rev ~= incoming.rev
-	end
-
-	return false
+local function hasConflict(
+	resolved: lockfile.LockfileDependency,
+	incoming: manifest.DependencySpec,
+	rootDirectory: string
+): boolean
+	return not lockfile.isSameSource(resolved, incoming, rootDirectory)
 end
 
-local function normalizePathDependency(
-	spec: manifest.DependencySpec,
-	installPath: string,
-	rootDirectory: string
-): manifest.DependencySpec
-	-- normalization is a no-op if it's not a path dependency
-	if spec.sourceKind ~= "path" then
+local function selectGitHubTarget(spec: manifest.GitHubDependencySpec, sourcePath: string): string
+	if spec.target == nil then
+		return sourcePath
+	end
+
+	assert(not path.isAbsolute(spec.target), `Target for package '{spec.name}' must be a relative path`)
+	local targetPath = path.format(path.resolve(sourcePath, spec.target))
+	if not fs.exists(targetPath) then
+		error(`Target directory not found: {targetPath} (for package '{spec.name}')`)
+	end
+
+	return targetPath
+end
+
+type SourceLocation = {
+	-- the package's location in store
+	read directory: string,
+	-- the git repo's bound
+	read checkout: { read root: string, read spec: manifest.GitHubDependencySpec }?,
+}
+
+-- Converts path dependency in git package to a github dependency
+-- if dependency not a path dependency / the parent package not a github package, spec unchanged
+-- otherwise resolves declared path from the selected package directory (target) as long as it exist and is in the original repo
+local function resolveDependencySource(spec: manifest.DependencySpec, from: SourceLocation): manifest.DependencySpec
+	local checkout = from.checkout
+	if spec.sourceKind ~= "path" or checkout == nil then
 		return spec
 	end
 
-	local sourcePath = path.format(path.resolve(installPath, spec.source))
-	if not fs.exists(sourcePath) then
-		error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
+	if not fs.exists(spec.directory) then
+		error(`Path dependency directory not found: {spec.directory} (for package '{spec.name}')`)
+	end
+
+	local target = path.relative(checkout.root, spec.directory)
+	if target.parts[1] == ".." then
+		error(
+			`Path dependency '{spec.name}' leaves its GitHub checkout {checkout.spec.source}; use a GitHub or registry dependency instead`
+		)
 	end
 
 	return table.freeze({
 		name = spec.name,
-		sourceKind = "path",
-		source = path.format(path.relative(rootDirectory, sourcePath)),
-	}) :: manifest.PathDependencySpec
+		sourceKind = "github" :: "github",
+		source = checkout.spec.source,
+		rev = checkout.spec.rev,
+		target = if #target.parts == 0
+			then nil
+			else path.posix.format({
+				parts = target.parts,
+				absolute = false,
+			}),
+	})
 end
 
-local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string): string
+local function fetchSource(spec: manifest.DependencySpec): SourceLocation
 	if spec.sourceKind == "path" then
-		local sourcePath = path.format(path.resolve(rootDirectory, spec.source))
-		if not fs.exists(sourcePath) then
-			error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
+		if not fs.exists(spec.directory) then
+			error(`Path dependency directory not found: {spec.directory} (for package '{spec.name}')`)
 		end
-		return sourcePath
+		return { directory = spec.directory }
 	elseif spec.sourceKind == "github" then
 		store.ensureStoreDirectory()
 
-		local key = getKey(spec)
+		local key = store.getGitHubCheckoutKey(spec.source, spec.rev)
 		local sourcePath = store.getPackagePath(key)
 		if not store.hasPackage(key) then
 			github.installPackage(spec.source, spec.rev, sourcePath)
 		end
 
-		return sourcePath
+		return {
+			directory = selectGitHubTarget(spec, sourcePath),
+			checkout = { root = sourcePath, spec = spec },
+		}
 	else
 		error(`Unsupported source kind: {spec.sourceKind} for package {spec.name}`)
 	end
+end
+
+local function getSourceInstallPath(spec: manifest.DependencySpec, rootDirectory: string, selectedPath: string): string
+	if spec.sourceKind == "path" then
+		return path.posix.format({
+			parts = path.relative(rootDirectory, selectedPath).parts,
+			absolute = false,
+		})
+	end
+
+	assert(spec.sourceKind == "github", `Unsupported source kind: {spec.sourceKind} for package {spec.name}`)
+	return store.getGitHubInstallPath(spec.source, spec.rev, spec.target)
 end
 
 export type ResolveOptions = {
@@ -95,8 +134,16 @@ type RootRegistryAlias = {
 	read name: string,
 }
 
+type QueuedSource = {
+	read spec: manifest.DependencySpec,
+	-- Should only be true if dependency is a direct path dependency of a virtual
+	-- package root, in which case its dev dependencies should be resolved. When
+	-- false function as before
+	read includeDev: boolean,
+}
+
 type ResolutionState = {
-	queue: { manifest.DependencySpec },
+	queue: { QueuedSource },
 	queueIndex: number,
 	dependencies: { [string]: string },
 	packages: { [string]: lockfile.LockfileDependency },
@@ -155,65 +202,81 @@ local function getRegistryLockKey(state: ResolutionState, registryPackageName: s
 	return `{packageName}@{version}`
 end
 
+local function assertNotVirtualPackage(key: string, packageManifest: manifest.ProjectManifest)
+	if packageManifest.package.name == nil then
+		error(
+			`'{key}' points at a virtual package, which cannot be depended on; point at one of its packages' directories instead (for GitHub, set 'target')`
+		)
+	end
+end
+
 local function collectSourcePackageDependencies(
 	key: string,
-	installPath: string,
-	rootDirectory: string,
+	location: SourceLocation,
 	overrides: { [string]: manifest.DependencySpec },
 	rootRegistryUrl: string?,
 	transitiveDependencies: { [string]: string },
-	queue: { manifest.DependencySpec },
+	queue: { QueuedSource },
 	registryRequirements: { [string]: semver.Requirement },
 	registrySources: { [string]: string },
 	registryIdentitiesBySource: { [string]: { [string]: boolean } },
 	unresolvedRegistryDependencies: { [string]: { [string]: string } },
-	registryUrlByPackage: { [string]: string }
+	registryUrlByPackage: { [string]: string },
+	includeDev: boolean
 )
-	local nestedManifestPath = getManifestPath(installPath)
+	local nestedManifestPath = getManifestPath(location.directory)
 	if not fs.exists(nestedManifestPath) then
-		return
+		error(`Package '{key}' does not contain a manifest: {nestedManifestPath}`)
 	end
 
 	local dependencyManifest = manifest.parseFile(nestedManifestPath)
+	assertNotVirtualPackage(key, dependencyManifest)
 
-	for dependencyAlias, dependencySpec in dependencyManifest.package.dependencies do
-		local normalizedSpec = normalizePathDependency(dependencySpec, installPath, rootDirectory)
-		local overrideSpec = overrides[normalizedSpec.name]
-		local effectiveSpec = overrideSpec or normalizedSpec
+	local function collectDependencies(dependencies: { [string]: manifest.DependencySpec })
+		for dependencyAlias, dependencySpec in dependencies do
+			local sourceSpec = resolveDependencySource(dependencySpec, location)
+			local overrideSpec = overrides[sourceSpec.name]
+			local effectiveSpec = overrideSpec or sourceSpec
 
-		if normalizedSpec.sourceKind == "registry" then
-			assert(
-				dependencyManifest.registry ~= nil,
-				`Package '{key}' has registry dependency '{normalizedSpec.name}' but no 'registry' field in its manifest.`
-			)
-		end
-
-		if effectiveSpec.sourceKind == "registry" then
-			local effectiveRegistryUrl = if overrideSpec then rootRegistryUrl else dependencyManifest.registry
-			local registryPackageName = registerRegistryPackage(
-				registrySources,
-				registryIdentitiesBySource,
-				registryUrlByPackage,
-				effectiveSpec.name,
-				effectiveRegistryUrl
-			)
-
-			registryRequirements[`{key}:{dependencyAlias}`] = {
-				name = registryPackageName,
-				constraint = semver.parseConstraint(effectiveSpec.version),
-				requiredBy = key,
-				aliasedAs = if dependencyAlias ~= effectiveSpec.name then dependencyAlias else nil,
-			}
-
-			if not unresolvedRegistryDependencies[key] then
-				unresolvedRegistryDependencies[key] = {}
+			if sourceSpec.sourceKind == "registry" then
+				assert(
+					dependencyManifest.registry ~= nil,
+					`Package '{key}' has registry dependency '{sourceSpec.name}' but no 'registry' field in its manifest.`
+				)
 			end
 
-			unresolvedRegistryDependencies[key][dependencyAlias] = registryPackageName
-		else
-			transitiveDependencies[dependencyAlias] = getKey(effectiveSpec)
-			table.insert(queue, effectiveSpec)
+			if effectiveSpec.sourceKind == "registry" then
+				local effectiveRegistryUrl = if overrideSpec then rootRegistryUrl else dependencyManifest.registry
+				local registryPackageName = registerRegistryPackage(
+					registrySources,
+					registryIdentitiesBySource,
+					registryUrlByPackage,
+					effectiveSpec.name,
+					effectiveRegistryUrl
+				)
+
+				registryRequirements[`{key}:{dependencyAlias}`] = {
+					name = registryPackageName,
+					constraint = semver.parseConstraint(effectiveSpec.version),
+					requiredBy = key,
+					aliasedAs = if dependencyAlias ~= effectiveSpec.name then dependencyAlias else nil,
+				}
+
+				if not unresolvedRegistryDependencies[key] then
+					unresolvedRegistryDependencies[key] = {}
+				end
+
+				unresolvedRegistryDependencies[key][dependencyAlias] = registryPackageName
+			else
+				transitiveDependencies[dependencyAlias] = getKey(effectiveSpec)
+				table.insert(queue, { spec = effectiveSpec, includeDev = false })
+			end
 		end
+	end
+
+	collectDependencies(dependencyManifest.package.dependencies)
+	if includeDev then
+		collectDependencies(dependencyManifest.package.devDependencies)
 	end
 end
 
@@ -222,19 +285,20 @@ local function resolveSourcePackage(
 	rootDirectory: string,
 	packages: { [string]: lockfile.LockfileDependency },
 	openDependencies: { [string]: { [string]: string } },
-	queue: { manifest.DependencySpec },
+	queue: { QueuedSource },
 	registryRequirements: { [string]: semver.Requirement },
 	registrySources: { [string]: string },
 	registryIdentitiesBySource: { [string]: { [string]: boolean } },
 	unresolvedRegistryDependencies: { [string]: { [string]: string } },
 	registryUrlByPackage: { [string]: string },
 	overrides: { [string]: manifest.DependencySpec },
-	rootRegistryUrl: string?
+	rootRegistryUrl: string?,
+	includeDev: boolean
 ): string
 	local key = getKey(spec)
 
 	if packages[key] then
-		if hasConflict(packages[key], spec) then
+		if hasConflict(packages[key], spec, rootDirectory) then
 			error(
 				`Source mismatch for package '{spec.name}':\n`
 					.. `  resolved: {packages[key].source} ({packages[key].sourceKind})\n`
@@ -249,12 +313,11 @@ local function resolveSourcePackage(
 	local transitiveDependencies: { [string]: string } = {}
 	openDependencies[key] = transitiveDependencies
 
-	local installPath = fetchSource(spec, rootDirectory)
+	local location = fetchSource(spec)
 
 	collectSourcePackageDependencies(
 		key,
-		installPath,
-		rootDirectory,
+		location,
 		overrides,
 		rootRegistryUrl,
 		transitiveDependencies,
@@ -263,17 +326,22 @@ local function resolveSourcePackage(
 		registrySources,
 		registryIdentitiesBySource,
 		unresolvedRegistryDependencies,
-		registryUrlByPackage
+		registryUrlByPackage,
+		includeDev
 	)
 
 	packages[key] = table.freeze({
 		name = spec.name,
 		rev = if spec.sourceKind == "github" then spec.rev else nil,
-		source = spec.source,
+		source = if spec.sourceKind == "path"
+			then path.posix.format({
+				parts = path.relative(rootDirectory, spec.directory).parts,
+				absolute = false,
+			})
+			else spec.source,
 		sourceKind = spec.sourceKind,
-		installPath = if spec.sourceKind == "path"
-			then path.format(path.relative(rootDirectory, installPath))
-			else store.toStorePath(key),
+		target = if spec.sourceKind == "github" then spec.target else nil,
+		installPath = getSourceInstallPath(spec, rootDirectory, location.directory),
 		dependencies = transitiveDependencies,
 	})
 
@@ -287,11 +355,11 @@ local function processSourceQueue(
 	rootRegistryUrl: string?
 )
 	while state.queueIndex <= #state.queue do
-		local spec = state.queue[state.queueIndex]
+		local queued = state.queue[state.queueIndex]
 		state.queueIndex += 1
 
 		resolveSourcePackage(
-			spec,
+			queued.spec,
 			rootDirectory,
 			state.packages,
 			state.openDependencies,
@@ -302,7 +370,8 @@ local function processSourceQueue(
 			state.unresolvedRegistryDependencies,
 			state.registryUrlByPackage,
 			overrides,
-			rootRegistryUrl
+			rootRegistryUrl,
+			queued.includeDev
 		)
 	end
 end
@@ -385,9 +454,10 @@ local function pathDepsAreStale(
 	lock: lockfile.Lockfile,
 	rootDirectory: string,
 	overrides: { [string]: manifest.DependencySpec },
-	rootRegistryUrl: string?
+	rootRegistryUrl: string?,
+	rootLocalDevPackageKeys: { [string]: boolean }
 ): boolean
-	for _, pkg in lock.packages do
+	for key, pkg in lock.packages do
 		if pkg.sourceKind ~= "path" then
 			continue
 		end
@@ -403,26 +473,31 @@ local function pathDepsAreStale(
 			return true
 		end
 
-		for alias in depManifest.package.dependencies do
+		local expectedDependencies: { [string]: manifest.DependencySpec } = {}
+		for alias, spec in depManifest.package.dependencies do
+			expectedDependencies[alias] = spec
+		end
+		if rootLocalDevPackageKeys[key] then
+			for alias, spec in depManifest.package.devDependencies do
+				expectedDependencies[alias] = spec
+			end
+		end
+
+		for alias in expectedDependencies do
 			if pkg.dependencies[alias] == nil then
 				return true
 			end
 		end
 
 		for alias in pkg.dependencies do
-			if depManifest.package.dependencies[alias] == nil then
+			if expectedDependencies[alias] == nil then
 				return true
 			end
 		end
 
-		for alias, depSpec in depManifest.package.dependencies do
-			local normalizeOk, normalizedDepSpec =
-				pcall(normalizePathDependency, depSpec, packageInstallPath, rootDirectory)
-			if not normalizeOk then
-				return true
-			end
-			local overrideSpec = overrides[(normalizedDepSpec :: manifest.DependencySpec).name]
-			depSpec = overrideSpec or normalizedDepSpec
+		for alias, depSpec in expectedDependencies do
+			local overrideSpec = overrides[depSpec.name]
+			depSpec = overrideSpec or depSpec
 
 			local recordedKey = pkg.dependencies[alias]
 			if recordedKey == nil then
@@ -432,18 +507,10 @@ local function pathDepsAreStale(
 			if recordedPkg == nil then
 				return true
 			end
-			if recordedPkg.sourceKind ~= depSpec.sourceKind then
+			if not lockfile.isSameSource(recordedPkg, depSpec, rootDirectory) then
 				return true
 			end
-			if depSpec.sourceKind == "github" then
-				if recordedPkg.source ~= depSpec.source or recordedPkg.rev ~= depSpec.rev then
-					return true
-				end
-			elseif depSpec.sourceKind == "path" then
-				if recordedPkg.source ~= depSpec.source then
-					return true
-				end
-			elseif depSpec.sourceKind == "registry" then
+			if depSpec.sourceKind == "registry" then
 				local registryUrl = if overrideSpec then rootRegistryUrl else depManifest.registry
 				if
 					recordedPkg.source ~= depSpec.source
@@ -463,6 +530,32 @@ local function pathDepsAreStale(
 	return false
 end
 
+local function getRootLocalDevPackageKeys(
+	rootManifest: manifest.ProjectManifest,
+	excludeDev: boolean
+): { [string]: boolean }
+	local result: { [string]: boolean } = {}
+	-- exclude dev or not root (has a name) no dev dependency
+	if rootManifest.package.name ~= nil or excludeDev then
+		return result
+	end
+
+	-- resolved graph should include dev dependencies for direct root dependencies whose effective spec (after overrides) are path dependency
+	local function collectDependencies(dependencies: { [string]: manifest.DependencySpec })
+		for _, spec in dependencies do
+			local effectiveSpec = rootManifest.overrides[spec.name] or spec
+			if effectiveSpec.sourceKind == "path" then
+				result[getKey(effectiveSpec)] = true
+			end
+		end
+	end
+
+	-- collects the dev dependencies from both root dependencies and root dev dependencies
+	collectDependencies(rootManifest.package.dependencies)
+	collectDependencies(rootManifest.package.devDependencies)
+	return result
+end
+
 local function tryReuseLockfile(
 	rootManifest: manifest.ProjectManifest,
 	lockfilePath: string,
@@ -477,7 +570,7 @@ local function tryReuseLockfile(
 	end
 
 	if existingLock then
-		local satisfied, reason = lockfile.satisfiesManifest(existingLock, rootManifest, excludeDev)
+		local satisfied, reason = lockfile.satisfiesManifest(existingLock, rootManifest, rootDirectory, excludeDev)
 
 		if options and options.locked then
 			if not satisfied then
@@ -486,10 +579,14 @@ local function tryReuseLockfile(
 			return existingLock, nil
 		end
 
-		if
-			satisfied
-			and not pathDepsAreStale(existingLock, rootDirectory, rootManifest.overrides, rootManifest.registry)
-		then
+		local pathsAreStale = pathDepsAreStale(
+			existingLock,
+			rootDirectory,
+			rootManifest.overrides,
+			rootManifest.registry,
+			getRootLocalDevPackageKeys(rootManifest, excludeDev)
+		)
+		if satisfied and not pathsAreStale then
 			return existingLock, nil
 		end
 	end
@@ -521,7 +618,8 @@ local function collectRootDependency(
 	dependencyAlias: string,
 	dependencySpec: manifest.DependencySpec,
 	registryUrl: string?,
-	overrides: { [string]: manifest.DependencySpec }
+	overrides: { [string]: manifest.DependencySpec },
+	includeDev: boolean
 )
 	local effectiveSpec = overrides[dependencySpec.name] or dependencySpec
 
@@ -545,7 +643,10 @@ local function collectRootDependency(
 	end
 
 	state.dependencies[dependencyAlias] = getKey(effectiveSpec)
-	table.insert(state.queue, effectiveSpec)
+	table.insert(state.queue, {
+		spec = effectiveSpec,
+		includeDev = includeDev and effectiveSpec.sourceKind == "path",
+	})
 end
 
 local function collectRootDependencies(rootManifest: manifest.ProjectManifest, excludeDev: boolean): ResolutionState
@@ -566,11 +667,12 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 	for dependencyAlias, dependencySpec in rootManifest.package.dependencies do
 		collectRootDependency(
 			state,
-			rootManifest.package.name,
+			rootManifest.package.name or "<virtual root>",
 			dependencyAlias,
 			dependencySpec,
 			rootManifest.registry,
-			rootManifest.overrides
+			rootManifest.overrides,
+			rootManifest.package.name == nil and not excludeDev
 		)
 	end
 
@@ -578,11 +680,12 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 		for dependencyAlias, dependencySpec in rootManifest.package.devDependencies do
 			collectRootDependency(
 				state,
-				rootManifest.package.name,
+				rootManifest.package.name or "<virtual root>",
 				dependencyAlias,
 				dependencySpec,
 				rootManifest.registry,
-				rootManifest.overrides
+				rootManifest.overrides,
+				rootManifest.package.name == nil and not excludeDev
 			)
 		end
 	end
@@ -600,7 +703,7 @@ local function queueSourceOverrides(state: ResolutionState, overrides: { [string
 	table.sort(names)
 
 	for _, name in names do
-		table.insert(state.queue, overrides[name])
+		table.insert(state.queue, { spec = overrides[name], includeDev = false })
 	end
 end
 
