@@ -70,11 +70,11 @@ local function parseTarget(target: unknown, name: string, sectionName: string): 
 		`Optional 'target' field for github dependency '{name}' in {sectionName} expected to be a string`
 	)
 	assert(
-		not path.isAbsolute(target),
+		not path.posix.isAbsolute(target),
 		`'target' for github dependency '{name}' in {sectionName} must be relative to the repository root`
 	)
 
-	local normalized = path.normalize(target)
+	local normalized = path.posix.normalize(target)
 	assert(
 		normalized.parts[1] ~= "..",
 		`'target' for github dependency '{name}' in {sectionName} must stay inside the repository`

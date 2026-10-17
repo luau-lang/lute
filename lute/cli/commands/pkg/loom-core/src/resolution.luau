@@ -40,11 +40,6 @@ local function selectGitHubTarget(spec: manifest.GitHubDependencySpec, sourcePat
 
 	assert(not path.isAbsolute(spec.target), `Target for package '{spec.name}' must be a relative path`)
 	local targetPath = path.format(path.resolve(sourcePath, spec.target))
-	local relativeTarget = path.format(path.relative(sourcePath, targetPath))
-	assert(
-		relativeTarget ~= ".." and string.sub(relativeTarget, 1, 3) ~= "../",
-		`Target for package '{spec.name}' must be contained within its source`
-	)
 	if not fs.exists(targetPath) then
 		error(`Target directory not found: {targetPath} (for package '{spec.name}')`)
 	end
