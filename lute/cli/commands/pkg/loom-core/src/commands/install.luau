@@ -79,7 +79,10 @@ local function install(...: string)
 		end
 	end
 
-	local lock = resolution.resolve(rootDirectory, nil, { excludeDev = excludeDev, locked = locked })
+	local lock = resolution.resolve(rootDirectory, nil, {
+		excludeDev = excludeDev,
+		locked = locked,
+	})
 	local reachablePackages = lockfile.getReachablePackageKeys(lock, rootAliases)
 
 	for key, pkg in lock.packages do
