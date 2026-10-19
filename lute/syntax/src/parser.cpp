@@ -175,12 +175,21 @@ struct AstSerialize : public Luau::AstVisitor
     // reference to previously serialized token
     int lastTokenRef = LUA_NOREF;
 
-    AstSerialize(lua_State* L, std::string_view source, Luau::CstNodeMap cstNodeMap, std::vector<Luau::Comment> commentLocations)
+    bool mutableLocations = true;
+
+    AstSerialize(
+        lua_State* L,
+        std::string_view source,
+        Luau::CstNodeMap cstNodeMap,
+        std::vector<Luau::Comment> commentLocations,
+        bool mutableLocations
+    )
         : L(L)
         , cstNodeMap(std::move(cstNodeMap))
         , source(source)
         , lineOffsets(computeLineOffsets(source))
         , commentLocations(std::move(commentLocations))
+        , mutableLocations(mutableLocations)
     {
         lua_createtable(L, 0, 0);
         localTableIndex = lua_absindex(L, -1);
@@ -343,7 +352,8 @@ struct AstSerialize : public Luau::AstVisitor
         luaL_getmetatable(L, kSpanType);
         lua_setmetatable(L, -2);
 
-        lua_setreadonly(L, -1, 1);
+        if (!mutableLocations)
+            lua_setreadonly(L, -1, 1);
     }
 
     void serialize(Luau::AstName& name)
@@ -2885,8 +2895,7 @@ struct AstSerialize : public Luau::AstVisitor
     }
 };
 
-
-int luau_parse(lua_State* L)
+int luau_parse(lua_State* L, bool parseMutable)
 {
     std::string source = luaL_checkstring(L, 1);
 
@@ -2922,7 +2931,7 @@ int luau_parse(lua_State* L)
 
     lua_rawcheckstack(L, 6);
 
-    AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations};
+    AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations, parseMutable};
 
     lua_createtable(L, 0, 4);
 
@@ -2944,12 +2953,13 @@ int luau_parse(lua_State* L)
     }
     lua_setfield(L, -2, "lineOffsets");
 
-    deepFreeze(L);
+    if (!parseMutable)
+        deepFreeze(L);
 
     return 1;
 }
 
-int luau_parseexpr(lua_State* L)
+int luau_parseexpr(lua_State* L, bool parseMutable)
 {
     std::string source = luaL_checkstring(L, 1);
 
@@ -2983,12 +2993,33 @@ int luau_parseexpr(lua_State* L)
         luaL_error(L, "parsing failed:\n%s", fullError.c_str());
     }
 
-    AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations};
+    AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations, parseMutable};
     serializer.visit(result.parseResult.root);
 
-    deepFreeze(L);
+    if (!parseMutable)
+        deepFreeze(L);
 
     return 1;
+}
+
+int luau_parseImmutable(lua_State* L)
+{
+    return luau_parse(L, false);
+}
+
+int luau_parseexprImmutable(lua_State* L)
+{
+    return luau_parseexpr(L, false);
+}
+
+int luau_parseMutable(lua_State* L)
+{
+    return luau_parse(L, true);
+}
+
+int luau_parseexprMutable(lua_State* L)
+{
+    return luau_parseexpr(L, true);
 }
 
 static int initSyntaxParserLibrary(lua_State* L)
@@ -3016,7 +3047,13 @@ static int initSyntaxParserLibrary(lua_State* L)
 }
 } // namespace luau
 
-const luaL_Reg SyntaxParser::lib[] = {{"parse", luau::luau_parse}, {"parseExpr", luau::luau_parseexpr}, {nullptr, nullptr}};
+const luaL_Reg SyntaxParser::lib[] = {
+    {"parse", luau::luau_parseImmutable},
+    {"parseExpr", luau::luau_parseexprImmutable},
+    {"parseMutable", luau::luau_parseMutable},
+    {"parseMutableExpr", luau::luau_parseexprMutable},
+    {nullptr, nullptr}
+};
 
 const char* const SyntaxParser::properties[] = {"cst", luau::kSpanType};
 
