@@ -27,7 +27,10 @@ test.suite("SyntaxParserMutableTests", function(suite)
 			value.token.text = "42"
 		end
 
-		assert.eq(printer.printFile(result :: cst.CstParseResult), "local renamed = 42\nlocal y, z = x + 2, 3\nreturn y\n")
+		assert.eq(
+			printer.printFile(result :: cst.CstParseResult),
+			"local renamed = 42\nlocal y, z = x + 2, 3\nreturn y\n"
+		)
 	end)
 
 	suite:case("parseMutableAllowsEditingTrivia", function(assert)
