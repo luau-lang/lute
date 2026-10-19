@@ -611,14 +611,16 @@ local function tryReuseLockfile(
 			return existingLock, nil
 		end
 
-		local pathsAreStale = pathDepsAreStale(
-			existingLock,
-			rootDirectory,
-			rootManifest.overrides,
-			rootManifest.registry,
-			if excludeDev then {} else getMemberKeys(rootManifest, rootManifest.overrides)
-		)
-		if satisfied and not pathsAreStale then
+		if
+			satisfied
+			and not pathDepsAreStale(
+				existingLock,
+				rootDirectory,
+				rootManifest.overrides,
+				rootManifest.registry,
+				if excludeDev then {} else getMemberKeys(rootManifest, rootManifest.overrides)
+			)
+		then
 			return existingLock, nil
 		end
 	end

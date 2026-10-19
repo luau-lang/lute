@@ -2577,7 +2577,7 @@ return {
 
 		-- A full workspace lock satisfies an exclude-dev run. Reusing it preserves
 		-- the chosen resolution rather than rebuilding a second, filtered lock.
-		local withoutDev = resolution.resolve(path.format(workingDirectory), nil, { excludeDev = true, locked = true })
+		local withoutDev = resolution.resolve(path.format(workingDirectory), nil, { excludeDev = true })
 		assert.eq(
 			withoutDev.packages.apple.devDependencies and withoutDev.packages.apple.devDependencies["dev-tool"],
 			"dev-tool"
