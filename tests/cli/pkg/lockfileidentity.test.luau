@@ -43,10 +43,54 @@ test.suite("RegistryLockfileIdentity", function(suite)
 		local revisionHash = string.match(key, "@(.+)$")
 		assert.neq(revisionHash, nil)
 		assert.eq(#(revisionHash :: string), 64)
-		assert.eq(
-			store.getGitHubInstallPath(source, "feature/member", "modules/apple"),
-			path.format(path.join("@pkg", key, "modules", "apple"))
-		)
+		assert.eq(store.getGitHubInstallPath(source, "feature/member", "modules/apple"), `@pkg/{key}/modules/apple`)
+	end)
+
+	suite:case("serializesGitHubOverrideTargetsOnlyWhenPresent", function(assert)
+		local withoutTarget = lockfile.serializeOverrides({
+			apple = {
+				name = "apple",
+				sourceKind = "github",
+				source = "https://github.com/example/fruits",
+				rev = "v1.0.0",
+			},
+		})
+		local withTarget = lockfile.serializeOverrides({
+			apple = {
+				name = "apple",
+				sourceKind = "github",
+				source = "https://github.com/example/fruits",
+				rev = "v1.0.0",
+				target = "modules/apple",
+			},
+		})
+
+		assert.eq(withoutTarget.apple, "github:https://github.com/example/fruits@v1.0.0")
+		assert.eq(withTarget.apple, "github:https://github.com/example/fruits@v1.0.0:modules/apple")
+	end)
+
+	suite:case("matchesGitHubTargetsExactly", function(assert)
+		local spec: manifest.GitHubDependencySpec = {
+			name = "apple",
+			sourceKind = "github",
+			source = "https://github.com/example/fruits",
+			rev = "v1.0.0",
+			target = "modules/apple",
+		}
+		local function makePackage(target: string): lockfile.LockfileDependency
+			return {
+				name = "apple",
+				sourceKind = "github",
+				source = "https://github.com/example/fruits",
+				rev = "v1.0.0",
+				target = target,
+				installPath = "@pkg/fruits/modules/apple",
+				dependencies = {},
+			}
+		end
+
+		assert.that(lockfile.isSameSource(makePackage("modules/apple"), spec, path.format(workingDirectory)))
+		assert.eq(lockfile.isSameSource(makePackage("./modules/apple"), spec, path.format(workingDirectory)), false)
 	end)
 
 	suite:case("parsesOptionalRegistryFieldsInVersionThreeLockfiles", function(assert)

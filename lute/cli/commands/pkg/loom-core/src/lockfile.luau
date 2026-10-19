@@ -132,7 +132,7 @@ local function serializeOverrides(overrides: { [string]: manifest.DependencySpec
 		elseif spec.sourceKind == "path" then
 			result[name] = `path:{spec.source}`
 		elseif spec.sourceKind == "github" then
-			result[name] = `github:{spec.source}@{spec.rev}:{spec.target or ""}`
+			result[name] = `github:{spec.source}@{spec.rev}{if spec.target then `:{spec.target}` else ""}`
 		end
 	end
 	return result
@@ -174,8 +174,7 @@ local function isSameSource(pkg: LockfileDependency, spec: manifest.DependencySp
 		return false
 	end
 	if spec.sourceKind == "github" then
-		local target = if pkg.target then path.format(path.normalize(pkg.target)) else nil
-		return pkg.rev == spec.rev and target == spec.target
+		return pkg.rev == spec.rev and pkg.target == spec.target
 	end
 	return true
 end

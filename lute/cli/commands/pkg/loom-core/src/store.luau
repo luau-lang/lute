@@ -66,7 +66,11 @@ end
 local function getGitHubInstallPath(source: string, rev: string, target: string?): string
 	local checkoutPath = toStorePath(getGitHubCheckoutKey(source, rev))
 	if target then
-		return path.format(path.join(checkoutPath, target))
+		local installPath = path.join(checkoutPath, target)
+		return path.posix.format({
+			parts = installPath.parts,
+			absolute = false,
+		})
 	end
 	return checkoutPath
 end
