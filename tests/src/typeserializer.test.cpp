@@ -614,7 +614,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_simple_type_pack_nil_tail")
     REQUIRE(lua_isnil(L, -1)); // no tail
 }
 
-TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_type_pack_with_head_and_tail")
+TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_type_pack_with_concrete_tail")
 {
     TypeId numberTy = arena.addType(PrimitiveType{PrimitiveType::Number});
     TypeId stringTy = arena.addType(PrimitiveType{PrimitiveType::String});
@@ -623,7 +623,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_type_pack_with_head_and_tail"
 
     lua_checkstack(L, 3);
 
-    // { head: { tag: "number" }, tail: { head: { tag: "string" }, tail: nil } }
+    // { head: { { tag: "number" }, { tag: "string" } }, tail: nil }
     REQUIRE_EQ(Luau::serializeTypePack(L, tp), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -632,13 +632,34 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_type_pack_with_head_and_tail"
     REQUIRE(lua_istable(L, -1));
     lua_rawgeti(L, -1, 1);
     requireStringField(L, "tag", "number");
-    lua_pop(L, 2); // head[0], head 
+    lua_pop(L, 1); // head[1]
+    lua_rawgeti(L, -1, 2);
+    requireStringField(L, "tag", "string");
+    lua_pop(L, 2); // head[2], head
 
     lua_getfield(L, -1, "tail");
-    REQUIRE(lua_istable(L, -1));
+    REQUIRE(lua_isnil(L, -1));
+}
+
+TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_type_pack_with_variadic_tail")
+{
+    TypeId numberTy = arena.addType(PrimitiveType{PrimitiveType::Number});
+    TypeId stringTy = arena.addType(PrimitiveType{PrimitiveType::String});
+    TypePackId tailTp = arena.addTypePack(VariadicTypePack{stringTy, false});
+    TypePackId tp = arena.addTypePack(TypePack{{numberTy}, tailTp});
+
+    REQUIRE_EQ(Luau::serializeTypePack(L, tp), 1);
+
     lua_getfield(L, -1, "head");
     REQUIRE(lua_istable(L, -1));
     lua_rawgeti(L, -1, 1);
+    requireStringField(L, "tag", "number");
+    lua_pop(L, 2); // head[1], head
+
+    lua_getfield(L, -1, "tail");
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "variadic");
+    lua_getfield(L, -1, "type");
     requireStringField(L, "tag", "string");
 }
 
