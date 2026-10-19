@@ -96,12 +96,13 @@ test.suite("LuauTypeofModuleSuite", function(suite)
 		-- Verify TypePack structure: { head: {type}?, tail: typepack? }
 		assert.eq(typePack.tag, "typepack")
 
-		-- Head: string, number
+		-- Head: string, number, boolean
 		assert.neq(typePack.head, nil)
 		if not typePack.head then
 			error("typePack.head should not be nil")
 		end
 		assert.eq(#typePack.head, 3)
+		assert.eq(typePack.tail, nil)
 
 		assert.eq(typePack.head[1].tag, "string")
 		assert.eq(typePack.head[2].tag, "number")

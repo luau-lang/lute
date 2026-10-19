@@ -5,6 +5,7 @@
 #include "Luau/ToString.h"
 #include "Luau/Type.h"
 #include "Luau/TypeFwd.h"
+#include "Luau/TypePack.h"
 #include "Luau/VisitType.h"
 
 #include "lua.h"
@@ -432,7 +433,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // Luau TypePack is 
     // head: {type}?
     // tail: typepack?
-    void serialize(TypePackId tp, const TypePack& pack)
+    void serialize(TypePackId tp, const TypePack&)
     {
         checkStack(L, 3); // 1 for root table + 1 for subtable + 1 for traverse
         lua_createtable(L, 0, 3);
@@ -440,13 +441,19 @@ struct TypeSerialize final : public Luau::TypeVisitor
 
         pushTag("typepack");
 
+        // A Typepack is effectively a linked list, so we might have to visit the tail TypePackId, which itself
+        // might separate types into the head and tail respectively. The new solver might sometimes split a return pack
+        // across multiple linked TypePackId's. Instead of preserving the structure of the original TypeId, which is subject
+        // to the choice of solver, we'll just flatten the pack here up front.
+        auto [head, tail] = flatten(tp);
+
         // Head
-        if (!pack.head.empty())
+        if (!head.empty())
         {
-            lua_createtable(L, int(pack.head.size()), 0);
-            for (size_t i = 0; i < pack.head.size(); i++)
+            lua_createtable(L, int(head.size()), 0);
+            for (size_t i = 0; i < head.size(); i++)
             {
-                traverse(pack.head[i]);
+                traverse(head[i]);
                 lua_rawseti(L, -2, int(i + 1));
             }
         }
@@ -457,8 +464,8 @@ struct TypeSerialize final : public Luau::TypeVisitor
         lua_setfield(L, -2, "head");
 
         // Tail
-        if (pack.tail)
-            traverse(*pack.tail);
+        if (tail)
+            traverse(*tail);
         else
             lua_pushnil(L);
         lua_setfield(L, -2, "tail");
