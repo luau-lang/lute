@@ -1,6 +1,5 @@
 local luau = require("@std/luau")
 local path = require("@std/path")
-local semver = require("./semver")
 
 export type SourceKind = "path" | "github" | "registry"
 
@@ -231,22 +230,8 @@ local function parseFile(manifestPath: string): ProjectManifest
 	return parseManifest(manifestTable, path.dirname(path.format(path.resolve(manifestPath))))
 end
 
-local function validatePackageVersion(version: string): semver.Version
-	local parsed = semver.tryParse(version)
-	assert(parsed ~= nil, `Invalid package version: '{version}'`)
-	return parsed
-end
-
-local function validateDependencyVersionConstraint(version: string): semver.Constraint
-	local ok, constraint = pcall(semver.parseConstraint, version)
-	assert(ok, `Invalid dependency version constraint: '{version}'`)
-	return constraint :: semver.Constraint
-end
-
 return {
 	isSourceKind = isSourceKind,
 	parseSourceKind = parseSourceKind,
 	parseFile = parseFile,
-	validatePackageVersion = validatePackageVersion,
-	validateDependencyVersionConstraint = validateDependencyVersionConstraint,
 }
