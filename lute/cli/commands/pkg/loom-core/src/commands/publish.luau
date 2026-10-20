@@ -33,7 +33,7 @@ local function publish(...: string)
 	local directory = path.format(process.cwd())
 	local project = manifest.parseFile(path.format(path.join(directory, "loom.config.luau")))
 	local package = project.package
-	local generatedManifest = publishManifest.flattenPackage(package)
+	local generatedManifest = publishManifest.flattenPackage(package, project.registry)
 	local archive = publishArtifact.build(directory, generatedManifest)
 	local identity = `{package.name :: string}@{package.version :: string}`
 	print(`Built {identity} ({buffer.len(archive)} bytes).`)
