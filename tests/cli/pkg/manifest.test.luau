@@ -57,6 +57,20 @@ test.suite("PackageManifest", function(suite)
 		end)
 	end)
 
+	suite:case("rejectsAnEmptyPackageVersion", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "",
+	},
+}
+]])
+
+		assert.throwsWith("Expected 'version' field in package manifest to be a non-empty string", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
 	suite:case("usesExplicitRegistrySourceAsThePackageName", function(assert)
 		writeManifest([[return {
 	package = {
