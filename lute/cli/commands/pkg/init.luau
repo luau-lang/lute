@@ -16,7 +16,7 @@ COMMANDS:
   install                                   		Install dependencies from loom.config.luau
   auth --token <token> [--domain <domain>]  		Save authentication credentials
   run <script.luau> [args...]               		Run a Luau script from loom.lock.
-  publish [--package <member-name>] [--dry-run]  	Publish a package to its registry
+  publish [--dry-run]                           	Publish the package in the current directory
 
 Use --help with any command for more information.
 ]])

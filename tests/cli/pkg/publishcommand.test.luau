@@ -120,7 +120,8 @@ test.suite("LutePkgPublish", function(suite)
 		local configPath = path.join(workingDirectory, "loom.config.luau")
 		local original = fs.readFileToString(configPath)
 		local project = manifest.parseFile(path.format(configPath))
-		local archive = publishArtifact.build(workingDirectory, publishManifest.flattenPackage(project.package))
+		local archive =
+			publishArtifact.build(path.format(workingDirectory), publishManifest.flattenPackage(project.package))
 
 		local result = run(workingDirectory, "--dry-run")
 		assert.eq(result.exitcode, 0)
