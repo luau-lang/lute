@@ -1,77 +1,5 @@
--- Publish target selection, validation, and manifest flattening.
+-- Publish manifest validation and flattening.
 local manifest = require("./manifest")
-local path = require("@std/path")
-local workspace = require("./workspace")
-
-export type PublishTarget = {
-	read directory: string,
-	read package: manifest.PackageManifest,
-	read workspace: workspace.Workspace,
-}
-
-local function formatDirectory(directory: path.Pathlike): string
-	return path.format(path.resolve(directory))
-end
-
-local function isWithinDirectory(directory: string, candidate: string): boolean
-	local relative = path.relative(directory, candidate)
-	return #relative.parts == 0 or relative.parts[1] ~= ".."
-end
-
-local function findMemberByName(resolvedWorkspace: workspace.Workspace, name: string): workspace.Member?
-	for _, member in resolvedWorkspace.members do
-		if member.name == name then
-			return member
-		end
-	end
-	return nil
-end
-
-local function findMembersContainingDirectory(
-	resolvedWorkspace: workspace.Workspace,
-	directory: string
-): { workspace.Member }
-	local matches: { workspace.Member } = {}
-	for _, member in resolvedWorkspace.members do
-		if isWithinDirectory(member.directory, directory) then
-			table.insert(matches, member)
-		end
-	end
-	return matches
-end
-
-local function selectTarget(startDirectory: string, requestedPackage: string?): PublishTarget
-	local resolvedWorkspace = workspace.findResolvedRoot(startDirectory)
-	local start = formatDirectory(startDirectory)
-
-	if requestedPackage ~= nil then
-		local member = findMemberByName(resolvedWorkspace, requestedPackage)
-		assert(member ~= nil, `Workspace has no package named '{requestedPackage}'`)
-		return table.freeze({
-			directory = member.directory,
-			package = member.package,
-			workspace = resolvedWorkspace,
-		})
-	end
-
-	if start == resolvedWorkspace.rootDirectory and #resolvedWorkspace.members > 1 then
-		error(`Workspace has {#resolvedWorkspace.members} publish targets. Use --package <member-name> to select one.`)
-	end
-
-	local matches = findMembersContainingDirectory(resolvedWorkspace, start)
-	if #matches == 0 and #resolvedWorkspace.members == 1 then
-		matches = { resolvedWorkspace.members[1] }
-	end
-	assert(#matches > 0, `No publish target found for: {start}`)
-	assert(#matches == 1, `Multiple publish targets found for: {start}. Use --package <member-name> to select one.`)
-
-	local member = matches[1]
-	return table.freeze({
-		directory = member.directory,
-		package = member.package,
-		workspace = resolvedWorkspace,
-	})
-end
 
 local function quote(value: string): string
 	return string.format("%q", value)
@@ -166,13 +94,19 @@ local function appendPublishedDependencies(
 end
 
 local function flattenPackage(package: manifest.PackageManifest): string
-	manifest.validatePackageVersion(package.version)
+	assert(
+		package.name ~= nil and package.version ~= nil,
+		"Cannot publish a virtual package: package name and version are required"
+	)
+	local name = package.name :: string
+	local version = package.version :: string
+	manifest.validatePackageVersion(version)
 
 	local lines = {
 		"return {",
 		"\tpackage = {",
-		`\t\tname = {quote(package.name)},`,
-		`\t\tversion = {quote(package.version)},`,
+		`\t\tname = {quote(name)},`,
+		`\t\tversion = {quote(version)},`,
 		"\t\tdependencies = {",
 	}
 	appendPublishedDependencies(lines, package.dependencies, "\t\t\t")
@@ -189,6 +123,5 @@ local function flattenPackage(package: manifest.PackageManifest): string
 end
 
 return {
-	selectTarget = selectTarget,
 	flattenPackage = flattenPackage,
 }
