@@ -1,5 +1,18 @@
 -- Publish manifest validation and flattening.
 local manifest = require("./manifest")
+local semver = require("./semver")
+
+local function validatePackageVersion(version: string): semver.Version
+	local parsed = semver.tryParse(version)
+	assert(parsed ~= nil, `Invalid package version: '{version}'`)
+	return parsed
+end
+
+local function validateDependencyVersionConstraint(version: string): semver.Constraint
+	local ok, constraint = pcall(semver.parseConstraint, version)
+	assert(ok, `Invalid dependency version constraint: '{version}'`)
+	return constraint :: semver.Constraint
+end
 
 local function quote(value: string): string
 	return string.format("%q", value)
@@ -75,14 +88,14 @@ local function appendPublishedDependencies(
 	for _, alias in sortedDependencyAliases(dependencies) do
 		local dependency = dependencies[alias]
 		if dependency.sourceKind == "registry" then
-			manifest.validateDependencyVersionConstraint(dependency.version)
+			validateDependencyVersionConstraint(dependency.version)
 			appendRegistryDependency(lines, indent, alias, dependency)
 		else
 			assert(
 				dependency.version ~= nil,
 				`Cannot publish dependency '{alias}': {dependency.sourceKind} dependencies require a version`
 			)
-			manifest.validateDependencyVersionConstraint(dependency.version)
+			validateDependencyVersionConstraint(dependency.version)
 			appendRegistryDependency(lines, indent, alias, {
 				name = dependency.name,
 				sourceKind = "registry",
@@ -100,7 +113,7 @@ local function flattenPackage(package: manifest.PackageManifest): string
 	)
 	local name = package.name :: string
 	local version = package.version :: string
-	manifest.validatePackageVersion(version)
+	validatePackageVersion(version)
 
 	local lines = {
 		"return {",
