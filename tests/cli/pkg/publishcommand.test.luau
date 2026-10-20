@@ -32,32 +32,34 @@ local function run(directory: path.Path, ...: string): process.ProcessResult
 	})
 end
 
-local function writeWorkspace(registryUrl: string?): path.Path
+local function writeVirtualPackage(registryUrl: string?): path.Path
 	local registryField = if registryUrl then `registry = "{registryUrl}",` else ""
 	writeManifest(
 		workingDirectory,
 		string.format(
 			[[return {
-			workspace = { members = { "first", "second" } },
-			version = "2.3.4",
-			dependencies = {
-				alias = { name = "vendor/library", sourceKind = "path", source = "../library", version = "^1.0.0" },
+			package = {
+				dependencies = {
+					second = { sourceKind = "path", source = "./second" },
+				},
 			},
 			%s
 		}]],
 			registryField
 		)
 	)
-	writePackage(path.join(workingDirectory, "first"), "first")
 	local second = path.join(workingDirectory, "second")
 	writeManifest(
 		second,
 		[[local root = require("../loom.config")
 return {
+	registry = root.registry,
 	package = {
 		name = "second",
-		version = root.version,
-		dependencies = root.dependencies,
+		version = "2.3.4",
+		dependencies = {
+			alias = { name = "vendor/library", sourceKind = "path", source = "../library", version = "^1.0.0" },
+		},
 		dev_dependencies = { dev = { sourceKind = "path", source = "../dev" } },
 	},
 }]]
@@ -90,15 +92,15 @@ test.suite("LutePkgPublish", function(suite)
 		for _, flag in { "--help", "-h" } do
 			local result = run(workingDirectory, flag)
 			assert.eq(result.exitcode, 0)
-			assert.strContains(result.stdout, "Usage: lute pkg publish [--package <member-name>] [--dry-run]")
+			assert.strContains(result.stdout, "Usage: lute pkg publish [--dry-run]")
 		end
 		local result = process.run({ lutePath, "pkg", "--help" })
 		assert.eq(result.exitcode, 0)
-		assert.strContains(result.stdout, "publish [--package <member-name>] [--dry-run]")
+		assert.strContains(result.stdout, "publish [--dry-run]")
 	end)
 
 	suite:case("rejectsInvalidArgumentsBeforeLoadingAManifest", function(assert)
-		for _, arguments in { { "--unknown" }, { "--package" }, { "extra" }, { "--", "extra" } } do
+		for _, arguments in { { "--unknown" }, { "--package", "second" }, { "extra" }, { "--", "extra" } } do
 			local result = run(workingDirectory, table.unpack(arguments))
 			assert.eq(result.exitcode, 1)
 			assert.strContains(result.stderr, "argument")
@@ -117,8 +119,8 @@ test.suite("LutePkgPublish", function(suite)
 		writeFile(path.join(workingDirectory, "init.luau"), "return 42\n")
 		local configPath = path.join(workingDirectory, "loom.config.luau")
 		local original = fs.readFileToString(configPath)
-		local target = publishManifest.selectTarget(path.format(workingDirectory), nil)
-		local archive = publishArtifact.build(target.directory, publishManifest.flattenPackage(target.package))
+		local project = manifest.parseFile(path.format(configPath))
+		local archive = publishArtifact.build(workingDirectory, publishManifest.flattenPackage(project.package))
 
 		local result = run(workingDirectory, "--dry-run")
 		assert.eq(result.exitcode, 0)
@@ -128,25 +130,12 @@ test.suite("LutePkgPublish", function(suite)
 		assert.eq(#fs.listDirectory(workingDirectory), 2)
 	end)
 
-	suite:case("selectsWorkspaceMembersByNameOrCurrentDirectory", function(assert)
-		local second = writeWorkspace(nil)
-		local ambiguous = run(workingDirectory, "--dry-run")
-		assert.eq(ambiguous.exitcode, 1)
-		assert.strContains(ambiguous.stderr, "Use --package <member-name>")
+	suite:case("rejectsVirtualPackages", function(assert)
+		writeVirtualPackage(nil)
 
-		local missing = run(workingDirectory, "--package", "missing", "--dry-run")
-		assert.eq(missing.exitcode, 1)
-		assert.strContains(missing.stderr, "Workspace has no package named 'missing'")
-
-		local selected = run(workingDirectory, "--package", "second", "--dry-run")
-		assert.eq(selected.exitcode, 0)
-		assert.strContains(selected.stdout, "Built second@2.3.4")
-
-		local nested = path.join(second, "src")
-		fs.createDirectory(nested)
-		local implicit = run(nested, "--dry-run")
-		assert.eq(implicit.exitcode, 0)
-		assert.strContains(implicit.stdout, "Built second@2.3.4")
+		local result = run(workingDirectory, "--dry-run")
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stderr, "Cannot publish a virtual package")
 	end)
 
 	suite:case("rejectsInvalidPackageVersionsInDryRun", function(assert)
@@ -181,7 +170,7 @@ test.suite("LutePkgPublish", function(suite)
 		assert.strContains(result.stderr, "No registry configured for publishing")
 	end)
 
-	suite:case("uploadsOnlyTheSelectedPackageWithAnEvaluatedManifest", function(assert)
+	suite:case("uploadsOnlyTheCurrentPackageWithAnEvaluatedManifest", function(assert)
 		local requests: { server.ReceivedRequest } = {}
 		local instance = server.serve({
 			port = 0,
@@ -191,17 +180,17 @@ test.suite("LutePkgPublish", function(suite)
 			end,
 		})
 		closeServer = instance.close
-		local second = writeWorkspace(`http://{instance.hostname}:{instance.port}`)
+		local second = writeVirtualPackage(`http://{instance.hostname}:{instance.port}`)
 		writeFile(path.join(second, "src", "init.luau"), "return 42\n")
 		writeFile(path.join(second, "loom.lock.luau"), "return {}\n")
-		writeFile(path.join(workingDirectory, "first", "sibling.luau"), "return 0\n")
+		writeFile(path.join(workingDirectory, "sibling.luau"), "return 0\n")
 		local original = fs.readFileToString(path.join(second, "loom.config.luau"))
 
-		local dryRun = run(workingDirectory, "--dry-run", "--package", "second")
+		local dryRun = run(second, "--dry-run")
 		assert.eq(dryRun.exitcode, 0)
 		assert.eq(#requests, 0)
 
-		local result = run(workingDirectory, "--package", "second")
+		local result = run(second)
 		assert.eq(result.exitcode, 0)
 		assert.strContains(result.stdout, "Published second@2.3.4.")
 		assert.eq(#requests, 1)
@@ -225,7 +214,6 @@ test.suite("LutePkgPublish", function(suite)
 		assert.eq(package.dependencies.alias.version, "^1.0.0")
 		assert.eq(package.devDependencies.dev.sourceKind, "path")
 		assert.eq(generated.registry, nil)
-		assert.eq(generated.workspace, nil)
 		assert.eq(fs.readFileToString(path.join(second, "loom.config.luau")), original)
 	end)
 
