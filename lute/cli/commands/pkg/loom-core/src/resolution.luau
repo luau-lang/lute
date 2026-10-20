@@ -603,24 +603,26 @@ local function tryReuseLockfile(
 
 	if existingLock then
 		local satisfied, reason = lockfile.satisfiesManifest(existingLock, rootManifest, rootDirectory, excludeDev)
-
-		if options and options.locked then
-			if not satisfied then
-				error(`--locked: lockfile does not satisfy manifest ({reason}). Run \`lute pkg install\` to update.`)
-			end
-			return existingLock, nil
-		end
-
-		if
-			satisfied
-			and not pathDepsAreStale(
+		local pathsAreStale = satisfied
+			and pathDepsAreStale(
 				existingLock,
 				rootDirectory,
 				rootManifest.overrides,
 				rootManifest.registry,
 				if excludeDev then {} else getMemberKeys(rootManifest, rootManifest.overrides)
 			)
-		then
+
+		if options and options.locked then
+			if not satisfied then
+				error(`--locked: lockfile does not satisfy manifest ({reason}). Run \`lute pkg install\` to update.`)
+			end
+			if pathsAreStale then
+				error("--locked: lockfile has stale path dependencies. Run `lute pkg install` to update.")
+			end
+			return existingLock, nil
+		end
+
+		if satisfied and not pathsAreStale then
 			return existingLock, nil
 		end
 	end

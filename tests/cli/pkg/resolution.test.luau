@@ -1193,6 +1193,42 @@ test.suite("LockfileReuse", function(suite)
 		)
 	end)
 
+	suite:case("lockedFlagErrorsWhenPathDependencyManifestChanged", function(assert)
+		local libDir = path.join(workingDirectory, "lib")
+		local utilDir = path.join(workingDirectory, "util")
+		fs.createDirectory(libDir)
+		fs.createDirectory(utilDir)
+		writeConfig(libDir, "lib", "")
+		writeConfig(utilDir, "util", "")
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]]
+		)
+
+		resolution.resolve(path.format(workingDirectory), nil)
+
+		writeConfig(
+			libDir,
+			"lib",
+			[[
+
+			util = {
+				sourceKind = "path",
+				source = "../util",
+			},]]
+		)
+
+		assert.throwsWith("lockfile has stale path dependencies. Run `lute pkg install` to update.", function()
+			resolution.resolve(path.format(workingDirectory), nil, { locked = true })
+		end)
+	end)
+
 	suite:case("reResolvesWhenPathDepManifestChanges", function(assert)
 		local libDir = path.join(workingDirectory, "lib")
 		local utilDir = path.join(workingDirectory, "util")
