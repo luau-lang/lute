@@ -107,11 +107,14 @@ test.suite("PackageManifest", function(suite)
 	end)
 
 	suite:case("evaluatesRequiredManifestValues", function(assert)
-		fs.writeStringToFile(path.join(workingDirectory, "shared.luau"), [[return {
+		fs.writeStringToFile(
+			path.join(workingDirectory, "shared.luau"),
+			[[return {
 	version = "1.2.3",
 	dependencies = { utility = "^2.0.0" },
 }
-]])
+]]
+		)
 		writeManifest([[local shared = require("./shared")
 
 return { package = { name = "root", version = shared.version, dependencies = shared.dependencies } }
@@ -129,7 +132,9 @@ return { package = { name = "root", version = shared.version, dependencies = sha
 
 		assert.throwsWith(
 			"Optional 'version' field in dependency spec for 'pathDependency' in dependencies expected to be a string",
-			function() manifest.parseFile(path.format(manifestPath)) end
+			function()
+				manifest.parseFile(path.format(manifestPath))
+			end
 		)
 	end)
 
