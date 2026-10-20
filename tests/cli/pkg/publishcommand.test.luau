@@ -120,8 +120,10 @@ test.suite("LutePkgPublish", function(suite)
 		local configPath = path.join(workingDirectory, "loom.config.luau")
 		local original = fs.readFileToString(configPath)
 		local project = manifest.parseFile(path.format(configPath))
-		local archive =
-			publishArtifact.build(path.format(workingDirectory), publishManifest.flattenPackage(project.package))
+		local archive = publishArtifact.build(
+			path.format(workingDirectory),
+			publishManifest.flattenPackage(project.package, project.registry)
+		)
 
 		local result = run(workingDirectory, "--dry-run")
 		assert.eq(result.exitcode, 0)
@@ -181,7 +183,8 @@ test.suite("LutePkgPublish", function(suite)
 			end,
 		})
 		closeServer = instance.close
-		local second = writeVirtualPackage(`http://{instance.hostname}:{instance.port}`)
+		local registryUrl = `http://{instance.hostname}:{instance.port}`
+		local second = writeVirtualPackage(registryUrl)
 		writeFile(path.join(second, "src", "init.luau"), "return 42\n")
 		writeFile(path.join(second, "loom.lock.luau"), "return {}\n")
 		writeFile(path.join(workingDirectory, "sibling.luau"), "return 0\n")
@@ -214,7 +217,7 @@ test.suite("LutePkgPublish", function(suite)
 		assert.eq(package.dependencies.alias.source, "vendor/library")
 		assert.eq(package.dependencies.alias.version, "^1.0.0")
 		assert.eq(package.devDependencies.dev.sourceKind, "path")
-		assert.eq(generated.registry, nil)
+		assert.eq(generated.registry, registryUrl)
 		assert.eq(fs.readFileToString(path.join(second, "loom.config.luau")), original)
 	end)
 
