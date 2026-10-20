@@ -105,7 +105,7 @@ local function appendPublishedDependencies(
 	end
 end
 
-local function flattenPackage(package: manifest.PackageManifest): string
+local function flattenPackage(package: manifest.PackageManifest, registry: string?): string
 	assert(
 		package.name ~= nil and package.version ~= nil,
 		"Cannot publish a virtual package: package name and version are required"
@@ -127,6 +127,9 @@ local function flattenPackage(package: manifest.PackageManifest): string
 	appendDevelopmentDependencies(lines, package.devDependencies, "\t\t\t")
 	table.insert(lines, "\t\t},")
 	table.insert(lines, "\t},")
+	if registry ~= nil then
+		table.insert(lines, `\tregistry = {quote(registry)},`)
+	end
 	table.insert(lines, "}")
 
 	local generatedManifest = table.concat(lines, "\n") .. "\n"

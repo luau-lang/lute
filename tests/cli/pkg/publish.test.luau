@@ -52,7 +52,8 @@ return {
 		)
 
 		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
-		local flattened = publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest)
+		local flattened =
+			publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest, sourceManifest.registry)
 		local generated = parseGeneratedManifest(flattened)
 		local package = generated.package :: manifest.PackageManifest
 
@@ -68,7 +69,7 @@ return {
 		assert.eq(package.dependencies.gitAlias.version, "~3.1.0")
 		assert.eq(package.devDependencies.devPath.sourceKind, "path")
 		assert.eq(package.devDependencies.devPath.source, "../dev-path")
-		assert.eq(generated.registry, nil)
+		assert.eq(generated.registry, "https://registry.example.com")
 		assert.eq(next(generated.overrides), nil)
 		local gitAliasIndex = string.find(flattened, "gitAlias", 1, true) :: number
 		local pathAliasIndex = string.find(flattened, "pathAlias", 1, true) :: number
