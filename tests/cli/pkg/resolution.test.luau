@@ -1224,9 +1224,12 @@ test.suite("LockfileReuse", function(suite)
 			},]]
 		)
 
-		assert.throwsWith("lockfile has stale path dependencies. Run `lute pkg install` to update.", function()
-			resolution.resolve(path.format(workingDirectory), nil, { locked = true })
-		end)
+		assert.throwsWith(
+			"lockfile does not satisfy manifest (path dependency 'lib' dependencies have changed). Run `lute pkg install` to update.",
+			function()
+				resolution.resolve(path.format(workingDirectory), nil, { locked = true })
+			end
+		)
 	end)
 
 	suite:case("reResolvesWhenPathDepManifestChanges", function(assert)

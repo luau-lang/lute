@@ -543,7 +543,7 @@ local function pathDepsAreStale(
 	overrides: { [string]: manifest.DependencySpec },
 	rootRegistryUrl: string?,
 	rootLocalDevPackageKeys: { [string]: boolean }
-): boolean
+): (boolean, string?)
 	for key, pkg in lock.packages do
 		if pkg.sourceKind ~= "path" then
 			continue
@@ -551,11 +551,11 @@ local function pathDepsAreStale(
 		local packageInstallPath = path.format(path.join(rootDirectory, pkg.installPath))
 		local depManifestPath = path.format(path.join(packageInstallPath, "loom.config.luau"))
 		if not fs.exists(depManifestPath) then
-			return true
+			return true, `path dependency '{pkg.name}' has no manifest`
 		end
 		local ok, depManifest = pcall(manifest.parseFile, depManifestPath)
 		if not ok then
-			return true
+			return true, `path dependency '{pkg.name}' has an invalid manifest`
 		end
 		if
 			aliasesAreStale(
@@ -568,7 +568,7 @@ local function pathDepsAreStale(
 				depManifest.registry
 			)
 		then
-			return true
+			return true, `path dependency '{pkg.name}' dependencies have changed`
 		end
 		if
 			rootLocalDevPackageKeys[key]
@@ -582,10 +582,10 @@ local function pathDepsAreStale(
 				depManifest.registry
 			)
 		then
-			return true
+			return true, `path dependency '{pkg.name}' dev dependencies have changed`
 		end
 	end
-	return false
+	return false, nil
 end
 
 local function tryReuseLockfile(
@@ -603,26 +603,26 @@ local function tryReuseLockfile(
 
 	if existingLock then
 		local satisfied, reason = lockfile.satisfiesManifest(existingLock, rootManifest, rootDirectory, excludeDev)
-		local pathsAreStale = satisfied
-			and pathDepsAreStale(
+		if satisfied then
+			local pathsAreStale
+			pathsAreStale, reason = pathDepsAreStale(
 				existingLock,
 				rootDirectory,
 				rootManifest.overrides,
 				rootManifest.registry,
 				if excludeDev then {} else getMemberKeys(rootManifest, rootManifest.overrides)
 			)
+			satisfied = not pathsAreStale
+		end
 
 		if options and options.locked then
 			if not satisfied then
 				error(`--locked: lockfile does not satisfy manifest ({reason}). Run \`lute pkg install\` to update.`)
 			end
-			if pathsAreStale then
-				error("--locked: lockfile has stale path dependencies. Run `lute pkg install` to update.")
-			end
 			return existingLock, nil
 		end
 
-		if satisfied and not pathsAreStale then
+		if satisfied then
 			return existingLock, nil
 		end
 	end
