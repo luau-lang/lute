@@ -1,4 +1,3 @@
--- Publish manifest validation and flattening.
 local manifest = require("./manifest")
 local semver = require("./semver")
 
@@ -131,7 +130,7 @@ local function flattenPackage(package: manifest.PackageManifest): string
 	table.insert(lines, "}")
 
 	local generatedManifest = table.concat(lines, "\n") .. "\n"
-	manifest.parseString(generatedManifest, "generated loom.config.luau")
+	manifest.parseString(generatedManifest)
 	return generatedManifest
 end
 
