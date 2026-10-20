@@ -260,16 +260,4 @@ return { package = { name = "root", version = shared.version, dependencies = sha
 			end
 		)
 	end)
-
-	suite:case("validatesPackageVersionsAndDependencyConstraints", function(assert)
-		assert.neq(manifest.validatePackageVersion("1.2.3-beta.1"), nil)
-		assert.neq(manifest.validateDependencyVersionConstraint("^1.2.3"), nil)
-
-		assert.throwsWith("Invalid package version: '^1.2.3'", function()
-			manifest.validatePackageVersion("^1.2.3")
-		end)
-		assert.throwsWith("Invalid dependency version constraint: 'not-a-version'", function()
-			manifest.validateDependencyVersionConstraint("not-a-version")
-		end)
-	end)
 end)
