@@ -1,7 +1,9 @@
 return {
-	version = 3,
+	version = 4,
 	dependencies = {
 		first = "first",
+	},
+	devDependencies = {
 		second = "second",
 	},
 	packages = {
@@ -19,7 +21,7 @@ return {
 			source = "modules/second",
 			sourceKind = "path",
 			installPath = "modules/second",
-			dependencies = {
+			devDependencies = {
 				shared = "shared-second",
 			},
 		},
