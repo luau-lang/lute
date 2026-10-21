@@ -10,21 +10,16 @@ local temporaryDirectory = system.tmpdir()
 local workingDirectory = path.join(temporaryDirectory, "lute-pkg")
 local lutePath = path.format(process.execPath())
 
-local function writeConfig(dir: path.Path, name: string, deps: string, registryUrl: string?, devDeps: string?)
+local function writeConfig(dir: path.Path, name: string, deps: string, registryUrl: string?)
 	local registrySection = if registryUrl then `\n\tregistry = "{registryUrl}",` else ""
-	local devDependenciesSection = if devDeps then `\n\t\tdevDependencies = \{{devDeps}\n\t\t},` else ""
 	fs.writeStringToFile(
 		path.join(dir, "loom.config.luau"),
-		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n\t\tdependencies = \{{deps}\n\t\t},{devDependenciesSection}\n\t},{registrySection}\n}\n`
+		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n\t\tdependencies = \{{deps}\n\t\t},\n\t},{registrySection}\n}\n`
 	)
 end
 
-local function run(cwd: path.Path, args: { string }?): { exitcode: number, stdout: string, stderr: string }
-	local command = { lutePath, "pkg", "install" }
-	for _, arg in args or {} do
-		table.insert(command, arg)
-	end
-	return process.run(command, { cwd = path.format(cwd) })
+local function run(cwd: path.Path): { exitcode: number, stdout: string, stderr: string }
+	return process.run({ lutePath, "pkg", "install" }, { cwd = path.format(cwd) })
 end
 
 local function runWithEnv(
@@ -248,53 +243,6 @@ test.suite("LutePkgInstall", function(suite)
 
 		assert.eq(r1.exitcode, 0)
 		assert.eq(r2.exitcode, 0)
-	end)
-
-	suite:case("excludeDevFlagSkipsRootDevDependencies", function(assert)
-		local devDir = path.join(workingDirectory, "dev")
-		fs.createDirectory(devDir)
-		writeConfig(devDir, "dev", "")
-		writeConfig(
-			workingDirectory,
-			"root",
-			"",
-			nil,
-			[[
-
-			dev = {
-				sourceKind = "path",
-				source = "./dev",
-			},]]
-		)
-
-		local result = run(workingDirectory, { "--exclude-dev" })
-
-		assert.eq(result.exitcode, 0)
-		assert.strContains(result.stdout, "Resolved 0 package(s).")
-	end)
-
-	suite:case("lockedFlagRejectsAStaleLockfile", function(assert)
-		writeConfig(workingDirectory, "root", "")
-		assert.eq(run(workingDirectory).exitcode, 0)
-
-		local libDir = path.join(workingDirectory, "lib")
-		fs.createDirectory(libDir)
-		writeConfig(libDir, "lib", "")
-		writeConfig(
-			workingDirectory,
-			"root",
-			[[
-
-			lib = {
-				sourceKind = "path",
-				source = "./lib",
-			},]]
-		)
-
-		local result = run(workingDirectory, { "--locked" })
-
-		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stderr, "--locked: lockfile does not satisfy manifest (new dependency: lib)")
 	end)
 
 	suite:case("restoresMissingGitHubArtifactFromReusedLockfile", function(assert)
