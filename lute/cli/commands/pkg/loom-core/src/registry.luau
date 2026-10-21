@@ -126,6 +126,12 @@ local function indexToPackageVersions(entries: any, packageName: string): { semv
 		)
 	end
 
+	-- solver assumes universe sorted newest to oldest, must normalize
+	-- response to be semver ordered newest to oldest
+	table.sort(versions, function(a, b)
+		return semver.compare(a.version, b.version) > 0
+	end)
+
 	return versions
 end
 
