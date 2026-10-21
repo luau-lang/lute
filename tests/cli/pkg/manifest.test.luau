@@ -57,6 +57,37 @@ test.suite("PackageManifest", function(suite)
 		assert.eq(package.contentRoot, "src")
 	end)
 
+	suite:case("parsesPackageLicenseAndFiles", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		license = "MIT",
+		files = { "*", "!**/*.spec.luau" },
+	},
+}
+]])
+
+		local package = manifest.parseFile(path.format(manifestPath)).package
+		assert.eq(package.license, "MIT")
+		assert.eq(package.files, { "*", "!**/*.spec.luau" })
+	end)
+
+	suite:case("rejectsInvalidPackageFiles", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		files = { "*", 1 },
+	},
+}
+]])
+
+		assert.throwsWith("Expected 'files' to be an array of non-empty glob strings", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
 	suite:case("rejectsUnsafePackageContentRoot", function(assert)
 		writeManifest([[return {
 	package = {
