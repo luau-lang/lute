@@ -55,8 +55,8 @@ local function install(...: string)
 		error(err)
 	end
 
-	local excludeDev = args:get("exclude-dev") ~= nil
-	local locked = args:get("locked") ~= nil
+	local excludeDev = args:has("exclude-dev")
+	local locked = args:has("locked")
 	local rootDirectory = path.format(process.cwd())
 	local lock = resolution.resolve(rootDirectory, nil, {
 		excludeDev = excludeDev,
