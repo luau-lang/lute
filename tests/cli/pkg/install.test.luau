@@ -245,6 +245,57 @@ test.suite("LutePkgInstall", function(suite)
 		assert.eq(r2.exitcode, 0)
 	end)
 
+	suite:case("restoresMissingGitHubArtifactFromReusedLockfile", function(assert)
+		local source = "https://github.com"
+		local rev = "missing-artifact"
+		local key = `github@{rev}`
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			github = {
+				sourceKind = "github",
+				source = "https://github.com",
+				rev = "missing-artifact",
+			},]]
+		)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.lock.luau"),
+			table.concat({
+				"return {\n",
+				"\tversion = 4,\n",
+				"\tpackages = {\n",
+				`\t\t["{key}"] = \{\n`,
+				'\t\t\tname = "github",\n',
+				`\t\t\trev = "{rev}",\n`,
+				`\t\t\tsource = "{source}",\n`,
+				'\t\t\tsourceKind = "github",\n',
+				`\t\t\tinstallPath = "{store.getGitHubInstallPath(source, rev, nil)}",\n`,
+				"\t\t\tdependencies = {},\n",
+				"\t\t},\n",
+				"\t},\n",
+				"\tdependencies = {\n",
+				`\t\tgithub = "{key}",\n`,
+				"\t},\n",
+				"}\n",
+			})
+		)
+
+		local homeDirectory = path.join(workingDirectory, "home")
+		fs.createDirectory(homeDirectory)
+		local env = setmetatable({
+			HOME = path.format(homeDirectory),
+			USERPROFILE = path.format(homeDirectory),
+		}, { __index = process.env })
+
+		-- This source is deliberately not a valid GitHub repository URL. A successful
+		-- install would mean the reused-lockfile path skipped restoring the GitHub artifact.
+		local result = runWithEnv(workingDirectory, env)
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stderr, "Unsupported GitHub source URL")
+	end)
+
 	suite:case("installsRegistryArchiveIntoQualifiedStoreAndSkipsExistingPackage", function(assert)
 		local indexRequests = 0
 		local contentUrlRequests = 0

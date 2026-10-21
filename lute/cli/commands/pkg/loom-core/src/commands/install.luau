@@ -1,4 +1,5 @@
 local cli = require("@batteries/cli")
+local github = require("../github")
 local lockfile = require("../lockfile")
 local registry = require("../registry")
 local resolution = require("../resolution")
@@ -64,13 +65,24 @@ local function install(...: string)
 	local reachablePackages = lockfile.getReachablePackageKeys(lock, not excludeDev)
 
 	for key, pkg in lock.packages do
-		if reachablePackages[key] and pkg.sourceKind == "registry" and pkg.rev then
+		if not reachablePackages[key] then
+			continue
+		end
+
+		if pkg.sourceKind == "registry" and pkg.rev then
 			store.ensureStoreDirectory()
 			local registryUrl = pkg.registry
 			assert(registryUrl ~= nil, `No registry URL for package '{pkg.name}'`)
 			local storeKey = store.qualifyRegistryKey(key, registryUrl)
 			if not store.hasPackage(storeKey) then
 				registry.installPackage(registryUrl, pkg.source, pkg.rev, store.getPackagePath(storeKey))
+			end
+		elseif pkg.sourceKind == "github" then
+			local rev = assert(pkg.rev, `No GitHub revision for package '{pkg.name}'`)
+			store.ensureStoreDirectory()
+			local storeKey = store.getGitHubCheckoutKey(pkg.source, rev)
+			if not store.hasPackage(storeKey) then
+				github.installPackage(pkg.source, rev, store.getPackagePath(storeKey))
 			end
 		end
 	end
