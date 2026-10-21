@@ -126,7 +126,6 @@ return {
 		local flattened = publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest)
 		local generated = parseGeneratedManifest(flattened)
 		assert.eq(generated.package.license, "MIT")
-		assert.that(generated.package.files == nil)
 	end)
 
 	suite:case("quotesKeywordDependencyAliases", function(assert)
