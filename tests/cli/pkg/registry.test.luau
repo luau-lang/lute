@@ -90,7 +90,7 @@ test.suite("RegistryClient", function(suite)
 		fs.removeDirectory(credentialWorkingDirectory, { recursive = true })
 	end)
 
-	suite:case("indexToPackageVersions_basicEntry", function(assert)
+	suite:case("indexToPackageVersions_sortsNewestFirst", function(assert)
 		local entries = {
 			{
 				name = "citrus",
@@ -109,8 +109,8 @@ test.suite("RegistryClient", function(suite)
 		local versions = registry.indexToPackageVersions(entries, "citrus")
 		assert.eq(#versions, 2)
 		assert.eq(versions[1].name, "citrus")
-		assert.eq(versions[1].versionString, "1.0.0")
-		assert.eq(versions[2].versionString, "1.1.0")
+		assert.eq(versions[1].versionString, "1.1.0")
+		assert.eq(versions[2].versionString, "1.0.0")
 	end)
 
 	suite:case("indexToPackageVersions_filtersYanked", function(assert)
@@ -137,8 +137,8 @@ test.suite("RegistryClient", function(suite)
 
 		local versions = registry.indexToPackageVersions(entries, "citrus")
 		assert.eq(#versions, 2)
-		assert.eq(versions[1].versionString, "1.0.0")
-		assert.eq(versions[2].versionString, "1.2.0")
+		assert.eq(versions[1].versionString, "1.2.0")
+		assert.eq(versions[2].versionString, "1.0.0")
 	end)
 
 	suite:case("indexToPackageVersions_parsesDependencies", function(assert)
