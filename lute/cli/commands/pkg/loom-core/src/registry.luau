@@ -189,6 +189,35 @@ local function fetchUniverse(registryUrl: string, packageRequests: { PackageRequ
 	return universe
 end
 
+-- Validates the archive's original entry path before extracting it. We cannot use
+-- ZipEntry:getSafePath here: it reconstructs paths from the ZIP directory tree,
+-- which loses separators for deeply nested entries and makes registry installs
+-- write files to corrupted paths.
+local function getSafeArchivePath(entryPath: string): string?
+	if string.find(entryPath, "\0") or string.match(entryPath, "^[\\/]") then
+		return nil
+	end
+
+	local depth = 0
+	local normalizedPath = string.gsub(entryPath, "\\", "/")
+	for component in string.gmatch(normalizedPath, "[^/]+") do
+		if component == "." then
+			continue
+		elseif component == ".." then
+			depth -= 1
+			if depth < 0 then
+				return nil
+			end
+		elseif string.match(component, "^[a-zA-Z]:$") then
+			return nil
+		else
+			depth += 1
+		end
+	end
+
+	return entryPath
+end
+
 local function installZipArchive(content: string, installPath: string)
 	local reader = unzip.load(buffer.fromstring(content))
 
@@ -199,7 +228,7 @@ local function installZipArchive(content: string, installPath: string)
 
 		local entryContent = reader:extract(entry, { type = "text" }) :: string
 
-		local safePath = entry:getSafePath()
+		local safePath = getSafeArchivePath(entry.name)
 		if not safePath then
 			error(`Unsafe path in registry package archive: {entry.name}`)
 		end
