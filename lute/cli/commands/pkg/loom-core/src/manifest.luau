@@ -41,6 +41,7 @@ export type PackageManifest = {
 	-- must be included
 	read name: string?,
 	read version: string?,
+	read contentRoot: string?,
 	read dependencies: { [string]: DependencySpec },
 	read devDependencies: { [string]: DependencySpec },
 }
@@ -83,6 +84,25 @@ local function parseTarget(target: unknown, name: string, sectionName: string): 
 		normalized.parts[1] ~= "..",
 		`'target' for github dependency '{name}' in {sectionName} must stay inside the repository`
 	)
+	if #normalized.parts == 0 then
+		return nil
+	end
+	return path.posix.format({
+		parts = normalized.parts,
+		absolute = false,
+	})
+end
+
+local function parseContentRoot(contentRoot: unknown): string?
+	if contentRoot == nil then
+		return nil
+	end
+
+	assert(typeof(contentRoot) == "string" and #contentRoot > 0, "Expected 'content_root' to be a non-empty string")
+	assert(not path.posix.isAbsolute(contentRoot), "'content_root' must be relative to the package directory")
+
+	local normalized = path.posix.normalize(contentRoot)
+	assert(normalized.parts[1] ~= "..", "'content_root' must stay inside the package directory")
 	if #normalized.parts == 0 then
 		return nil
 	end
@@ -200,6 +220,7 @@ local function parseManifest(t: unknown, manifestDirectory: string): ProjectMani
 		hasName == hasVersion,
 		"Package manifest must specify both 'name' and 'version', or neither for a virtual package"
 	)
+	local contentRoot = parseContentRoot((pkg :: any).content_root)
 
 	local dependencies = parseDependencyMap((pkg :: any).dependencies, "dependencies", manifestDirectory)
 	local devDependencies = parseDependencyMap((pkg :: any).dev_dependencies, "dev_dependencies", manifestDirectory)
@@ -218,6 +239,7 @@ local function parseManifest(t: unknown, manifestDirectory: string): ProjectMani
 
 	return table.freeze({
 		package = table.freeze({
+			contentRoot = contentRoot,
 			name = pkg.name,
 			version = pkg.version,
 			dependencies = dependencies,

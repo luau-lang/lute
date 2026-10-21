@@ -43,6 +43,35 @@ test.suite("PackageManifest", function(suite)
 		assert.eq(registryCitrus.version, "^1.0.0")
 	end)
 
+	suite:case("normalizesPackageContentRoot", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		content_root = "./src/../src",
+	},
+}
+]])
+
+		local package = manifest.parseFile(path.format(manifestPath)).package
+		assert.eq(package.contentRoot, "src")
+	end)
+
+	suite:case("rejectsUnsafePackageContentRoot", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		content_root = "../src",
+	},
+}
+]])
+
+		assert.throwsWith("'content_root' must stay inside the package directory", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
 	suite:case("rejectsAnEmptyPackageName", function(assert)
 		writeManifest([[return {
 	package = {

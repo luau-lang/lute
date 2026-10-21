@@ -86,9 +86,31 @@ local function collectFiles(
 	end
 end
 
-local function build(packageDirectory: string, generatedManifest: string): buffer
+local function resolveContentDirectory(root: path.Path, contentRoot: string?): path.Path
+	if contentRoot == nil then
+		return root
+	end
+
+	assert(not path.posix.isAbsolute(contentRoot), "'content_root' must be relative to the package directory")
+	local normalized = path.posix.normalize(contentRoot)
+	assert(normalized.parts[1] ~= "..", "'content_root' must stay inside the package directory")
+	return path.resolve(
+		root,
+		path.posix.format({
+			parts = normalized.parts,
+			absolute = false,
+		})
+	)
+end
+
+local function build(packageDirectory: string, generatedManifest: string, contentRoot: string?): buffer
 	local root = path.resolve(packageDirectory)
 	assert(fs.type(root) == "dir", `Package directory is not a directory: {path.format(root)}`)
+	local contentDirectory = resolveContentDirectory(root, contentRoot)
+	assert(
+		fs.type(contentDirectory) == "dir",
+		`Package content root is not a directory: {path.format(contentDirectory)}`
+	)
 
 	local entries: { PublishableFile } = {}
 	local names: { [string]: boolean } = {}
@@ -99,7 +121,7 @@ local function build(packageDirectory: string, generatedManifest: string): buffe
 	})
 	names["loom.config.luau"] = true
 
-	collectFiles(root, {}, entries, names)
+	collectFiles(contentDirectory, {}, entries, names)
 	table.sort(entries, function(a: PublishableFile, b: PublishableFile)
 		return a.name < b.name
 	end)
