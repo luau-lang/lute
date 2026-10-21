@@ -42,6 +42,8 @@ export type PackageManifest = {
 	read name: string?,
 	read version: string?,
 	read contentRoot: string?,
+	read files: { string }?,
+	read license: string?,
 	read dependencies: { [string]: DependencySpec },
 	read devDependencies: { [string]: DependencySpec },
 }
@@ -110,6 +112,31 @@ local function parseContentRoot(contentRoot: unknown): string?
 		parts = normalized.parts,
 		absolute = false,
 	})
+end
+
+local function parseFiles(files: unknown): { string }?
+	if files == nil then
+		return nil
+	end
+
+	assert(typeof(files) == "table", "Expected 'files' to be an array of non-empty glob strings")
+	local array = files :: { any }
+	local result: { string } = {}
+	for index = 1, #array do
+		local pattern = array[index]
+		assert(
+			typeof(pattern) == "string" and #pattern > 0 and pattern ~= "!",
+			"Expected 'files' to be an array of non-empty glob strings"
+		)
+		result[index] = pattern
+	end
+	for index in array do
+		assert(
+			typeof(index) == "number" and index >= 1 and index % 1 == 0 and index <= #array,
+			"Expected 'files' to be an array of non-empty glob strings"
+		)
+	end
+	return table.freeze(result)
 end
 
 local function parseDependencyMap(
@@ -221,6 +248,9 @@ local function parseManifest(t: unknown, manifestDirectory: string): ProjectMani
 		"Package manifest must specify both 'name' and 'version', or neither for a virtual package"
 	)
 	local contentRoot = parseContentRoot((pkg :: any).content_root)
+	local files = parseFiles((pkg :: any).files)
+	local license = (pkg :: any).license
+	assert(license == nil or typeof(license) == "string", "Expected 'license' to be a string")
 
 	local dependencies = parseDependencyMap((pkg :: any).dependencies, "dependencies", manifestDirectory)
 	local devDependencies = parseDependencyMap((pkg :: any).dev_dependencies, "dev_dependencies", manifestDirectory)
@@ -240,6 +270,8 @@ local function parseManifest(t: unknown, manifestDirectory: string): ProjectMani
 	return table.freeze({
 		package = table.freeze({
 			contentRoot = contentRoot,
+			files = files,
+			license = license,
 			name = pkg.name,
 			version = pkg.version,
 			dependencies = dependencies,

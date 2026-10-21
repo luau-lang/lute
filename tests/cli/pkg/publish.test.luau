@@ -78,6 +78,26 @@ return {
 		assert.that(pathAliasIndex < registryAliasIndex)
 	end)
 
+	suite:case("preservesLicenseInThePublishedManifest", function(assert)
+		writeManifest(
+			workingDirectory,
+			[[return {
+	package = {
+		name = "publisher",
+		version = "1.2.3",
+		license = "MIT",
+	},
+}
+]]
+		)
+
+		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		local flattened = publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest)
+		local generated = parseGeneratedManifest(flattened)
+		assert.eq(generated.package.license, "MIT")
+		assert.that(generated.package.files == nil)
+	end)
+
 	suite:case("quotesKeywordDependencyAliases", function(assert)
 		writeManifest(
 			workingDirectory,
