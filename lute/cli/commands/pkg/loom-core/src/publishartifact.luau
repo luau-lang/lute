@@ -35,6 +35,15 @@ local function archiveName(parts: { string }): string
 	return name
 end
 
+local function hasHiddenPart(parts: { string }): boolean
+	for _, part in parts do
+		if string.sub(part, 1, 1) == "." then
+			return true
+		end
+	end
+	return false
+end
+
 local function collectFiles(
 	directory: path.Path,
 	parts: { string },
@@ -62,6 +71,9 @@ local function collectFiles(
 			local entryParts = table.clone(parts)
 			table.insert(entryParts, child.name)
 			if not filesFilter.includes(filter, entryParts, false) then
+				continue
+			end
+			if hasHiddenPart(entryParts) and not filesFilter.explicitlyIncludes(filter, entryParts, false) then
 				continue
 			end
 			local name = archiveName(entryParts)
