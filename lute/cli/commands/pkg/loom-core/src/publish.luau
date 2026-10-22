@@ -126,9 +126,6 @@ local function flattenPackage(package: manifest.PackageManifest, registry: strin
 		`\t\tname = {quote(name)},`,
 		`\t\tversion = {quote(version)},`,
 	}
-	if package.license ~= nil then
-		table.insert(lines, `\t\tlicense = {quote(package.license)},`)
-	end
 	table.insert(lines, "\t\tdependencies = {")
 	appendDependencies(lines, package.dependencies, "\t\t\t", false)
 	table.insert(lines, "\t\t},")
