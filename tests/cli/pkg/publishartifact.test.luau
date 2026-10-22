@@ -82,6 +82,58 @@ test.suite("Publish artifact", function(suite)
 		assert.that(reader:findEntry("README.md") == nil)
 	end)
 
+	suite:case("filtersContentRootWithGitignoreStyleFilesPatterns", function(assert)
+		local packageDirectory = path.join(workingDirectory, "package")
+		fs.createDirectory(packageDirectory)
+
+		writeFile(path.join(packageDirectory, "src", "root.txt"), "root\n")
+		writeFile(path.join(packageDirectory, "src", "nested", "root.txt"), "nested root\n")
+		writeFile(path.join(packageDirectory, "src", "nested", "module.luau"), "module\n")
+		writeFile(path.join(packageDirectory, "src", "nested", "module.spec.luau"), "spec\n")
+		writeFile(path.join(packageDirectory, "src", "nested", "__tests__", "helper.luau"), "test helper\n")
+		writeFile(path.join(packageDirectory, "src", "some", "modules", "inner.txt"), "module directory\n")
+		writeFile(path.join(packageDirectory, "src", "docs", "guide.md"), "guide\n")
+		writeFile(path.join(packageDirectory, "src", "docs", "nested", "guide.txt"), "nested guide\n")
+		writeFile(path.join(packageDirectory, "src", "assets", "a1.txt"), "a\n")
+		writeFile(path.join(packageDirectory, "src", "assets", "b2.txt"), "b\n")
+		writeFile(path.join(packageDirectory, "src", "assets", "c3.txt"), "c\n")
+		writeFile(path.join(packageDirectory, "src", "a", "b", "direct.txt"), "direct\n")
+		writeFile(path.join(packageDirectory, "src", "a", "x", "b", "nested.txt"), "nested\n")
+		writeFile(path.join(packageDirectory, "src", "foo", "bar", "matched.txt"), "matched\n")
+
+		local artifact = publishArtifact.build(path.format(packageDirectory), generatedManifest, {
+			contentRoot = "src",
+			files = {
+				"/root.txt",
+				"nested/*.luau",
+				"modules/",
+				"docs/**",
+				"assets/[ab]?.txt",
+				"a/**/b",
+				"**/foo/bar",
+				"!**/*.spec.luau",
+				"!**/__tests__/",
+			},
+		})
+		local reader = unzip.load(artifact)
+		assert.eq(reader:getStats().fileCount, 11)
+		assert.eq(readEntry(reader, "loom.config.luau"), generatedManifest)
+		assert.eq(readEntry(reader, "root.txt"), "root\n")
+		assert.eq(readEntry(reader, "nested/module.luau"), "module\n")
+		assert.eq(readEntry(reader, "some/modules/inner.txt"), "module directory\n")
+		assert.eq(readEntry(reader, "docs/guide.md"), "guide\n")
+		assert.eq(readEntry(reader, "docs/nested/guide.txt"), "nested guide\n")
+		assert.eq(readEntry(reader, "assets/a1.txt"), "a\n")
+		assert.eq(readEntry(reader, "assets/b2.txt"), "b\n")
+		assert.eq(readEntry(reader, "a/b/direct.txt"), "direct\n")
+		assert.eq(readEntry(reader, "a/x/b/nested.txt"), "nested\n")
+		assert.eq(readEntry(reader, "foo/bar/matched.txt"), "matched\n")
+		assert.that(reader:findEntry("nested/root.txt") == nil)
+		assert.that(reader:findEntry("nested/module.spec.luau") == nil)
+		assert.that(reader:findEntry("nested/__tests__/helper.luau") == nil)
+		assert.that(reader:findEntry("assets/c3.txt") == nil)
+	end)
+
 	suite:case("rejectsContentRootOutsideThePackage", function(assert)
 		local packageDirectory = path.join(workingDirectory, "package")
 		fs.createDirectory(packageDirectory)
