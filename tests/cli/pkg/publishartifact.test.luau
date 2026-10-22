@@ -13,6 +13,21 @@ local function writeFile(filepath: path.Path, contents: string)
 	fs.writeStringToFile(filepath, contents)
 end
 
+local function writePackageManifest(packageDirectory: path.Path, contents: string?): path.Path
+	local manifestPath = path.join(packageDirectory, "loom.config.luau")
+	writeFile(manifestPath, contents or "return { workspace = {} }\n")
+	return manifestPath
+end
+
+local function buildArtifact(packageDirectory: path.Path, sourceManifestPath: path.Path, options: any?): buffer
+	return publishArtifact.build(
+		path.format(packageDirectory),
+		path.format(sourceManifestPath),
+		generatedManifest,
+		options
+	)
+end
+
 local function readEntry(reader: unzip.ZipReader, name: string): string
 	local entry = reader:findEntry(name)
 	assert(entry ~= nil, `Missing ZIP entry '{name}'`)
@@ -33,7 +48,7 @@ test.suite("Publish artifact", function(suite)
 		writeFile(path.join(packageDirectory, "README.md"), "read me\n")
 		writeFile(path.join(packageDirectory, "src", "init.luau"), 'return "package"\n')
 		writeFile(path.join(packageDirectory, "assets", "data.bin"), "a\0b")
-		writeFile(path.join(packageDirectory, "loom.config.luau"), "return { workspace = {} }\n")
+		local sourceManifestPath = writePackageManifest(packageDirectory)
 		writeFile(path.join(packageDirectory, "src", "loom.config.luau"), "return {}\n")
 		writeFile(path.join(packageDirectory, "loom.lock.luau"), "return {}\n")
 		writeFile(path.join(packageDirectory, "src", "loom.lock.luau"), "return {}\n")
@@ -42,8 +57,8 @@ test.suite("Publish artifact", function(suite)
 		writeFile(path.join(packageDirectory, ".git", "objects", "object"), "object\n")
 		writeFile(path.join(packageDirectory, ".gitignore"), "ignored\n")
 
-		local first = publishArtifact.build(path.format(packageDirectory), generatedManifest)
-		local second = publishArtifact.build(path.format(packageDirectory), generatedManifest)
+		local first = buildArtifact(packageDirectory, sourceManifestPath)
+		local second = buildArtifact(packageDirectory, sourceManifestPath)
 		assert.eq(buffer.tostring(first), buffer.tostring(second))
 
 		local reader = unzip.load(first)
@@ -65,35 +80,67 @@ test.suite("Publish artifact", function(suite)
 	suite:case("rejectsSymlinksInProjectSource", function(assert)
 		local packageDirectory = path.join(workingDirectory, "package")
 		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
 		writeFile(path.join(packageDirectory, "source.luau"), "return {}\n")
 		fs.symbolicLink("source.luau", path.join(packageDirectory, "linked-source.luau"))
 
 		assert.throwsWith("Symlinks in project source are not supported", function()
-			publishArtifact.build(path.format(packageDirectory), generatedManifest)
+			buildArtifact(packageDirectory, sourceManifestPath)
 		end)
+	end)
+
+	suite:case("preservesTheSpecifiedSourceManifest", function(assert)
+		local packageDirectory = path.join(workingDirectory, "package")
+		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = path.join(packageDirectory, "source-manifest.luau")
+		writeFile(sourceManifestPath, "return { workspace = {} }\n")
+		writeFile(path.join(packageDirectory, "init.luau"), 'return "package"\n')
+
+		local artifact = buildArtifact(packageDirectory, sourceManifestPath)
+		local reader = unzip.load(artifact)
+		assert.eq(readEntry(reader, "loom.config.luau"), generatedManifest)
+		assert.eq(readEntry(reader, "loom.config.luau.orig"), "return { workspace = {} }\n")
+		assert.eq(readEntry(reader, "init.luau"), 'return "package"\n')
+		assert.that(reader:findEntry("source-manifest.luau") == nil)
 	end)
 
 	suite:case("usesContentRootAsTheArtifactRoot", function(assert)
 		local packageDirectory = path.join(workingDirectory, "package")
 		fs.createDirectory(packageDirectory)
 		writeFile(path.join(packageDirectory, "README.md"), "not published\n")
+		local sourceManifestPath = writePackageManifest(packageDirectory)
 		writeFile(path.join(packageDirectory, "src", "init.luau"), 'return "package"\n')
 		writeFile(path.join(packageDirectory, "src", "assets", "data.bin"), "a\0b")
 
-		local artifact =
-			publishArtifact.build(path.format(packageDirectory), generatedManifest, { contentRoot = "src" })
+		local artifact = buildArtifact(packageDirectory, sourceManifestPath, { contentRoot = "src" })
 		local reader = unzip.load(artifact)
-		assert.eq(reader:getStats().fileCount, 3)
+		assert.eq(reader:getStats().fileCount, 4)
 		assert.eq(readEntry(reader, "loom.config.luau"), generatedManifest)
+		assert.eq(readEntry(reader, "loom.config.luau.orig"), "return { workspace = {} }\n")
 		assert.eq(readEntry(reader, "init.luau"), 'return "package"\n')
 		assert.eq(readEntry(reader, "assets/data.bin"), "a\0b")
 		assert.that(reader:findEntry("src/init.luau") == nil)
 		assert.that(reader:findEntry("README.md") == nil)
 	end)
 
+	suite:case("rejectsAContentRootFileThatCollidesWithTheGeneratedManifest", function(assert)
+		local packageDirectory = path.join(workingDirectory, "package")
+		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
+		writeFile(path.join(packageDirectory, "src", "loom.config.luau"), "return { nested = {} }\n")
+
+		assert.throwsWith(
+			"Cannot publish file 'loom.config.luau': archive path is reserved for the generated package manifest; rename the source file",
+			function()
+				buildArtifact(packageDirectory, sourceManifestPath, { contentRoot = "src" })
+			end
+		)
+	end)
+
 	suite:case("filtersContentRootWithRotrieverOverridePatterns", function(assert)
 		local packageDirectory = path.join(workingDirectory, "package")
 		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
 
 		writeFile(path.join(packageDirectory, "src", "root.txt"), "root\n")
 		writeFile(path.join(packageDirectory, "src", "nested", "root.txt"), "nested root\n")
@@ -110,7 +157,7 @@ test.suite("Publish artifact", function(suite)
 		writeFile(path.join(packageDirectory, "src", "a", "x", "b", "nested.txt"), "nested\n")
 		writeFile(path.join(packageDirectory, "src", "foo", "bar", "matched.txt"), "matched\n")
 
-		local artifact = publishArtifact.build(path.format(packageDirectory), generatedManifest, {
+		local artifact = buildArtifact(packageDirectory, sourceManifestPath, {
 			contentRoot = "src",
 			files = {
 				"/root.txt",
@@ -125,8 +172,9 @@ test.suite("Publish artifact", function(suite)
 			},
 		})
 		local reader = unzip.load(artifact)
-		assert.eq(reader:getStats().fileCount, 11)
+		assert.eq(reader:getStats().fileCount, 12)
 		assert.eq(readEntry(reader, "loom.config.luau"), generatedManifest)
+		assert.eq(readEntry(reader, "loom.config.luau.orig"), "return { workspace = {} }\n")
 		assert.eq(readEntry(reader, "root.txt"), "root\n")
 		assert.eq(readEntry(reader, "nested/module.luau"), "module\n")
 		assert.eq(readEntry(reader, "docs/guide.md"), "guide\n")
@@ -146,14 +194,16 @@ test.suite("Publish artifact", function(suite)
 	suite:case("allowsALaterPatternToRestoreAFileInAnExcludedDirectory", function(assert)
 		local packageDirectory = path.join(workingDirectory, "package")
 		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
 		writeFile(path.join(packageDirectory, "generated", "discard.luau"), "discard\n")
 		writeFile(path.join(packageDirectory, "generated", "keep.luau"), "keep\n")
 
-		local artifact = publishArtifact.build(path.format(packageDirectory), generatedManifest, {
+		local artifact = buildArtifact(packageDirectory, sourceManifestPath, {
 			files = { "**", "!generated/", "generated/keep.luau" },
 		})
 		local reader = unzip.load(artifact)
-		assert.eq(reader:getStats().fileCount, 2)
+		assert.eq(reader:getStats().fileCount, 3)
+		assert.eq(readEntry(reader, "loom.config.luau.orig"), "return { workspace = {} }\n")
 		assert.eq(readEntry(reader, "generated/keep.luau"), "keep\n")
 		assert.that(reader:findEntry("generated/discard.luau") == nil)
 	end)
@@ -161,15 +211,34 @@ test.suite("Publish artifact", function(suite)
 	suite:case("rejectsContentRootOutsideThePackage", function(assert)
 		local packageDirectory = path.join(workingDirectory, "package")
 		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
 
 		assert.throwsWith("'content_root' must stay inside the package directory", function()
-			publishArtifact.build(path.format(packageDirectory), generatedManifest, { contentRoot = "../outside" })
+			buildArtifact(packageDirectory, sourceManifestPath, { contentRoot = "../outside" })
+		end)
+	end)
+
+	suite:case("rejectsWindowsContentRoots", function(assert)
+		if not system.win32 then
+			return
+		end
+
+		local packageDirectory = path.join(workingDirectory, "package")
+		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
+
+		assert.throwsWith("'content_root' must stay inside the package directory", function()
+			buildArtifact(packageDirectory, sourceManifestPath, { contentRoot = "..\\outside" })
+		end)
+		assert.throwsWith("'content_root' must be relative to the package directory", function()
+			buildArtifact(packageDirectory, sourceManifestPath, { contentRoot = "C:/outside" })
 		end)
 	end)
 
 	suite:case("includesGitignoredFiles", function(assert)
 		local packageDirectory = path.join(workingDirectory, "package")
 		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
 		writeFile(path.join(packageDirectory, ".gitignore"), "ignored.txt\nbuild/\n")
 		writeFile(path.join(packageDirectory, "README.md"), "published\n")
 		writeFile(path.join(packageDirectory, "ignored.txt"), "published\n")
@@ -178,10 +247,11 @@ test.suite("Publish artifact", function(suite)
 		writeFile(path.join(packageDirectory, "src", "package.spec.luau"), "published\n")
 		writeFile(path.join(packageDirectory, "src", "__tests__", "helper.luau"), "published\n")
 
-		local artifact = publishArtifact.build(path.format(packageDirectory), generatedManifest)
+		local artifact = buildArtifact(packageDirectory, sourceManifestPath)
 		local reader = unzip.load(artifact)
-		assert.eq(reader:getStats().fileCount, 8)
+		assert.eq(reader:getStats().fileCount, 9)
 		assert.eq(readEntry(reader, "loom.config.luau"), generatedManifest)
+		assert.eq(readEntry(reader, "loom.config.luau.orig"), "return { workspace = {} }\n")
 		assert.eq(readEntry(reader, ".gitignore"), "ignored.txt\nbuild/\n")
 		assert.eq(readEntry(reader, "README.md"), "published\n")
 		assert.eq(readEntry(reader, "ignored.txt"), "published\n")

@@ -116,6 +116,38 @@ test.suite("PackageManifest", function(suite)
 		end)
 	end)
 
+	suite:case("rejectsWindowsPathsInPackageContentRoot", function(assert)
+		if not system.win32 then
+			return
+		end
+
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		content_root = "..\\private",
+	},
+}
+]])
+
+		assert.throwsWith("'content_root' must stay inside the package directory", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		content_root = "C:/private",
+	},
+}
+]])
+
+		assert.throwsWith("'content_root' must be relative to the package directory", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
 	suite:case("rejectsAnEmptyPackageName", function(assert)
 		writeManifest([[return {
 	package = {

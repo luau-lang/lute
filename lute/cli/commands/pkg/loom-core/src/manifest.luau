@@ -102,17 +102,14 @@ local function parseContentRoot(contentRoot: unknown): string?
 	end
 
 	assert(typeof(contentRoot) == "string" and #contentRoot > 0, "Expected 'content_root' to be a non-empty string")
-	assert(not path.posix.isAbsolute(contentRoot), "'content_root' must be relative to the package directory")
+	assert(not path.isAbsolute(contentRoot), "'content_root' must be relative to the package directory")
 
-	local normalized = path.posix.normalize(contentRoot)
+	local normalized = path.normalize(contentRoot)
 	assert(normalized.parts[1] ~= "..", "'content_root' must stay inside the package directory")
 	if #normalized.parts == 0 then
 		return nil
 	end
-	return path.posix.format({
-		parts = normalized.parts,
-		absolute = false,
-	})
+	return path.format(normalized)
 end
 
 local function parseFiles(files: unknown): { string }?
