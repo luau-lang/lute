@@ -116,7 +116,14 @@ function includes(state: State, parts: { string }, isDirectory: boolean): boolea
 	return isDirectory or not state.files.hasInclude
 end
 
+-- Hidden paths are never selected implicitly. They must have a final,
+-- positive match from an explicit `files` entry.
+function explicitlyIncludes(state: State, parts: { string }, isDirectory: boolean): boolean
+	return state.files ~= nil and matchPatterns(state.files.patterns, parts, isDirectory) == true
+end
+
 return table.freeze({
+	explicitlyIncludes = explicitlyIncludes,
 	includes = includes,
 	new = new,
 })
