@@ -69,10 +69,26 @@ local function parseFilesFilter(patterns: { string }?): FilesFilter?
 	return filter
 end
 
-local function matchPatterns(patterns: { FilePattern }, candidate: string, isDirectory: boolean): boolean?
+local function matchesPattern(pattern: FilePattern, parts: { string }, isDirectory: boolean): boolean
+	if (not pattern.onlyDirectories or isDirectory) and glob.match(pattern.pattern, relativePath(parts)) then
+		return true
+	end
+
+	-- A directory match applies to every file nested under that directory. This
+	-- lets a later rule restore an individual descendant of an excluded directory.
+	for index = 1, #parts - 1 do
+		if glob.match(pattern.pattern, relativePath({ table.unpack(parts, 1, index) })) then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function matchPatterns(patterns: { FilePattern }, parts: { string }, isDirectory: boolean): boolean?
 	local matched: boolean? = nil
 	for _, pattern in patterns do
-		if (not pattern.onlyDirectories or isDirectory) and glob.match(pattern.pattern, candidate) then
+		if matchesPattern(pattern, parts, isDirectory) then
 			matched = not pattern.excluded
 		end
 	end
@@ -85,14 +101,15 @@ local function new(files: { string }?): State
 	}
 end
 
--- Directories with no matching include are retained for traversal; unmatched
--- files are excluded only when an include pattern exists.
+-- Directories must always be traversed so that a later pattern can restore a
+-- descendant of a directory excluded by an earlier pattern. Unmatched files
+-- are excluded only when an include pattern exists.
 function includes(state: State, parts: { string }, isDirectory: boolean): boolean
 	if state.files == nil then
 		return true
 	end
 
-	local matched = matchPatterns(state.files.patterns, relativePath(parts), isDirectory)
+	local matched = matchPatterns(state.files.patterns, parts, isDirectory)
 	if matched ~= nil then
 		return matched
 	end
