@@ -50,9 +50,7 @@ local function collectFiles(
 		if child.type == "dir" or isLinkedDirectory then
 			local childParts = table.clone(parts)
 			table.insert(childParts, child.name)
-			if filesFilter.includes(filter, childParts, true) then
-				collectFiles(childPath, childParts, entries, names, filter)
-			end
+			collectFiles(childPath, childParts, entries, names, filter)
 		elseif child.type == "file" or child.type == "link" then
 			local entryParts = table.clone(parts)
 			table.insert(entryParts, child.name)
