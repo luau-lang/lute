@@ -46,8 +46,8 @@ local function collectFiles(
 
 	for _, child in children do
 		local childPath = path.join(directory, child.name)
-		local isLinkedDirectory = child.type == "link" and pcall(fs.listDirectory, childPath)
-		if child.type == "dir" or isLinkedDirectory then
+		assert(child.type ~= "link", "Symlinks in project source are not supported")
+		if child.type == "dir" then
 			local childParts = table.clone(parts)
 			table.insert(childParts, child.name)
 			collectFiles(childPath, childParts, entries, names, filter)
