@@ -101,20 +101,6 @@ test.suite("PackageManifest", function(suite)
 		end)
 	end)
 
-	suite:case("parsesPackageLicense", function(assert)
-		writeManifest([[return {
-	package = {
-		name = "root",
-		version = "0.0.0",
-		license = "MIT",
-	},
-}
-]])
-
-		local package = manifest.parseFile(path.format(manifestPath)).package
-		assert.eq(package.license, "MIT")
-	end)
-
 	suite:case("rejectsUnsafePackageContentRoot", function(assert)
 		writeManifest([[return {
 	package = {

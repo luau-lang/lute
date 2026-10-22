@@ -45,7 +45,6 @@ export type PackageManifest = {
 	-- Publish filters relative to contentRoot. Positive patterns include files;
 	-- patterns prefixed with ! exclude them.
 	read files: { string }?,
-	read license: string?,
 	read dependencies: { [string]: DependencySpec },
 	read devDependencies: { [string]: DependencySpec },
 }
@@ -247,8 +246,6 @@ local function parseManifest(t: unknown, manifestDirectory: string): ProjectMani
 	)
 	local contentRoot = parseContentRoot((pkg :: any).content_root)
 	local files = parseFiles((pkg :: any).files)
-	local license = (pkg :: any).license
-	assert(license == nil or typeof(license) == "string", "Expected 'license' to be a string")
 
 	local dependencies = parseDependencyMap((pkg :: any).dependencies, "dependencies", manifestDirectory)
 	local devDependencies = parseDependencyMap((pkg :: any).dev_dependencies, "dev_dependencies", manifestDirectory)
@@ -269,7 +266,6 @@ local function parseManifest(t: unknown, manifestDirectory: string): ProjectMani
 		package = table.freeze({
 			contentRoot = contentRoot,
 			files = files,
-			license = license,
 			name = pkg.name,
 			version = pkg.version,
 			dependencies = dependencies,
