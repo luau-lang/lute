@@ -4,7 +4,7 @@ local parseIgnores = require("@commands/lib/parseIgnores")
 local zipWriter = require("./zipwriter")
 
 -- Entries below content_root are included according to the optional files
--- filter. The root manifest is preserved with an `.orig` suffix while the 
+-- filter. The root manifest is preserved with an `.orig` suffix while the
 -- generated manifest is always at root
 type PublishableFile = zipWriter.Entry
 
@@ -104,7 +104,7 @@ local function includesFile(filter: FilesFilter?, parts: { string }): boolean
 		return true
 	end
 
-	-- A files list containing a positive pattern is an allowlist, while 
+	-- A files list containing a positive pattern is an allowlist, while
 	-- a list containing only exclusions starts by including every file.
 	local included = not filter.hasInclude
 	for _, pattern in filter.patterns do
