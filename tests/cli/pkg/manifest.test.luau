@@ -57,6 +57,50 @@ test.suite("PackageManifest", function(suite)
 		assert.eq(package.contentRoot, "src")
 	end)
 
+	suite:case("parsesPackageFilesPatterns", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		files = { "*.luau", "!**/*.spec.luau", "!**/__tests__/" },
+	},
+}
+]])
+
+		local package = manifest.parseFile(path.format(manifestPath)).package
+		assert.eq(package.files, { "*.luau", "!**/*.spec.luau", "!**/__tests__/" })
+	end)
+
+	suite:case("rejectsNonArrayPackageFiles", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		files = "*.luau",
+	},
+}
+]])
+
+		assert.throwsWith("Expected 'files' field in package manifest to be an array of strings", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
+	suite:case("rejectsNonStringPackageFilesPattern", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		files = { "*.luau", 1 },
+	},
+}
+]])
+
+		assert.throwsWith("Expected 'files' field in package manifest to be an array of strings", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
 	suite:case("parsesPackageLicense", function(assert)
 		writeManifest([[return {
 	package = {
