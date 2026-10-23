@@ -119,8 +119,18 @@ local function flattenPackage(package: manifest.PackageManifest, registry: strin
 		"\tpackage = {",
 		`\t\tname = {quote(name)},`,
 		`\t\tversion = {quote(version)},`,
-		"\t\tdependencies = {",
 	}
+	if package.contentRoot ~= nil then
+		table.insert(lines, `\t\tcontent_root = {quote(package.contentRoot)},`)
+	end
+	if package.files ~= nil then
+		table.insert(lines, "\t\tfiles = {")
+		for _, pattern in package.files do
+			table.insert(lines, `\t\t\t{quote(pattern)},`)
+		end
+		table.insert(lines, "\t\t},")
+	end
+	table.insert(lines, "\t\tdependencies = {")
 	appendPublishedDependencies(lines, package.dependencies, "\t\t\t")
 	table.insert(lines, "\t\t},")
 	table.insert(lines, "\t\tdev_dependencies = {")

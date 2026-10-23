@@ -41,6 +41,10 @@ export type PackageManifest = {
 	-- must be included
 	read name: string?,
 	read version: string?,
+	read contentRoot: string?,
+	-- Publish filters relative to contentRoot. Positive patterns include files;
+	-- patterns prefixed with ! exclude them.
+	read files: { string }?,
 	read dependencies: { [string]: DependencySpec },
 	read devDependencies: { [string]: DependencySpec },
 }
@@ -90,6 +94,43 @@ local function parseTarget(target: unknown, name: string, sectionName: string): 
 		parts = normalized.parts,
 		absolute = false,
 	})
+end
+
+local function parseContentRoot(contentRoot: unknown): string?
+	if contentRoot == nil then
+		return nil
+	end
+
+	assert(typeof(contentRoot) == "string" and #contentRoot > 0, "Expected 'content_root' to be a non-empty string")
+	assert(not path.isAbsolute(contentRoot), "'content_root' must be relative to the package directory")
+
+	local normalized = path.normalize(contentRoot)
+	assert(normalized.parts[1] ~= "..", "'content_root' must stay inside the package directory")
+	if #normalized.parts == 0 then
+		return nil
+	end
+	return path.format(normalized)
+end
+
+local function parseFiles(files: unknown): { string }?
+	if files == nil then
+		return nil
+	end
+
+	assert(typeof(files) == "table", "Expected 'files' field in package manifest to be an array of strings")
+	local patterns = files :: { [number]: unknown }
+	local length = 0
+	for index, pattern in patterns do
+		assert(
+			typeof(index) == "number" and index >= 1 and index % 1 == 0 and typeof(pattern) == "string",
+			"Expected 'files' field in package manifest to be an array of strings"
+		)
+		length += 1
+	end
+	for index = 1, length do
+		assert(patterns[index] ~= nil, "Expected 'files' field in package manifest to be an array of strings")
+	end
+	return table.freeze(table.clone(patterns :: { string }))
 end
 
 local function parseDependencyMap(
@@ -200,6 +241,8 @@ local function parseManifest(t: unknown, manifestDirectory: string): ProjectMani
 		hasName == hasVersion,
 		"Package manifest must specify both 'name' and 'version', or neither for a virtual package"
 	)
+	local contentRoot = parseContentRoot((pkg :: any).content_root)
+	local files = parseFiles((pkg :: any).files)
 
 	local dependencies = parseDependencyMap((pkg :: any).dependencies, "dependencies", manifestDirectory)
 	local devDependencies = parseDependencyMap((pkg :: any).dev_dependencies, "dev_dependencies", manifestDirectory)
@@ -218,6 +261,8 @@ local function parseManifest(t: unknown, manifestDirectory: string): ProjectMani
 
 	return table.freeze({
 		package = table.freeze({
+			contentRoot = contentRoot,
+			files = files,
 			name = pkg.name,
 			version = pkg.version,
 			dependencies = dependencies,
