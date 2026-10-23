@@ -31,10 +31,14 @@ local function publish(...: string)
 	end
 
 	local directory = path.format(process.cwd())
-	local project = manifest.parseFile(path.format(path.join(directory, "loom.config.luau")))
+	local sourceManifestPath = path.format(path.join(directory, "loom.config.luau"))
+	local project = manifest.parseFile(sourceManifestPath)
 	local package = project.package
 	local generatedManifest = publishManifest.flattenPackage(package, project.registry)
-	local archive = publishArtifact.build(directory, generatedManifest)
+	local archive = publishArtifact.build(directory, sourceManifestPath, generatedManifest, {
+		contentRoot = package.contentRoot,
+		files = package.files,
+	})
 	local identity = `{package.name :: string}@{package.version :: string}`
 	print(`Built {identity} ({buffer.len(archive)} bytes).`)
 
