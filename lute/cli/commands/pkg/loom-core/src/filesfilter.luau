@@ -24,7 +24,7 @@ local function relativePath(parts: { string }): string
 end
 
 -- Patterns use gitignore-style path matching, with ! reversed: normal patterns
--- include and ! patterns exclude. 
+-- include and ! patterns exclude.
 local function parsePattern(entry: string): FilePattern
 	local negated = string.sub(entry, 1, 1) == "!"
 	local pattern = if negated then string.sub(entry, 2) else entry
