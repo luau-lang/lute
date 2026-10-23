@@ -1,4 +1,5 @@
 local cli = require("@batteries/cli")
+local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
 local manifest = require("../manifest")
@@ -32,6 +33,9 @@ local function publish(...: string)
 
 	local directory = path.format(process.cwd())
 	local sourceManifestPath = path.format(path.join(directory, "loom.config.luau"))
+	if not fs.exists(sourceManifestPath) then
+		error("No package manifest found", 0)
+	end
 	local project = manifest.parseFile(sourceManifestPath)
 	local package = project.package
 	local generatedManifest = publishManifest.flattenPackage(package, project.registry)
