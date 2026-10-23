@@ -66,6 +66,37 @@ test.suite("PackageManifest", function(suite)
 		assert.eq(citrus.source, "org/citrus")
 	end)
 
+	suite:case("preservesOptionalPublishVersionsForSourceDependencies", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			pathDependency = { sourceKind = "path", source = "./path", version = "^1.2.3" },
+			gitDependency = { sourceKind = "github", source = "owner/repo", rev = "revision", version = ">=2.0.0 <3.0.0" },
+		},
+	},
+}
+]])
+
+		local dependencies = (manifest.parseFile(path.format(manifestPath)).package :: manifest.PackageManifest).dependencies
+		assert.eq((dependencies.pathDependency :: manifest.PathDependencySpec).version, "^1.2.3")
+		assert.eq((dependencies.gitDependency :: manifest.GitHubDependencySpec).version, ">=2.0.0 <3.0.0")
+	end)
+
+	suite:case("rejectsNonStringPublishVersionForSourceDependencies", function(assert)
+		writeManifest([[return { package = { name = "root", version = "0.0.0", dependencies = {
+	pathDependency = { sourceKind = "path", source = "./path", version = 1 },
+} } }]])
+
+		assert.throwsWith(
+			"Optional 'version' field in dependency spec for 'pathDependency' in dependencies expected to be a string",
+			function()
+				manifest.parseFile(path.format(manifestPath))
+			end
+		)
+	end)
+
 	suite:case("rejectsExplicitNameForRegistryDependency", function(assert)
 		writeManifest([[return {
 	package = {
