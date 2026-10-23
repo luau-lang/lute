@@ -122,7 +122,12 @@ test.suite("LutePkgPublish", function(suite)
 		local project = manifest.parseFile(path.format(configPath))
 		local archive = publishArtifact.build(
 			path.format(workingDirectory),
-			publishManifest.flattenPackage(project.package, project.registry)
+			path.format(configPath),
+			publishManifest.flattenPackage(project.package, project.registry),
+			{
+				contentRoot = project.package.contentRoot,
+				files = project.package.files,
+			}
 		)
 
 		local result = run(workingDirectory, "--dry-run")
@@ -205,8 +210,9 @@ test.suite("LutePkgPublish", function(suite)
 		assert.eq(request.headers["artifactory-token"], "publish-command-test-token")
 
 		local reader = unzip.load(buffer.fromstring(request.body))
-		assert.eq(reader:getStats().fileCount, 2)
+		assert.eq(reader:getStats().fileCount, 4)
 		assert.eq(readEntry(reader, "src/init.luau"), "return 42\n")
+		assert.eq(readEntry(reader, "loom.config.luau.orig"), original)
 		local generatedPath = path.join(workingDirectory, "generated.luau")
 		writeFile(generatedPath, readEntry(reader, "loom.config.luau"))
 		local generated = manifest.parseFile(path.format(generatedPath))
