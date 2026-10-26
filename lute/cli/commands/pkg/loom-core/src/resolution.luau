@@ -147,9 +147,11 @@ type ResolutionState = {
 	-- Maps an unqualified registry package name to all source-qualified identities seen for it.
 	registryIdentitiesBySource: { [string]: { [string]: boolean } },
 	rootRegistryAliases: { RootRegistryAlias },
-	unresolvedRegistryDependencies: { [string]: { [string]: string } },
+	-- Requirements are retained until registry resolution so dependency edges can
+	-- target the solver-selected compatibility slot rather than a package name.
+	unresolvedRegistryDependencies: { [string]: { [string]: semver.Requirement } },
 	openDependencies: { [string]: { [string]: string } },
-	unresolvedRegistryDevDependencies: { [string]: { [string]: string } },
+	unresolvedRegistryDevDependencies: { [string]: { [string]: semver.Requirement } },
 	openDevDependencies: { [string]: { [string]: string } },
 	registryUrlByPackage: { [string]: string },
 	memberKeys: { [string]: boolean },
@@ -242,8 +244,8 @@ local function collectSourcePackageDependencies(
 	registryRequirements: { [string]: semver.Requirement },
 	registrySources: { [string]: string },
 	registryIdentitiesBySource: { [string]: { [string]: boolean } },
-	unresolvedRegistryDependencies: { [string]: { [string]: string } },
-	unresolvedRegistryDevDependencies: { [string]: { [string]: string } },
+	unresolvedRegistryDependencies: { [string]: { [string]: semver.Requirement } },
+	unresolvedRegistryDevDependencies: { [string]: { [string]: semver.Requirement } },
 	registryUrlByPackage: { [string]: string }
 )
 	local nestedManifestPath = getManifestPath(location.directory)
@@ -257,7 +259,7 @@ local function collectSourcePackageDependencies(
 	local function collectDependencies(
 		dependencies: { [string]: manifest.DependencySpec },
 		targetDependencies: { [string]: string },
-		targetUnresolvedRegistryDependencies: { [string]: { [string]: string } }
+		targetUnresolvedRegistryDependencies: { [string]: { [string]: semver.Requirement } }
 	)
 		for dependencyAlias, dependencySpec in dependencies do
 			local sourceSpec = resolveDependencySource(dependencySpec, location)
@@ -281,18 +283,19 @@ local function collectSourcePackageDependencies(
 					effectiveRegistryUrl
 				)
 
-				registryRequirements[`{key}:{dependencyAlias}`] = {
+				local requirement: semver.Requirement = table.freeze({
 					name = registryPackageName,
 					constraint = semver.parseConstraint(effectiveSpec.version),
 					requiredBy = key,
 					aliasedAs = if dependencyAlias ~= effectiveSpec.name then dependencyAlias else nil,
-				}
+				})
+				registryRequirements[`{key}:{dependencyAlias}`] = requirement
 
 				if not targetUnresolvedRegistryDependencies[key] then
 					targetUnresolvedRegistryDependencies[key] = {}
 				end
 
-				targetUnresolvedRegistryDependencies[key][dependencyAlias] = registryPackageName
+				targetUnresolvedRegistryDependencies[key][dependencyAlias] = requirement
 			else
 				targetDependencies[dependencyAlias] = getKey(effectiveSpec)
 				table.insert(queue, effectiveSpec)
@@ -320,8 +323,8 @@ local function resolveSourcePackage(
 	registryRequirements: { [string]: semver.Requirement },
 	registrySources: { [string]: string },
 	registryIdentitiesBySource: { [string]: { [string]: boolean } },
-	unresolvedRegistryDependencies: { [string]: { [string]: string } },
-	unresolvedRegistryDevDependencies: { [string]: { [string]: string } },
+	unresolvedRegistryDependencies: { [string]: { [string]: semver.Requirement } },
+	unresolvedRegistryDevDependencies: { [string]: { [string]: semver.Requirement } },
 	registryUrlByPackage: { [string]: string },
 	overrides: { [string]: manifest.DependencySpec },
 	rootRegistryUrl: string?,
@@ -892,10 +895,12 @@ local function resolveRegistryDependencies(
 
 	local resolution = semver.solve(effectiveUniverse, state.registryRequirements, lockedRegistryVersions)
 
-	-- Build a lookup from package name to resolved version(s) for slot-keyed results.
-	local versionsByPackageName = {}
-	for _, pkgVersion in resolution do
-		versionsByPackageName[pkgVersion.name] = pkgVersion
+	-- Look up the solver-selected version for a dependency's compatibility slot.
+	local function getResolvedVersion(requirement: semver.Requirement): semver.PackageVersion
+		local slotKey = semver.getSlotKey(requirement.name, requirement.constraint, effectiveUniverse)
+		local pkgVersion = resolution[slotKey]
+		assert(pkgVersion ~= nil, `Solver did not resolve registry dependency '{requirement.name}' in slot '{slotKey}'`)
+		return pkgVersion
 	end
 
 	for _, pkgVersion in resolution do
@@ -906,8 +911,7 @@ local function resolveRegistryDependencies(
 
 		local transitiveDependencies: { [string]: string } = {}
 		for alias, dependency in pkgVersion.dependencies do
-			local resolvedVersion = versionsByPackageName[dependency.name]
-			assert(resolvedVersion ~= nil, `Solver produced an incomplete resolution: missing '{dependency.name}'`)
+			local resolvedVersion = getResolvedVersion(dependency)
 
 			transitiveDependencies[alias] = getRegistryLockKey(state, dependency.name, resolvedVersion.versionString)
 		end
@@ -939,18 +943,16 @@ local function resolveRegistryDependencies(
 	-- Fill in pending registry dependency keys directly into the unversioned packages' dependency tables.
 	for pkgKey, unresolvedAliases in state.unresolvedRegistryDependencies do
 		local packageDependencies = state.openDependencies[pkgKey]
-		for dependencyAlias, registryName in unresolvedAliases do
-			local pkgVersion = versionsByPackageName[registryName]
-			assert(pkgVersion ~= nil, `Solver did not resolve transitive registry dependency '{registryName}'`)
-			packageDependencies[dependencyAlias] = getRegistryLockKey(state, registryName, pkgVersion.versionString)
+		for dependencyAlias, requirement in unresolvedAliases do
+			local pkgVersion = getResolvedVersion(requirement)
+			packageDependencies[dependencyAlias] = getRegistryLockKey(state, requirement.name, pkgVersion.versionString)
 		end
 	end
 	for pkgKey, unresolvedAliases in state.unresolvedRegistryDevDependencies do
 		local packageDependencies = state.openDevDependencies[pkgKey]
-		for dependencyAlias, registryName in unresolvedAliases do
-			local pkgVersion = versionsByPackageName[registryName]
-			assert(pkgVersion ~= nil, `Solver did not resolve transitive registry dependency '{registryName}'`)
-			packageDependencies[dependencyAlias] = getRegistryLockKey(state, registryName, pkgVersion.versionString)
+		for dependencyAlias, requirement in unresolvedAliases do
+			local pkgVersion = getResolvedVersion(requirement)
+			packageDependencies[dependencyAlias] = getRegistryLockKey(state, requirement.name, pkgVersion.versionString)
 		end
 	end
 
@@ -960,8 +962,7 @@ local function resolveRegistryDependencies(
 		if req == nil then
 			continue
 		end
-		local pkgVersion = versionsByPackageName[req.name]
-		assert(pkgVersion ~= nil, `Solver did not resolve root dependency '{req.name}'`)
+		local pkgVersion = getResolvedVersion(req)
 		local rootDependencies = if rootAlias.dev then state.devDependencies else state.dependencies
 		rootDependencies[rootAlias.alias] = getRegistryLockKey(state, req.name, pkgVersion.versionString)
 	end
