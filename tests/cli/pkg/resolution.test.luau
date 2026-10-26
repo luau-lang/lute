@@ -2379,7 +2379,73 @@ test.suite("Overrides", function(suite)
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 
 		assert.neq(lock.overrides, nil)
-		assert.eq((lock.overrides :: any).citrus, "2.0.0")
+		assert.eq((lock.overrides :: any).citrus, "registry:citrus@2.0.0")
+	end)
+
+	suite:case("registryOverrideSourceChangeInvalidatesTransitiveLockfile", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus-fork-one",
+				version = "3.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "1.0.0", { citrus = req("citrus", "^2.0.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "2.0.0"),
+			},
+			["citrus-fork-one"] = {
+				namedVersion("citrus-fork-one", "3.0.0"),
+			},
+			["citrus-fork-two"] = {
+				namedVersion("citrus-fork-two", "3.0.0"),
+			},
+		}
+
+		resolution.resolve(path.format(workingDirectory), universe)
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus-fork-two",
+				version = "3.0.0",
+			},]]
+		)
+
+		assert.throwsWith(
+			"--locked: lockfile does not satisfy manifest (override changed: citrus). Run `lute pkg install` to update.",
+			function()
+				resolution.resolve(path.format(workingDirectory), universe, { locked = true })
+			end
+		)
 	end)
 
 	suite:case("lockfileVersionIsFourWithOverrides", function(assert)
