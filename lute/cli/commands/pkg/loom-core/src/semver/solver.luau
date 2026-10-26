@@ -320,4 +320,5 @@ end
 
 return {
 	solve = solve,
+	getSlotKey = resolveSlotKey,
 }
