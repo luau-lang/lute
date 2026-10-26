@@ -2208,6 +2208,51 @@ test.suite("Overrides", function(suite)
 		assert.eq(lock.packages[citrusKey].registry, rootRegistryUrl)
 	end)
 
+	suite:case("sourceOverrideAppliesToNestedDependenciesWithoutNestedRegistry", function(assert)
+		local consumerDir = path.join(workingDirectory, "consumer")
+		fs.createDirectory(consumerDir)
+		-- The consumer's declared registry dependency is replaced before its
+		-- registry is consulted, so it does not need a registry of its own.
+		writeConfig(
+			consumerDir,
+			"consumer",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local overrideDir = path.join(workingDirectory, "citrus-fork")
+		fs.createDirectory(overrideDir)
+		writeConfig(overrideDir, "citrus", "")
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			consumer = {
+				sourceKind = "path",
+				source = "./consumer",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "path",
+				source = "./citrus-fork",
+			},]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+
+		assert.eq(lock.packages.consumer.dependencies.citrus, "citrus")
+		assert.eq(lock.packages.citrus.sourceKind, "path")
+	end)
+
 	suite:case("directRegistryOverrideOutsideOriginalRangeReusesLockfile", function(assert)
 		writeConfig(
 			workingDirectory,
@@ -2446,6 +2491,31 @@ test.suite("Overrides", function(suite)
 				resolution.resolve(path.format(workingDirectory), universe, { locked = true })
 			end
 		)
+	end)
+
+	suite:case("registryOverrideCyclesAreRejected", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			"",
+			nil,
+			[[
+
+			apple = {
+				sourceKind = "registry",
+				source = "banana",
+				version = "1.0.0",
+			},
+			banana = {
+				sourceKind = "registry",
+				source = "apple",
+				version = "1.0.0",
+			},]]
+		)
+
+		assert.throwsWith("Registry override cycle: apple -> banana -> apple", function()
+			resolution.resolve(path.format(workingDirectory), nil)
+		end)
 	end)
 
 	suite:case("lockfileVersionIsFourWithOverrides", function(assert)
