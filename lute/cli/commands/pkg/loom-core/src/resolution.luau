@@ -427,14 +427,12 @@ end
 local function buildEffectiveUniverse(
 	universe: semver.Universe,
 	overrides: { [string]: manifest.DependencySpec },
-	registrySources: { [string]: string }
+	registrySources: { [string]: string },
+	registryOverrideTargets: { [string]: { name: string, constraint: semver.Constraint } }
 ): (semver.Universe, { [string]: { [string]: string } })
-	local registryOverrides: { [string]: semver.Constraint } = {}
 	local sourceOverrideNames: { [string]: boolean } = {}
 	for name, spec in overrides do
-		if spec.sourceKind == "registry" then
-			registryOverrides[name] = semver.parseConstraint(spec.version)
-		else
+		if spec.sourceKind ~= "registry" then
 			sourceOverrideNames[name] = true
 		end
 	end
@@ -444,55 +442,68 @@ local function buildEffectiveUniverse(
 
 	for pkgName, versions in universe do
 		local sourceName = registrySources[pkgName] or pkgName
-		if registryOverrides[sourceName] then
-			local filtered: { semver.PackageVersion } = {}
-			for _, v in versions do
-				if semver.satisfies(v.version, registryOverrides[sourceName]) then
-					table.insert(filtered, v)
+		
+		local registryOverride = registryOverrideTargets[sourceName]
+		
+		-- path/git overrides shouldn't enter the solver
+		if sourceOverrideNames[sourceName] then
+			continue
+		end
+		-- registry override skip non-target package identities
+		if registryOverride and pkgName ~= registryOverride.name then
+			continue
+		end
+
+		-- filter version candidates to match registry override
+		local candidates = versions
+		if registryOverride then
+			candidates = {}
+			for _, version in versions do
+				if semver.satisfies(version.version, registryOverride.constraint) then
+					table.insert(candidates, version)
 				end
 			end
 			assert(
-				#filtered > 0,
-				`Override constrains '{sourceName}' to {semver.formatConstraint(registryOverrides[sourceName])}, but no matching version exists in the registry`
+				#candidates > 0,
+				`Override constrains '{sourceName}' to {semver.formatConstraint(registryOverride.constraint)}, but no matching version exists in the registry`
 			)
-			effective[pkgName] = filtered
-		elseif sourceOverrideNames[sourceName] then
-			continue
-		else
-			local rewritten: { semver.PackageVersion } = {}
-			for _, v in versions do
-				local newDeps: { [string]: semver.Requirement } = {}
-				for alias, dep in v.dependencies do
-					local dependencySource = registrySources[dep.name] or dep.name
-					if registryOverrides[dependencySource] then
-						newDeps[alias] = table.freeze({
-							name = dep.name,
-							constraint = registryOverrides[dependencySource],
-							requiredBy = dep.requiredBy,
-							aliasedAs = dep.aliasedAs,
-						})
-					elseif sourceOverrideNames[dependencySource] then
-						local vKey = `{v.name}@{v.versionString}`
-						if not sourceOverridedDeps[vKey] then
-							sourceOverridedDeps[vKey] = {}
-						end
-						sourceOverridedDeps[vKey][alias] = dependencySource
-					else
-						newDeps[alias] = dep
-					end
-				end
-				table.insert(
-					rewritten,
-					table.freeze({
-						name = v.name,
-						version = v.version,
-						versionString = v.versionString,
-						dependencies = table.freeze(newDeps),
-					})
-				)
-			end
-			effective[pkgName] = rewritten
 		end
+		-- continue processing
+		local rewritten: { semver.PackageVersion } = {}
+		for _, version in candidates do
+			local newDeps: { [string]: semver.Requirement } = {}
+			for alias, dep in version.dependencies do
+				local dependencySource = registrySources[dep.name] or dep.name
+				-- rewrite child dependency edges
+				local dependencyRegistryOverride = registryOverrideTargets[dependencySource]
+				if dependencyRegistryOverride then
+					newDeps[alias] = table.freeze({
+						name = dependencyRegistryOverride.name,
+						constraint = dependencyRegistryOverride.constraint,
+						requiredBy = dep.requiredBy,
+						aliasedAs = dep.aliasedAs,
+					})
+				elseif sourceOverrideNames[dependencySource] then
+					local vKey = `{version.name}@{version.versionString}`
+					if not sourceOverridedDeps[vKey] then
+						sourceOverridedDeps[vKey] = {}
+					end
+					sourceOverridedDeps[vKey][alias] = dependencySource
+				else
+					newDeps[alias] = dep
+				end
+			end
+			table.insert(
+				rewritten,
+				table.freeze({
+					name = version.name,
+					version = version.version,
+					versionString = version.versionString,
+					dependencies = table.freeze(newDeps),
+				})
+			)
+		end
+		effective[pkgName] = rewritten
 	end
 
 	return effective, sourceOverridedDeps
@@ -824,11 +835,93 @@ local function namespaceRegistryUniverse(
 	return namespaced
 end
 
+-- Identify registry overrides whose original package appears in current universe
+local function getActiveRegistryOverrides(
+	universe: semver.Universe,
+	overrides: { [string]: manifest.DependencySpec },
+	registrySources: { [string]: string }
+): { [string]: manifest.RegistryDependencySpec }
+	local active: { [string]: manifest.RegistryDependencySpec } = {}
+	for packageName in universe do
+		local sourceName = registrySources[packageName] or packageName
+		local spec = overrides[sourceName]
+		if spec and spec.sourceKind == "registry" then
+			active[sourceName] = spec
+		end
+	end
+	return active
+end
+
+-- Fetch replacement package froom root registry/.
+local function fetchActiveRegistryOverrideTargets(
+	universe: semver.Universe,
+	state: ResolutionState,
+	overrides: { [string]: manifest.DependencySpec },
+	rootRegistryUrl: string?
+)
+	local active = getActiveRegistryOverrides(universe, overrides, state.registrySources)
+	if next(active) == nil then
+		return
+	end
+
+	assert(rootRegistryUrl ~= nil, "Registry overrides require a 'registry' field in the root manifest.")
+
+	local names: { string } = {}
+	for name in active do
+		table.insert(names, name)
+	end
+	table.sort(names)
+
+	for _, name in names do
+		local spec = active[name]
+		local targetName = registerRegistryPackage(
+			state.registrySources,
+			state.registryIdentitiesBySource,
+			state.registryUrlByPackage,
+			spec.name,
+			rootRegistryUrl
+		)
+		if universe[targetName] == nil then
+			local partial = registry.fetchUniverse(rootRegistryUrl, { { name = spec.name, source = spec.source } })
+			local namespaced = namespaceRegistryUniverse(partial, rootRegistryUrl, state)
+			for packageName, versions in namespaced do
+				universe[packageName] = versions
+			end
+		end
+	end
+end
+
+-- Manifest specs use unqualified registry names. The solver needs the target's
+-- source-qualified identity and parsed version constraint after registration.
+local function getRegistryOverrideTargets(
+	state: ResolutionState,
+	overrides: { [string]: manifest.DependencySpec },
+	rootRegistryUrl: string?
+): { [string]: { name: string, constraint: semver.Constraint } }
+	local targets: { [string]: { name: string, constraint: semver.Constraint } } = {}
+	for name, spec in overrides do
+		if spec.sourceKind == "registry" then
+			targets[name] = {
+				name = registerRegistryPackage(
+					state.registrySources,
+					state.registryIdentitiesBySource,
+					state.registryUrlByPackage,
+					spec.name,
+					rootRegistryUrl
+				),
+				constraint = semver.parseConstraint(spec.version),
+			}
+		end
+	end
+	return targets
+end
+
 local function resolveRegistryDependencies(
 	state: ResolutionState,
 	universe: semver.Universe?,
 	overrides: { [string]: manifest.DependencySpec },
-	lockedRegistryVersions: { [string]: string }?
+	lockedRegistryVersions: { [string]: string }?,
+	rootRegistryUrl: string?
 )
 	-- Versioned dependency resolution: solve registry dependencies and stitch them into the package graph.
 	if next(state.registryRequirements) == nil then
@@ -887,10 +980,24 @@ local function resolveRegistryDependencies(
 		end
 	end
 
+	if universe == nil then
+		-- this is the path normally
+		fetchActiveRegistryOverrideTargets(effectiveUniverse, state, overrides, rootRegistryUrl)
+	elseif
+		rootRegistryUrl and next(getActiveRegistryOverrides(effectiveUniverse, overrides, state.registrySources))
+	then
+		-- this is only for tests (normal production instillation does not pass in a universe)
+		local namespaced = namespaceRegistryUniverse(universe, rootRegistryUrl, state)
+		for name, versions in namespaced do
+			effectiveUniverse[name] = versions
+		end
+	end
+
 	-- Build a modified universe that respects overrides.
 	if next(overrides) ~= nil then
+		local registryOverrideTargets = getRegistryOverrideTargets(state, overrides, rootRegistryUrl)
 		effectiveUniverse, sourceOverridedDeps =
-			buildEffectiveUniverse(effectiveUniverse, overrides, state.registrySources)
+			buildEffectiveUniverse(effectiveUniverse, overrides, state.registrySources, registryOverrideTargets)
 	end
 
 	local resolution = semver.solve(effectiveUniverse, state.registryRequirements, lockedRegistryVersions)
@@ -1028,7 +1135,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 	queueSourceOverrides(state, overrides)
 	processSourceQueue(state, rootDirectory, overrides, rootManifest.registry, excludeDev)
 
-	resolveRegistryDependencies(state, universe, overrides, lockedRegistryVersions)
+	resolveRegistryDependencies(state, universe, overrides, lockedRegistryVersions, rootManifest.registry)
 
 	return buildLockfile(state, overrides, lockfilePath, rootManifest.registry)
 end
