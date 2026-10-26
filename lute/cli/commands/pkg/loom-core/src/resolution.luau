@@ -266,7 +266,7 @@ local function collectSourcePackageDependencies(
 			local overrideSpec = overrides[sourceSpec.name]
 			local effectiveSpec = overrideSpec or sourceSpec
 
-			if sourceSpec.sourceKind == "registry" then
+			if effectiveSpec.sourceKind == "registry" and overrideSpec == nil then
 				assert(
 					dependencyManifest.registry ~= nil,
 					`Package '{key}' has registry dependency '{sourceSpec.name}' but no 'registry' field in its manifest.`

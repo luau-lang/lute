@@ -2000,9 +2000,11 @@ test.suite("Overrides", function(suite)
 		assert.eq(reused.packages.citrus.dependencies.shared, "shared")
 	end)
 
-	suite:case("sourceOverrideAppliesRegistryOverridesToNestedDependencies", function(assert)
+	suite:case("registryOverrideAppliesToNestedDependenciesWithoutNestedRegistry", function(assert)
 		local consumerDir = path.join(workingDirectory, "consumer")
 		fs.createDirectory(consumerDir)
+		-- Intentionally omit `registry`: the root registry override must make the
+		-- consumer's original registry configuration unnecessary.
 		writeConfig(
 			consumerDir,
 			"consumer",
@@ -2012,10 +2014,7 @@ test.suite("Overrides", function(suite)
 				sourceKind = "registry",
 				source = "citrus",
 				version = "^1.0.0",
-			},]],
-			nil,
-			nil,
-			"https://nested-registry.example.com"
+			},]]
 		)
 
 		local rootRegistryUrl = "https://root-registry.example.com"
