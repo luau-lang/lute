@@ -33,7 +33,6 @@ void setLuauFlags()
 {
     enableAllLuauFlags();
 
-    setLuauFlag("LuauInstantiationCheckArguments", false);
     // Individual flags can be overridden here as needed, e.g.:
     // setLuauFlag("LuauSomeFlagThatCausedARegression", false);
 }
