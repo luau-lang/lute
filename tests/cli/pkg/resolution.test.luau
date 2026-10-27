@@ -51,6 +51,8 @@ local function req(name: string, constraintStr: string): solver.Requirement
 	return table.freeze({
 		name = name,
 		constraint = parser.parseConstraint(constraintStr),
+		requiredBy = nil,
+		aliasedAs = nil
 	})
 end
 
