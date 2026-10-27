@@ -2,6 +2,7 @@ return {
 	package = {
 		name = "app",
 		version = "0.0.0",
+		content_root = "src",
 		dependencies = {
 			lib = {
 				sourceKind = "path",

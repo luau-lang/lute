@@ -70,7 +70,7 @@ end
 
 local function parseLockfile(t: any): Lockfile
 	assert(t ~= nil and typeof(t) == "table", "Expected lockfile to be a table")
-	assert(t.version == 3 or t.version == 4, `Unsupported lockfile version: {t.version}`)
+	assert(t.version == 3 or t.version == 4 or t.version == 5, `Unsupported lockfile version: {t.version}`)
 	assert(typeof(t.packages) == "table", "Expected 'packages' field in lockfile")
 	assert(typeof(t.dependencies) == "table", "Expected 'dependencies' field in lockfile")
 
@@ -234,12 +234,100 @@ local function aliasMapMatches(
 	return true, nil
 end
 
+local function expectedSourceInstallPath(
+	key: string,
+	pkg: LockfileDependency,
+	rootDirectory: string
+): (string?, string?)
+	local selectedDirectory: string
+	local checkoutDirectory: string? = nil
+	if pkg.sourceKind == "path" then
+		selectedDirectory = path.format(path.resolve(rootDirectory, pkg.source))
+	elseif pkg.sourceKind == "github" then
+		if pkg.rev == nil then
+			return nil, `github revision missing: {key}`
+		end
+		checkoutDirectory = store.getPackagePath(store.getGitHubCheckoutKey(pkg.source, pkg.rev))
+		-- verify checkout directory actually exists
+		if not fs.exists(checkoutDirectory) then
+			local checkoutPath = store.toStorePath(store.getGitHubCheckoutKey(pkg.source, pkg.rev))
+			if
+				pkg.installPath ~= checkoutPath
+				and string.sub(pkg.installPath, 1, #checkoutPath + 1) ~= `{checkoutPath}/`
+			then
+				return nil, `github store path changed: {key}`
+			end
+			return pkg.installPath, nil
+		end
+		selectedDirectory = checkoutDirectory
+		-- revalidate target not changed to leave checkout
+		if pkg.target then
+			if path.isAbsolute(pkg.target) then
+				return nil, `github target is absolute: {key}`
+			end
+			local target = path.normalize(pkg.target)
+			if target.parts[1] == ".." then
+				return nil, `github target leaves checkout: {key}`
+			end
+			selectedDirectory = path.format(path.resolve(checkoutDirectory, target))
+		end
+	else
+		return nil, `unsupported source kind: {key}`
+	end
+
+	local manifestPath = path.format(path.join(selectedDirectory, "loom.config.luau"))
+	if not fs.exists(manifestPath) or fs.type(manifestPath) ~= "file" then
+		return nil, `package '{pkg.name}' has no manifest`
+	end
+	local ok, packageManifest = pcall(manifest.parseFile, manifestPath)
+	if not ok then
+		return nil, `package '{pkg.name}' has an invalid manifest`
+	end
+	-- virtual packages should never be a dependency
+	if packageManifest.package.name == nil then
+		return nil, `package '{pkg.name}' is virtual`
+	end
+
+	local importRoot = selectedDirectory
+	if packageManifest.package.contentRoot then
+		importRoot = path.format(path.resolve(selectedDirectory, packageManifest.package.contentRoot))
+	end
+	if not fs.exists(importRoot) or fs.type(importRoot) ~= "dir" then
+		return nil, `package '{pkg.name}' content root is not a directory: {importRoot}`
+	end
+
+	-- for path, return import root relative to the project "../pathpkg/src"
+	if pkg.sourceKind == "path" then
+		return path.posix.format({
+			parts = path.relative(rootDirectory, importRoot).parts,
+			absolute = false,
+		}),
+			nil
+	end
+
+	-- for git, return store path  @pkg/<checkout-key>/modules/apple/src
+	local relativeImportRoot = path.relative(checkoutDirectory :: string, importRoot)
+	return store.getGitHubInstallPath(
+		pkg.source,
+		pkg.rev :: string,
+		path.posix.format({
+			parts = relativeImportRoot.parts,
+			absolute = false,
+		})
+	),
+		nil
+end
+
 local function satisfiesManifest(
 	lock: Lockfile,
 	rootManifest: manifest.ProjectManifest,
 	rootDirectory: string,
 	excludeDev: boolean
 ): (boolean, string?)
+	if lock.version ~= 5 then
+		return false, "lockfile version changed"
+	end
+
 	local ok, reason = aliasMapMatches(
 		lock.dependencies,
 		rootManifest.package.dependencies,
@@ -280,13 +368,13 @@ local function satisfiesManifest(
 			if pkg.installPath ~= expectedInstallPath then
 				return false, `registry store path changed: {key}`
 			end
-		elseif pkg.sourceKind == "github" then
-			if pkg.rev == nil then
-				return false, `github revision missing: {key}`
+		elseif pkg.sourceKind == "path" or pkg.sourceKind == "github" then
+			local expectedInstallPath, sourceReason = expectedSourceInstallPath(key, pkg, rootDirectory)
+			if expectedInstallPath == nil then
+				return false, sourceReason
 			end
-			local expectedInstallPath = store.getGitHubInstallPath(pkg.source, pkg.rev, pkg.target)
 			if pkg.installPath ~= expectedInstallPath then
-				return false, `github store path changed: {key}`
+				return false, `package import root changed: {key}`
 			end
 		end
 	end
