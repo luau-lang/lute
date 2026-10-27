@@ -541,7 +541,7 @@ local function processDirectory(
 
 			print(`Processing {moduleName}...`)
 
-			local moduleAlias = if requireLibraryAlias == "std"
+			local moduleAlias: path.Pathlike = if requireLibraryAlias == "std"
 				then STDLIB_MODULE_ALIASES[moduleName] or moduleName
 				else moduleName
 

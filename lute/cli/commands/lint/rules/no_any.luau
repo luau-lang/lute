@@ -26,7 +26,7 @@ local function lint(
 				message = message,
 				severity = "warning",
 				sourcepath = sourcepath,
-				suggestedfix = table.freeze({ fix = "unknown" }),
+				suggestedfix = table.freeze({ fix = "unknown", location = nil }),
 				target = target,
 			}
 		end)

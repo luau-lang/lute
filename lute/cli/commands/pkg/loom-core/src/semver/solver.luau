@@ -183,6 +183,7 @@ local function propagateDeps(
 			name = dep.name,
 			constraint = dep.constraint,
 			requiredBy = sourceKey,
+			aliasedAs = nil
 		})
 		out[slotKey] = merged
 	end
