@@ -136,6 +136,8 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 		return false
 	end
 
+	visitor.visitStatConstDeclaration = visitor.visitStatLocalDeclaration :: any
+
 	function visitor.visitStatFor(stat: syntax.CstStatFor)
 		-- Push a scope for the loop variable
 		table.insert(visitor.scopes, { [stat.variable] = false })
