@@ -17,6 +17,7 @@ return {
 			ignores = {
 				"**/*.d.luau",
 				"**/generated-types.luau",
+				"definitions/syntax/mutablecst.luau",
 				"**/*unformatted*.luau",
 				"tests/parserExamples/**",
 				"tests/src/debug/compile_error.luau",

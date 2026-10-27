@@ -18,8 +18,8 @@ local function hasPackage(key: string): boolean
 	return fs.exists(getPackagePath(key))
 end
 
-local function getRegistryIdentity(registryUrlValue: string): string
-	local digest = crypto.digest(crypto.hash.sha256, registryUrl.normalize(registryUrlValue))
+local function sha256Hex(value: string): string
+	local digest = crypto.digest(crypto.hash.sha256, value)
 	local hex = {}
 
 	for index = 0, buffer.len(digest) - 1 do
@@ -27,6 +27,19 @@ local function getRegistryIdentity(registryUrlValue: string): string
 	end
 
 	return table.concat(hex)
+end
+
+local function getRegistryIdentity(registryUrlValue: string): string
+	return sha256Hex(registryUrl.normalize(registryUrlValue))
+end
+
+local function getGitHubCheckoutKey(source: string, rev: string): string
+	local normalizedSource = string.gsub(source, "/+$", "")
+	local repositoryName = string.match(normalizedSource, "([^/]+)$") or "repository"
+	repositoryName = string.gsub(repositoryName, "%.git$", "")
+	repositoryName = string.gsub(repositoryName, "[^%w%-_.]", "-")
+
+	return `{repositoryName}--github-{sha256Hex(normalizedSource)}@{sha256Hex(rev)}`
 end
 
 local function qualifyRegistryKey(key: string, registryUrlValue: string): string
@@ -50,11 +63,25 @@ local function toStorePath(key: string): string
 	return `{STORE_PATH_PREFIX}{key}`
 end
 
+local function getGitHubInstallPath(source: string, rev: string, target: string?): string
+	local checkoutPath = toStorePath(getGitHubCheckoutKey(source, rev))
+	if target then
+		local installPath = path.join(checkoutPath, target)
+		return path.posix.format({
+			parts = installPath.parts,
+			absolute = false,
+		})
+	end
+	return checkoutPath
+end
+
 return {
 	getStoreDirectory = getStoreDirectory,
 	getPackagePath = getPackagePath,
 	hasPackage = hasPackage,
 	getRegistryIdentity = getRegistryIdentity,
+	getGitHubCheckoutKey = getGitHubCheckoutKey,
+	getGitHubInstallPath = getGitHubInstallPath,
 	qualifyRegistryKey = qualifyRegistryKey,
 	ensureStoreDirectory = ensureStoreDirectory,
 	toStorePath = toStorePath,

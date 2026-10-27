@@ -113,7 +113,7 @@ int typeofModule_luau(lua_State* L)
     Luau::FrontendOptions fopts;
     fopts.retainFullTypeGraphs = true;
 
-    Luau::Frontend frontend(&moduleResolver, &configResolver, fopts);
+    Luau::Frontend frontend(Luau::SolverMode::New, &moduleResolver, &configResolver, fopts);
     Luau::registerBuiltinGlobals(frontend, frontend.globals);
     Luau::freeze(frontend.globals.globalTypes);
 
