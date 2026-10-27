@@ -52,7 +52,7 @@ local function req(name: string, constraintStr: string): solver.Requirement
 		name = name,
 		constraint = parser.parseConstraint(constraintStr),
 		requiredBy = nil,
-		aliasedAs = nil
+		aliasedAs = nil,
 	})
 end
 
