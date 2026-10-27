@@ -317,6 +317,9 @@ export type CstExprTypeAssertion = {
 --- An `elseif` clause in an if-else expression.
 export type CstElseIfExpr = {
 	elseIfKeyword: CstToken<"elseif">,
+	localKeyword: CstToken<"local" | "const">?,
+	conditionLocal: CstLocal?,
+	equals: CstToken<"=">?,
 	condition: CstExpr,
 	thenKeyword: CstToken<"then">,
 	thenExpr: CstExpr,
@@ -328,6 +331,9 @@ export type CstExprIfElse = {
 	kind: "expr",
 	tag: "conditional",
 	ifKeyword: CstToken<"if">,
+	localKeyword: CstToken<"local" | "const">?,
+	conditionLocal: CstLocal?,
+	equals: CstToken<"=">?,
 	condition: CstExpr,
 	thenKeyword: CstToken<"then">,
 	thenExpr: CstExpr,
@@ -380,6 +386,9 @@ export type CstStatDo = {
 --- An `elseif` clause in an if statement.
 export type CstElseIfStat = {
 	elseIfKeyword: CstToken<"elseif">,
+	localKeyword: CstToken<"local" | "const">?,
+	conditionLocal: CstLocal?,
+	equals: CstToken<"=">?,
 	condition: CstExpr,
 	thenKeyword: CstToken<"then">,
 	thenBlock: CstStatBlock,
@@ -391,6 +400,9 @@ export type CstStatIf = {
 	kind: "stat",
 	tag: "conditional",
 	ifKeyword: CstToken<"if">,
+	localKeyword: CstToken<"local" | "const">?,
+	conditionLocal: CstLocal?,
+	equals: CstToken<"=">?,
 	condition: CstExpr,
 	thenKeyword: CstToken<"then">,
 	thenBlock: CstStatBlock,

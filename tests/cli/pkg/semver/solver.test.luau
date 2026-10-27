@@ -17,6 +17,7 @@ local function req(name: string, constraintStr: string, requiredBy: string?): so
 		name = name,
 		constraint = parser.parseConstraint(constraintStr),
 		requiredBy = requiredBy,
+		aliasedAs = nil,
 	})
 end
 

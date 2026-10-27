@@ -383,6 +383,7 @@ local function resolveSourcePackage(
 		installPath = getSourceInstallPath(spec, rootDirectory, location.directory),
 		dependencies = transitiveDependencies,
 		devDependencies = transitiveDevDependencies,
+		registry = nil,
 	})
 
 	return key
@@ -927,8 +928,10 @@ local function resolveRegistryDependencies(
 			rev = pkgVersion.versionString,
 			source = state.registrySources[registryPackageName] or registryPackageName,
 			sourceKind = "registry" :: "registry",
+			target = nil,
 			installPath = store.toStorePath(storeKey),
 			dependencies = table.freeze(transitiveDependencies),
+			devDependencies = nil,
 			registry = registryUrl,
 		})
 	end

@@ -29,21 +29,17 @@ local function lint(
 			function(
 				n: syntax.CstExprBinary
 			): lintTypes.LintViolation? -- LUAUFIX: Bidirectional inference of generics should let us not need this annotation
-				local suggestedfix = nil
+				local suggestedfix = { location = nil }
 				if n.operator.text == "/" or n.operator.text == "//" then
 					if isZeroLiteral(n.lhsOperand) then
-						suggestedfix = table.freeze({ fix = "math.nan" })
+						suggestedfix.fix = "math.nan"
 					elseif n.lhsOperand.tag == "unary" and n.lhsOperand.operator.text == "-" then
-						if isZeroLiteral(n.lhsOperand.operand) then
-							suggestedfix = table.freeze({ fix = "math.nan" })
-						else
-							suggestedfix = table.freeze({ fix = "-math.huge" })
-						end
+						suggestedfix.fix = if isZeroLiteral(n.lhsOperand.operand) then "math.nan" else "-math.huge"
 					else
-						suggestedfix = table.freeze({ fix = "math.huge" })
+						suggestedfix.fix = "math.huge"
 					end
 				elseif n.operator.text == "%" then
-					suggestedfix = table.freeze({ fix = "math.nan" })
+					suggestedfix.fix = "math.nan"
 				end
 
 				return {
@@ -52,7 +48,7 @@ local function lint(
 					message = message,
 					severity = "warning",
 					sourcepath = sourcepath,
-					suggestedfix = suggestedfix,
+					suggestedfix = table.freeze(suggestedfix),
 					target = target,
 				}
 			end

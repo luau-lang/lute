@@ -111,6 +111,8 @@ local function indexToPackageVersions(entries: any, packageName: string): { semv
 				dependencies[alias] = table.freeze({
 					name = dep.name,
 					constraint = semver.parseConstraint(dep.versionRequirement),
+					requiredBy = nil,
+					aliasedAs = nil,
 				})
 			end
 		end
