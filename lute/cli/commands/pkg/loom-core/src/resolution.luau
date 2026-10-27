@@ -383,7 +383,7 @@ local function resolveSourcePackage(
 		installPath = getSourceInstallPath(spec, rootDirectory, location.directory),
 		dependencies = transitiveDependencies,
 		devDependencies = transitiveDevDependencies,
-		registry = nil
+		registry = nil,
 	})
 
 	return key

@@ -112,7 +112,7 @@ local function indexToPackageVersions(entries: any, packageName: string): { semv
 					name = dep.name,
 					constraint = semver.parseConstraint(dep.versionRequirement),
 					requiredBy = nil,
-					aliasedAs = nil
+					aliasedAs = nil,
 				})
 			end
 		end
