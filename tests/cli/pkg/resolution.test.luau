@@ -723,6 +723,95 @@ test.suite("RegistryResolution", function(suite)
 	end)
 end)
 
+test.suite("SourcePackageImportRoots", function(suite)
+	suite:beforeEach(function()
+		if fs.exists(workingDirectory) then
+			fs.removeDirectory(workingDirectory, { recursive = true })
+		end
+		fs.createDirectory(workingDirectory)
+	end)
+
+	suite:case("usesPathPackageContentRootAndInvalidatesItsOldImportRoot", function(assert)
+		local libDirectory = path.join(workingDirectory, "lib")
+		fs.createDirectory(path.join(libDirectory, "src"), { makeParents = true })
+		fs.createDirectory(path.join(libDirectory, "alternate"), { makeParents = true })
+		fs.writeStringToFile(
+			path.join(libDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "lib",
+		version = "1.0.0",
+		content_root = "src",
+		dependencies = {},
+	},
+}
+]]
+		)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]]
+		)
+
+		local first = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(first.packages.lib.installPath, "lib/src")
+
+		fs.writeStringToFile(
+			path.join(libDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "lib",
+		version = "1.0.0",
+		content_root = "alternate",
+		dependencies = {},
+	},
+}
+]]
+		)
+		local refreshed = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(refreshed.packages.lib.installPath, "lib/alternate")
+	end)
+
+	suite:case("rejectsMissingPathPackageContentRoot", function(assert)
+		local libDirectory = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDirectory)
+		fs.writeStringToFile(
+			path.join(libDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "lib",
+		version = "1.0.0",
+		content_root = "missing",
+		dependencies = {},
+	},
+}
+]]
+		)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]]
+		)
+
+		assert.throwsWith(
+			`Package 'lib' content root is not a directory: {path.format(path.join(libDirectory, "missing"))}`,
+			function()
+				resolution.resolve(path.format(workingDirectory), nil)
+			end
+		)
+	end)
+end)
+
 test.suite("DevDependencies", function(suite)
 	suite:beforeEach(function()
 		if fs.exists(workingDirectory) then
@@ -1054,7 +1143,7 @@ test.suite("DevDependencies", function(suite)
 		end)
 	end)
 
-	suite:case("lockfileVersionIsFour", function(assert)
+	suite:case("lockfileVersionIsFive", function(assert)
 		local devDir = path.join(workingDirectory, "testlib")
 		fs.createDirectory(devDir)
 		writeConfig(devDir, "testlib", "")
@@ -1074,7 +1163,7 @@ test.suite("DevDependencies", function(suite)
 
 		local lockfilePath = path.join(workingDirectory, "loom.lock.luau")
 		local content = fs.readFileToString(lockfilePath)
-		assert.strContains(content, "version = 4")
+		assert.strContains(content, "version = 5")
 	end)
 end)
 
@@ -2518,7 +2607,7 @@ test.suite("Overrides", function(suite)
 		end)
 	end)
 
-	suite:case("lockfileVersionIsFourWithOverrides", function(assert)
+	suite:case("lockfileVersionIsFiveWithOverrides", function(assert)
 		writeConfig(
 			workingDirectory,
 			"root",
@@ -2546,7 +2635,7 @@ test.suite("Overrides", function(suite)
 		}
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
-		assert.eq(lock.version, 4)
+		assert.eq(lock.version, 5)
 	end)
 
 	suite:case("reResolvesWhenOverrideAdded", function(assert)
