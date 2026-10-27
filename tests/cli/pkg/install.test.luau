@@ -205,7 +205,7 @@ test.suite("LutePkgInstall", function(suite)
 		run(workingDirectory)
 
 		local lockfile = fs.readFileToString(path.join(workingDirectory, "loom.lock.luau"))
-		assert.strContains(lockfile, "version = 4")
+		assert.strContains(lockfile, "version = 5")
 		assert.strContains(lockfile, '"path"')
 		assert.strContains(lockfile, "installPath")
 	end)
@@ -316,7 +316,7 @@ test.suite("LutePkgInstall", function(suite)
 			path.join(workingDirectory, "loom.lock.luau"),
 			table.concat({
 				"return {\n",
-				"\tversion = 4,\n",
+				"\tversion = 5,\n",
 				"\tpackages = {\n",
 				`\t\t["{key}"] = \{\n`,
 				'\t\t\tname = "github",\n',

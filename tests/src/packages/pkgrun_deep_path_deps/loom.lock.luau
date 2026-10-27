@@ -1,5 +1,5 @@
 return {
-	version = 3,
+	version = 5,
 	dependencies = {
 		app = "app",
 	},
@@ -8,7 +8,7 @@ return {
 			name = "app",
 			source = "packages/app",
 			sourceKind = "path",
-			installPath = "packages/app",
+			installPath = "packages/app/src",
 			dependencies = {
 				lib = "lib",
 				shared = "shared",
@@ -18,7 +18,7 @@ return {
 			name = "lib",
 			source = "packages/lib",
 			sourceKind = "path",
-			installPath = "packages/lib",
+			installPath = "packages/lib/src",
 			dependencies = {
 				utils = "shared",
 				h = "helpers",
@@ -28,14 +28,14 @@ return {
 			name = "shared",
 			source = "packages/shared",
 			sourceKind = "path",
-			installPath = "packages/shared",
+			installPath = "packages/shared/src",
 			dependencies = {},
 		},
 		["helpers"] = {
 			name = "helpers",
 			source = "packages/helpers",
 			sourceKind = "path",
-			installPath = "packages/helpers",
+			installPath = "packages/helpers/src",
 			dependencies = {},
 		},
 	},
