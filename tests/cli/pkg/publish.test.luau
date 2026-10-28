@@ -2,10 +2,14 @@ local fs = require("@std/fs")
 local manifest = require("@commands/pkg/loom-core/src/manifest")
 local path = require("@std/path")
 local publishManifest = require("@commands/pkg/loom-core/src/publish")
+local store = require("@commands/pkg/loom-core/src/store")
 local system = require("@std/system")
 local test = require("@std/test")
 
 local workingDirectory = path.join(system.tmpdir(), "lute-pkg-publish-manifest")
+local githubSource = "https://github.com/lute-pkg-tests/publish-fixture"
+local githubRevision = "publish-test-revision"
+local githubFixtureDirectory = store.getPackagePath(store.getGitHubCheckoutKey(githubSource, githubRevision))
 
 local function writeManifest(directory: path.Path, contents: string)
 	fs.writeStringToFile(path.join(directory, "loom.config.luau"), contents)
@@ -17,12 +21,35 @@ local function parseGeneratedManifest(contents: string): manifest.ProjectManifes
 	return manifest.parseFile(path.format(generatedPath))
 end
 
+local function writePackageManifest(directory: path.Path | string, name: string)
+	fs.createDirectory(directory, { makeParents = true })
+	writeManifest(
+		directory,
+		string.format(
+			[[return {
+	package = {
+		name = %q,
+		version = "1.0.0",
+	},
+}
+]],
+			name
+		)
+	)
+end
+
 test.suite("Publish", function(suite)
 	suite:beforeEach(function()
 		if fs.exists(workingDirectory) then
 			fs.removeDirectory(workingDirectory, { recursive = true })
 		end
 		fs.createDirectory(workingDirectory)
+	end)
+
+	suite:afterEach(function()
+		if fs.exists(githubFixtureDirectory) then
+			fs.removeDirectory(githubFixtureDirectory, { recursive = true })
+		end
 	end)
 
 	suite:case("flattensProductionAndDevelopmentDependencies", function(assert)
@@ -36,11 +63,11 @@ return {
 		version = "1.2.3",
 		dependencies = {
 			registryAlias = alias,
-			pathAlias = { name = "vendor/path", sourceKind = "path", source = "../path", version = "^2.0.0" },
-			gitAlias = { name = "vendor/git", sourceKind = "github", source = "owner/repo", rev = "main", version = "~3.1.0" },
+			pathAlias = { sourceKind = "path", source = "./path", version = "^2.0.0" },
+			gitAlias = { sourceKind = "github", source = "https://github.com/lute-pkg-tests/publish-fixture", rev = "publish-test-revision", target = "package", version = "~3.1.0" },
 		},
 		dev_dependencies = {
-			devPath = { name = "vendor/dev-path", sourceKind = "path", source = "../dev-path", version = "^4.0.0" },
+			devPath = { sourceKind = "path", source = "./dev-path", version = "^4.0.0" },
 		},
 	},
 	overrides = {
@@ -50,6 +77,9 @@ return {
 }
 ]]
 		)
+		writePackageManifest(path.join(workingDirectory, "path"), "vendor/path")
+		writePackageManifest(path.join(workingDirectory, "dev-path"), "vendor/dev-path")
+		writePackageManifest(path.join(githubFixtureDirectory, "package"), "vendor/git")
 
 		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
 		local flattened =

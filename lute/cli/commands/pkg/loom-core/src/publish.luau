@@ -1,5 +1,9 @@
+local fs = require("@std/fs")
+local github = require("./github")
 local manifest = require("./manifest")
+local path = require("@std/path")
 local semver = require("./semver")
+local store = require("./store")
 
 local function validatePackageVersion(version: string): semver.Version
 	local parsed = semver.tryParse(version)
@@ -43,6 +47,40 @@ local function appendRegistryDependency(
 	table.insert(lines, `{indent}\},`)
 end
 
+local function getSourcePackageDirectory(
+	dependency: manifest.PathDependencySpec | manifest.GitHubDependencySpec
+): string
+	if dependency.sourceKind == "path" then
+		return dependency.directory
+	end
+
+	store.ensureStoreDirectory()
+	local key = store.getGitHubCheckoutKey(dependency.source, dependency.rev)
+	local checkoutDirectory = store.getPackagePath(key)
+	if not store.hasPackage(key) then
+		github.installPackage(dependency.source, dependency.rev, checkoutDirectory)
+	end
+
+	if dependency.target == nil then
+		return checkoutDirectory
+	end
+
+	return path.format(path.resolve(checkoutDirectory, dependency.target))
+end
+
+local function getSourcePackageName(
+	alias: string,
+	dependency: manifest.PathDependencySpec | manifest.GitHubDependencySpec
+): string
+	local directory = getSourcePackageDirectory(dependency)
+	local manifestPath = path.format(path.join(directory, "loom.config.luau"))
+	assert(fs.exists(manifestPath), `Cannot publish dependency '{alias}': package manifest not found: {manifestPath}`)
+
+	local sourceManifest = manifest.parseFile(manifestPath)
+	assert(sourceManifest.package.name ~= nil, `Cannot publish dependency '{alias}': target package must have a name`)
+	return sourceManifest.package.name
+end
+
 local function appendDependencies(
 	lines: { string },
 	dependencies: { [string]: manifest.DependencySpec },
@@ -59,10 +97,11 @@ local function appendDependencies(
 				`Cannot publish dependency '{alias}': {dependency.sourceKind} dependencies require a version`
 			)
 			validateDependencyVersionConstraint(dependency.version)
+			local sourcePackageName = getSourcePackageName(alias, dependency)
 			appendRegistryDependency(lines, indent, alias, {
-				name = dependency.name,
+				name = sourcePackageName,
 				sourceKind = "registry",
-				source = dependency.name,
+				source = sourcePackageName,
 				version = dependency.version,
 			})
 		end
