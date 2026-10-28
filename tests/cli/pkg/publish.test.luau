@@ -9,7 +9,8 @@ local test = require("@std/test")
 local workingDirectory = path.join(system.tmpdir(), "lute-pkg-publish-manifest")
 local githubSource = "https://github.com/lute-pkg-tests/publish-fixture"
 local githubRevision = "publish-test-revision"
-local githubFixtureDirectory = store.getPackagePath(store.getGitHubCheckoutKey(githubSource, githubRevision))
+local githubFixtureDirectory =
+	path.parse(store.getPackagePath(store.getGitHubCheckoutKey(githubSource, githubRevision)))
 
 local function writeManifest(directory: path.Path, contents: string)
 	fs.writeStringToFile(path.join(directory, "loom.config.luau"), contents)
@@ -21,7 +22,7 @@ local function parseGeneratedManifest(contents: string): manifest.ProjectManifes
 	return manifest.parseFile(path.format(generatedPath))
 end
 
-local function writePackageManifest(directory: path.Path | string, name: string)
+local function writePackageManifest(directory: path.Path, name: string)
 	fs.createDirectory(directory, { makeParents = true })
 	writeManifest(
 		directory,
