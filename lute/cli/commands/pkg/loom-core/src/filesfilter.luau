@@ -103,7 +103,7 @@ end
 -- Directories must always be traversed so that a later pattern can restore a
 -- descendant of a directory excluded by an earlier pattern. Unmatched files
 -- are excluded only when an include pattern exists.
-function includes(state: State, parts: { string }, isDirectory: boolean): boolean
+local function includes(state: State, parts: { string }, isDirectory: boolean): boolean
 	if state.files == nil then
 		return true
 	end
@@ -117,7 +117,7 @@ end
 
 -- Hidden paths are never selected implicitly. They must have a final,
 -- positive match from an explicit `files` entry.
-function explicitlyIncludes(state: State, parts: { string }, isDirectory: boolean): boolean
+local function explicitlyIncludes(state: State, parts: { string }, isDirectory: boolean): boolean
 	return state.files ~= nil and matchPatterns(state.files.patterns, parts, isDirectory) == true
 end
 
