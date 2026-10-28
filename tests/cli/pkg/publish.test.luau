@@ -25,7 +25,7 @@ test.suite("Publish", function(suite)
 		fs.createDirectory(workingDirectory)
 	end)
 
-	suite:case("flattensProductionDependenciesAndPreservesDevelopmentDependencies", function(assert)
+	suite:case("flattensProductionAndDevelopmentDependencies", function(assert)
 		writeManifest(
 			workingDirectory,
 			[[local alias = { sourceKind = "registry", source = "vendor/registry", version = "^1.0.0" }
@@ -40,7 +40,7 @@ return {
 			gitAlias = { name = "vendor/git", sourceKind = "github", source = "owner/repo", rev = "main", version = "~3.1.0" },
 		},
 		dev_dependencies = {
-			devPath = { sourceKind = "path", source = "../dev-path" },
+			devPath = { name = "vendor/dev-path", sourceKind = "path", source = "../dev-path", version = "^4.0.0" },
 		},
 	},
 	overrides = {
@@ -67,8 +67,9 @@ return {
 		assert.eq(package.dependencies.gitAlias.sourceKind, "registry")
 		assert.eq(package.dependencies.gitAlias.source, "vendor/git")
 		assert.eq(package.dependencies.gitAlias.version, "~3.1.0")
-		assert.eq(package.devDependencies.devPath.sourceKind, "path")
-		assert.eq(package.devDependencies.devPath.source, "../dev-path")
+		assert.eq(package.devDependencies.devPath.sourceKind, "registry")
+		assert.eq(package.devDependencies.devPath.source, "vendor/dev-path")
+		assert.eq(package.devDependencies.devPath.version, "^4.0.0")
 		assert.eq(generated.registry, "https://registry.example.com")
 		assert.eq(next(generated.overrides), nil)
 		local gitAliasIndex = string.find(flattened, "gitAlias", 1, true) :: number
@@ -110,6 +111,27 @@ return {
 		name = "publisher",
 		version = "1.2.3",
 		dependencies = {
+			localDependency = { sourceKind = "path", source = "../local" },
+		},
+	},
+}
+]]
+		)
+
+		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		assert.throwsWith("Cannot publish dependency 'localDependency': path dependencies require a version", function()
+			publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest)
+		end)
+	end)
+
+	suite:case("rejectsDevelopmentSourceDependencyWithoutAPublishVersion", function(assert)
+		writeManifest(
+			workingDirectory,
+			[[return {
+	package = {
+		name = "publisher",
+		version = "1.2.3",
+		dev_dependencies = {
 			localDependency = { sourceKind = "path", source = "../local" },
 		},
 	},

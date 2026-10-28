@@ -43,43 +43,7 @@ local function appendRegistryDependency(
 	table.insert(lines, `{indent}\},`)
 end
 
-local function appendSourceDependency(
-	lines: { string },
-	indent: string,
-	alias: string,
-	dependency: manifest.PathDependencySpec | manifest.GitHubDependencySpec
-)
-	table.insert(lines, `{indent}{formatKey(alias)} = \{`)
-	if dependency.name ~= alias then
-		table.insert(lines, `{indent}\tname = {quote(dependency.name)},`)
-	end
-	table.insert(lines, `{indent}\tsourceKind = {quote(dependency.sourceKind)},`)
-	table.insert(lines, `{indent}\tsource = {quote(dependency.source)},`)
-	if dependency.sourceKind == "github" then
-		table.insert(lines, `{indent}\trev = {quote(dependency.rev)},`)
-	end
-	if dependency.version ~= nil then
-		table.insert(lines, `{indent}\tversion = {quote(dependency.version)},`)
-	end
-	table.insert(lines, `{indent}\},`)
-end
-
-local function appendDevelopmentDependencies(
-	lines: { string },
-	dependencies: { [string]: manifest.DependencySpec },
-	indent: string
-)
-	for _, alias in sortedDependencyAliases(dependencies) do
-		local dependency = dependencies[alias]
-		if dependency.sourceKind == "registry" then
-			appendRegistryDependency(lines, indent, alias, dependency)
-		else
-			appendSourceDependency(lines, indent, alias, dependency)
-		end
-	end
-end
-
-local function appendPublishedDependencies(
+local function appendDependencies(
 	lines: { string },
 	dependencies: { [string]: manifest.DependencySpec },
 	indent: string
@@ -121,10 +85,10 @@ local function flattenPackage(package: manifest.PackageManifest, registry: strin
 		`\t\tversion = {quote(version)},`,
 		"\t\tdependencies = {",
 	}
-	appendPublishedDependencies(lines, package.dependencies, "\t\t\t")
+	appendDependencies(lines, package.dependencies, "\t\t\t")
 	table.insert(lines, "\t\t},")
 	table.insert(lines, "\t\tdev_dependencies = {")
-	appendDevelopmentDependencies(lines, package.devDependencies, "\t\t\t")
+	appendDependencies(lines, package.devDependencies, "\t\t\t")
 	table.insert(lines, "\t\t},")
 	table.insert(lines, "\t},")
 	if registry ~= nil then
