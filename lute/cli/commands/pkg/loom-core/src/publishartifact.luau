@@ -61,7 +61,6 @@ local function collectFiles(
 
 	for _, child in children do
 		local childPath = path.join(directory, child.name)
-		assert(child.type ~= "link", "Symlinks in project source are not supported")
 		if child.type == "dir" then
 			local childParts = table.clone(parts)
 			table.insert(childParts, child.name)
@@ -78,6 +77,7 @@ local function collectFiles(
 			if hasHiddenPart(entryParts) and not filesFilter.explicitlyIncludes(filter, entryParts, false) then
 				continue
 			end
+			assert(child.type ~= "link", "Symlinks in project source are not supported")
 			local name = archiveName(entryParts)
 			assert(
 				name ~= PACKAGE_MANIFEST,
