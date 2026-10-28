@@ -9,8 +9,7 @@ local test = require("@std/test")
 local workingDirectory = path.join(system.tmpdir(), "lute-pkg-publish-manifest")
 local githubSource = "https://github.com/lute-pkg-tests/publish-fixture"
 local githubRevision = "publish-test-revision"
-local githubFixtureDirectory =
-	path.parse(store.getPackagePath(store.getGitHubCheckoutKey(githubSource, githubRevision)))
+local githubFixtureDirectory = store.getPackagePath(store.getGitHubCheckoutKey(githubSource, githubRevision))
 
 local function writeManifest(directory: path.Path, contents: string)
 	fs.writeStringToFile(path.join(directory, "loom.config.luau"), contents)
@@ -80,7 +79,7 @@ return {
 		)
 		writePackageManifest(path.join(workingDirectory, "path"), "vendor/path")
 		writePackageManifest(path.join(workingDirectory, "dev-path"), "vendor/dev-path")
-		writePackageManifest(path.join(githubFixtureDirectory, "package"), "vendor/git")
+		writePackageManifest(path.join(path.parse(githubFixtureDirectory), "package"), "vendor/git")
 
 		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
 		local flattened =
