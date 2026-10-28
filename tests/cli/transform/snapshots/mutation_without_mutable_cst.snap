@@ -1,0 +1,4 @@
+exit code: 1
+local x = math.sqrt(-1)
+local b = x ~= x
+

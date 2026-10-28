@@ -1,3 +1,4 @@
+local mutablecst = require("@lute/syntax/mutablecst")
 local syntax = require("@std/syntax")
 local syntaxTypes = require("@std/syntax/types")
 
@@ -5,6 +6,14 @@ export type Context<Options = { [any]: any }> = {
 	path: string,
 	source: string,
 	parseresult: syntax.CstParseResult,
+	options: Options,
+}
+
+--- Context passed to migrations when `lute transform` is run with `--mutable-cst`
+export type MutableContext<Options = { [any]: any }> = {
+	path: string,
+	source: string,
+	parseresult: mutablecst.CstParseResult,
 	options: Options,
 }
 

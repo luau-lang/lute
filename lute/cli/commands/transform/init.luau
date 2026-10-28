@@ -1,5 +1,6 @@
 local fs = require("@std/fs")
 local luau = require("@std/luau")
+local luteParser = require("@lute/syntax/parser")
 local pathLib = require("@std/path")
 local process = require("@std/process")
 local printer = require("@std/syntax/printer")
@@ -92,7 +93,8 @@ local function applyMigration(
 	options: { [string]: string | boolean },
 	dryRun: boolean,
 	interactive: boolean,
-	outputPath: string?
+	outputPath: string?,
+	mutableCst: boolean
 )
 	local deletedPaths = {}
 
@@ -113,9 +115,11 @@ local function applyMigration(
 
 		local source = fs.readFileToString(pathStr)
 
-		local parseresult = syntax.parse(source)
+		local parseresult: syntax.CstParseResult = if mutableCst
+			then luteParser.parseMutable(source) :: any
+			else syntax.parse(source)
 
-		local ctx = {
+		local ctx: types.Context = {
 			path = pathStr,
 			source = source,
 			parseresult = parseresult,
@@ -196,6 +200,9 @@ local function main(...: string)
 		"flag",
 		{ help = "Interactive mode, where you can preview and confirm changes", aliases = { "i" } }
 	)
+	args:add("mutable-cst", "flag", {
+		help = "Parse source files into mutable CSTs, allowing migrations to edit ctx.parseresult in place",
+	})
 	args:add("output", "option", {
 		help = "Write output to a single file instead of in-place (only works if a single input file is specified)",
 		aliases = { "o" },
@@ -223,6 +230,7 @@ local function main(...: string)
 	local dryRun = args:has("dry-run")
 	local interactive = args:has("interactive")
 	local outputFile = args:get("output")
+	local mutableCst = args:has("mutable-cst")
 
 	-- Split forwarded args into file paths and migration options.
 	-- Non-flag tokens are file paths; --name value pairs are migration options.
@@ -249,6 +257,10 @@ local function main(...: string)
 		print("Executing in interactive mode")
 	end
 
+	if mutableCst then
+		print("Using mutable CSTs")
+	end
+
 	if outputFile then
 		print(`Output path specified: '{outputFile}'`)
 	end
@@ -266,7 +278,7 @@ local function main(...: string)
 	local processedOptions = processMigrationOptions(migration, migrationOptions)
 
 	print("Applying migration")
-	applyMigration(migration, sourceFiles, processedOptions, dryRun, interactive, outputFile)
+	applyMigration(migration, sourceFiles, processedOptions, dryRun, interactive, outputFile, mutableCst)
 
 	print(`Processed {#sourceFiles} files!`)
 end
