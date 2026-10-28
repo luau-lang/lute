@@ -91,8 +91,8 @@ return {
 
 		assert.eq(package.name, "publisher")
 		assert.eq(package.version, "1.2.3")
-		assert.eq(package.contentRoot, "src")
-		assert.eq(package.files, { "**/*.luau", "!**/*.spec.luau" })
+		assert.eq(package.contentRoot, nil)
+		assert.eq(package.files, nil)
 		assert.eq(package.dependencies.registryAlias.sourceKind, "registry")
 		assert.eq(package.dependencies.registryAlias.source, "vendor/registry")
 		assert.eq(package.dependencies.pathAlias.sourceKind, "registry")
