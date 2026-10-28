@@ -4,10 +4,7 @@ local filesFilter = require("./filesfilter")
 local zipWriter = require("./zipwriter")
 
 local PACKAGE_MANIFEST = "loom.config.luau"
-local ORIGINAL_PACKAGE_MANIFEST = PACKAGE_MANIFEST .. ".orig"
 
--- The package-root manifest is preserved with an `.orig` suffix while the
--- generated manifest is always at root.
 type PublishableFile = zipWriter.Entry
 
 export type BuildOptions = {
@@ -128,19 +125,8 @@ local function build(
 	})
 	names[PACKAGE_MANIFEST] = true
 
-	-- Preserving the old source manifest for metadata purposes
-	local originalManifestPath = path.resolve(sourceManifestPath)
-	local originalManifestPathString = path.format(originalManifestPath)
-	local originalManifestType = fs.type(originalManifestPath)
-	assert(originalManifestType ~= "link", "Symlinks in project source are not supported")
-	assert(originalManifestType == "file", `Package manifest is not a file: {originalManifestPathString}`)
-	table.insert(entries, {
-		contents = buffer.fromstring(fs.readFileToString(originalManifestPath)),
-		name = ORIGINAL_PACKAGE_MANIFEST,
-	})
-	names[ORIGINAL_PACKAGE_MANIFEST] = true
-
-	collectFiles(contentDirectory, {}, entries, names, filesFilter.new(files), originalManifestPathString)
+	local sourceManifestPathString = path.format(path.resolve(sourceManifestPath))
+	collectFiles(contentDirectory, {}, entries, names, filesFilter.new(files), sourceManifestPathString)
 	table.sort(entries, function(a: PublishableFile, b: PublishableFile)
 		return a.name < b.name
 	end)
