@@ -84,7 +84,8 @@ end
 local function appendDependencies(
 	lines: { string },
 	dependencies: { [string]: manifest.DependencySpec },
-	indent: string
+	indent: string,
+	isDevDependency: boolean
 )
 	for _, alias in sortedDependencyAliases(dependencies) do
 		local dependency = dependencies[alias]
@@ -92,10 +93,12 @@ local function appendDependencies(
 			validateDependencyVersionConstraint(dependency.version)
 			appendRegistryDependency(lines, indent, alias, dependency)
 		else
-			assert(
-				dependency.version ~= nil,
-				`Cannot publish dependency '{alias}': {dependency.sourceKind} dependencies require a version`
-			)
+			if dependency.version == nil then
+				if isDevDependency then
+					continue
+				end
+				error(`Cannot publish dependency '{alias}': {dependency.sourceKind} dependencies require a version`)
+			end
 			validateDependencyVersionConstraint(dependency.version)
 			local sourcePackageName = getSourcePackageName(alias, dependency)
 			appendRegistryDependency(lines, indent, alias, {
@@ -124,10 +127,10 @@ local function flattenPackage(package: manifest.PackageManifest, registry: strin
 		`\t\tversion = {quote(version)},`,
 		"\t\tdependencies = {",
 	}
-	appendDependencies(lines, package.dependencies, "\t\t\t")
+	appendDependencies(lines, package.dependencies, "\t\t\t", false)
 	table.insert(lines, "\t\t},")
 	table.insert(lines, "\t\tdev_dependencies = {")
-	appendDependencies(lines, package.devDependencies, "\t\t\t")
+	appendDependencies(lines, package.devDependencies, "\t\t\t", true)
 	table.insert(lines, "\t\t},")
 	table.insert(lines, "\t},")
 	if registry ~= nil then

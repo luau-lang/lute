@@ -154,7 +154,7 @@ return {
 		end)
 	end)
 
-	suite:case("rejectsDevelopmentSourceDependencyWithoutAPublishVersion", function(assert)
+	suite:case("dropsDevelopmentSourceDependencyWithoutAPublishVersion", function(assert)
 		writeManifest(
 			workingDirectory,
 			[[return {
@@ -170,9 +170,9 @@ return {
 		)
 
 		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
-		assert.throwsWith("Cannot publish dependency 'localDependency': path dependencies require a version", function()
-			publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest)
-		end)
+		local flattened = publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest)
+		local generated = parseGeneratedManifest(flattened)
+		assert.eq(next(generated.package.devDependencies), nil)
 	end)
 
 	suite:case("rejectsInvalidPublishedPackageVersion", function(assert)
