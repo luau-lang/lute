@@ -7,6 +7,11 @@ local PACKAGE_MANIFEST = "loom.config.luau"
 
 type PublishableFile = zipWriter.Entry
 
+type CollectedFile = {
+	path: path.Path,
+	name: string,
+}
+
 export type BuildOptions = {
 	contentRoot: string?,
 	files: { string }?,
@@ -44,10 +49,10 @@ end
 local function collectFiles(
 	directory: path.Path,
 	parts: { string },
-	entries: { PublishableFile },
+	files: { CollectedFile },
 	names: { [string]: boolean },
 	filter: filesFilter.State,
-	originalManifestPathString: string
+	sourceManifestPathString: string
 )
 	local children = fs.listDirectory(directory)
 	table.sort(children, function(a: fs.DirectoryEntry, b: fs.DirectoryEntry)
@@ -60,9 +65,9 @@ local function collectFiles(
 		if child.type == "dir" then
 			local childParts = table.clone(parts)
 			table.insert(childParts, child.name)
-			collectFiles(childPath, childParts, entries, names, filter, originalManifestPathString)
+			collectFiles(childPath, childParts, files, names, filter, sourceManifestPathString)
 		elseif child.type == "file" or child.type == "link" then
-			if path.format(childPath) == originalManifestPathString then
+			if path.format(childPath) == sourceManifestPathString then
 				continue
 			end
 			local entryParts = table.clone(parts)
@@ -81,8 +86,8 @@ local function collectFiles(
 			assert(not names[name], `Duplicate archive path: '{name}'`)
 			names[name] = true
 
-			table.insert(entries, {
-				contents = buffer.fromstring(fs.readFileToString(childPath)),
+			table.insert(files, {
+				path = childPath,
 				name = name,
 			})
 		end
@@ -100,12 +105,11 @@ local function resolveContentDirectory(root: path.Path, contentRoot: string?): p
 	return path.resolve(path.format(root), normalized)
 end
 
-local function build(
+local function collectPublishableFiles(
 	packageDirectory: string,
 	sourceManifestPath: string,
-	generatedManifest: string,
 	options: BuildOptions?
-): buffer
+): { CollectedFile }
 	local root = path.resolve(packageDirectory)
 	assert(fs.type(root) == "dir", `Package directory is not a directory: {path.format(root)}`)
 	local contentRoot = if options == nil then nil else options.contentRoot
@@ -116,17 +120,30 @@ local function build(
 		`Package content root is not a directory: {path.format(contentDirectory)}`
 	)
 
+	local publishableFiles: { CollectedFile } = {}
+	local names = { [PACKAGE_MANIFEST] = true }
+	local sourceManifestPathString = path.format(path.resolve(sourceManifestPath))
+	collectFiles(contentDirectory, {}, publishableFiles, names, filesFilter.new(files), sourceManifestPathString)
+	return publishableFiles
+end
+
+local function build(
+	packageDirectory: string,
+	sourceManifestPath: string,
+	generatedManifest: string,
+	options: BuildOptions?
+): buffer
 	local entries: { PublishableFile } = {}
-	local names: { [string]: boolean } = {}
-	local generatedContents = buffer.fromstring(generatedManifest)
 	table.insert(entries, {
-		contents = generatedContents,
+		contents = buffer.fromstring(generatedManifest),
 		name = PACKAGE_MANIFEST,
 	})
-	names[PACKAGE_MANIFEST] = true
-
-	local sourceManifestPathString = path.format(path.resolve(sourceManifestPath))
-	collectFiles(contentDirectory, {}, entries, names, filesFilter.new(files), sourceManifestPathString)
+	for _, file in collectPublishableFiles(packageDirectory, sourceManifestPath, options) do
+		table.insert(entries, {
+			contents = buffer.fromstring(fs.readFileToString(file.path)),
+			name = file.name,
+		})
+	end
 	table.sort(entries, function(a: PublishableFile, b: PublishableFile)
 		return a.name < b.name
 	end)
@@ -134,6 +151,16 @@ local function build(
 	return zipWriter.write(entries)
 end
 
+local function list(packageDirectory: string, sourceManifestPath: string, options: BuildOptions?): { string }
+	local names = { PACKAGE_MANIFEST }
+	for _, file in collectPublishableFiles(packageDirectory, sourceManifestPath, options) do
+		table.insert(names, file.name)
+	end
+	table.sort(names)
+	return names
+end
+
 return table.freeze({
 	build = build,
+	list = list,
 })

@@ -95,6 +95,20 @@ test.suite("Publish artifact", function(suite)
 		assert.eq(readEntry(reader, ".well-known/config"), "config\n")
 	end)
 
+	suite:case("listsTheGeneratedManifestAndPublishableFiles", function(assert)
+		local packageDirectory = path.join(workingDirectory, "package")
+		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
+		writeFile(path.join(packageDirectory, "README.md"), "published\n")
+		writeFile(path.join(packageDirectory, "src", "init.luau"), 'return "published"\n')
+
+		local files = publishArtifact.list(path.format(packageDirectory), path.format(sourceManifestPath), {
+			files = { "*.luau" },
+		})
+
+		assert.eq(files, { "loom.config.luau", "src/init.luau" })
+	end)
+
 	suite:case("rejectsSymlinksInProjectSource", function(assert)
 		local packageDirectory = path.join(workingDirectory, "package")
 		fs.createDirectory(packageDirectory)
