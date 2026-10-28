@@ -85,7 +85,7 @@ local function resolveDependencySource(spec: manifest.DependencySpec, from: Sour
 				parts = target.parts,
 				absolute = false,
 			}),
-	})
+	} :: manifest.GitHubDependencySpec)
 end
 
 local function fetchSource(spec: manifest.DependencySpec): SourceLocation
