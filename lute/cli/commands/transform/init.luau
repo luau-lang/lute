@@ -10,7 +10,6 @@ local richterm = require("@batteries/richterm")
 local io = require("@std/io")
 local printDiffHunks = require("./transform/printDiffHunks")
 local cli = require("@batteries/cli")
-local mutablecst = require("@lute/syntax/mutablecst")
 local files = require("./lib/files")
 local types = require("@transform")
 
