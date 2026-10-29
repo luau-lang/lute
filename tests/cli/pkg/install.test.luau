@@ -344,7 +344,6 @@ test.suite("LutePkgInstall", function(suite)
 		local env = setmetatable({
 			HOME = path.format(homeDirectory),
 			USERPROFILE = path.format(homeDirectory),
-			LOOM_REGISTRY_TOKEN = "",
 		}, { __index = process.env })
 
 		local first = runWithEnv(workingDirectory, env)

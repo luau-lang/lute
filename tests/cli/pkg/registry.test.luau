@@ -37,15 +37,11 @@ local function preparePublishCredentialProvider(domain: string, token: string)
 	)
 end
 
-local function runPublish(
-	registryUrl: string,
-	artifactoryToken: string?
-): { exitcode: number, stdout: string, stderr: string }
+local function runPublish(registryUrl: string): { exitcode: number, stdout: string, stderr: string }
 	return process.run({ lutePath, path.format(publishRegistryFixture), registryUrl }, {
 		cwd = path.format(publishWorkingDirectory),
 		env = setmetatable({
 			HOME = path.format(publishWorkingDirectory),
-			LOOM_ARTIFACTORY_TOKEN = artifactoryToken or "",
 			USERPROFILE = path.format(publishWorkingDirectory),
 		}, { __index = process.env }),
 	})
@@ -90,25 +86,33 @@ test.suite("RegistryClient", function(suite)
 		)
 	end)
 
-	suite:case("publishRequiresAnArtifactoryToken", function(assert)
+	suite:case("publishOmitsAuthorizationWithoutARegistryCredential", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				assert.eq(req.headers["authorization"], nil)
+				return { status = 200, body = "{}" }
+			end,
+		})
 		if fs.exists(publishWorkingDirectory) then
 			fs.removeDirectory(publishWorkingDirectory, { recursive = true })
 		end
 		fs.createDirectory(publishWorkingDirectory)
 
-		local result = runPublish("https://registry.example.com", nil)
-		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stderr, "No Artifactory token configured for registry registry.example.com")
-		assert.strContains(result.stderr, "lute pkg auth --domain registry.example.com")
+		local result = runPublish(`http://{instance.hostname}:{instance.port}`)
+		assert.eq(result.exitcode, 0)
+
+		instance.close()
+		fs.removeDirectory(publishWorkingDirectory, { recursive = true })
 	end)
 
-	suite:case("publishSendsRawZipWithTheResolvedArtifactoryToken", function(assert)
+	suite:case("publishSendsRawZipWithTheResolvedRegistryToken", function(assert)
 		local instance = server.serve({
 			port = 0,
 			handler = function(req: server.ReceivedRequest): server.ServerResponse
 				assert.eq(req.method, "POST")
 				assert.eq(req.path, "/api/v1/publish")
-				assert.eq(req.headers["artifactory-token"], "publish-test-token")
+				assert.eq(req.headers["authorization"], "Bearer publish-test-token")
 				assert.eq(req.headers["content-type"], "application/zip")
 				assert.eq(req.body, "package archive\0body")
 				return { status = 200, body = "{}" }
@@ -117,28 +121,7 @@ test.suite("RegistryClient", function(suite)
 		local registryUrlValue = `http://{instance.hostname}:{instance.port}`
 		preparePublishCredentialProvider(`{instance.hostname}:{instance.port}`, "publish-test-token")
 
-		local result = runPublish(registryUrlValue, nil)
-		assert.eq(result.exitcode, 0)
-
-		instance.close()
-		fs.removeDirectory(publishWorkingDirectory, { recursive = true })
-	end)
-
-	suite:case("publishUsesTheArtifactoryEnvironmentToken", function(assert)
-		local instance = server.serve({
-			port = 0,
-			handler = function(req: server.ReceivedRequest): server.ServerResponse
-				assert.eq(req.headers["artifactory-token"], "environment-artifactory-token")
-				return { status = 200, body = "{}" }
-			end,
-		})
-		local registryUrlValue = `http://{instance.hostname}:{instance.port}`
-		if fs.exists(publishWorkingDirectory) then
-			fs.removeDirectory(publishWorkingDirectory, { recursive = true })
-		end
-		fs.createDirectory(publishWorkingDirectory)
-
-		local result = runPublish(registryUrlValue, "environment-artifactory-token")
+		local result = runPublish(registryUrlValue)
 		assert.eq(result.exitcode, 0)
 
 		instance.close()
@@ -149,7 +132,7 @@ test.suite("RegistryClient", function(suite)
 		local instance = server.serve({
 			port = 0,
 			handler = function(req: server.ReceivedRequest): server.ServerResponse
-				if req.headers["artifactory-token"] == "unauthorized-token" then
+				if req.headers["authorization"] == "Bearer unauthorized-token" then
 					return { status = 401, body = "unauthorized" }
 				end
 				return { status = 409, body = "already exists" }
@@ -158,12 +141,12 @@ test.suite("RegistryClient", function(suite)
 		local registryUrlValue = `http://{instance.hostname}:{instance.port}`
 		preparePublishCredentialProvider(`{instance.hostname}:{instance.port}`, "unauthorized-token")
 
-		local unauthorized = runPublish(registryUrlValue, nil)
+		local unauthorized = runPublish(registryUrlValue)
 		assert.eq(unauthorized.exitcode, 1)
 		assert.strContains(unauthorized.stderr, "Registry publish authentication failed")
 
 		preparePublishCredentialProvider(`{instance.hostname}:{instance.port}`, "duplicate-token")
-		local duplicate = runPublish(registryUrlValue, nil)
+		local duplicate = runPublish(registryUrlValue)
 		assert.eq(duplicate.exitcode, 1)
 		assert.strContains(duplicate.stderr, "Package version already exists at registry")
 
@@ -181,7 +164,7 @@ test.suite("RegistryClient", function(suite)
 		local registryUrlValue = `http://{instance.hostname}:{instance.port}`
 		preparePublishCredentialProvider(`{instance.hostname}:{instance.port}`, "publish-test-token")
 
-		local result = runPublish(registryUrlValue, nil)
+		local result = runPublish(registryUrlValue)
 		assert.eq(result.exitcode, 1)
 		assert.strContains(result.stderr, "Registry publish failed")
 		assert.strContains(result.stderr, "backend failure")
@@ -200,6 +183,7 @@ test.suite("RegistryClient", function(suite)
 			port = 0,
 			handler = function(req: server.ReceivedRequest): server.ServerResponse
 				assert.eq(req.path, "/api/v1/package-index/citrus")
+				assert.eq(req.headers["authorization"], "Bearer registry-test-token")
 				return {
 					status = 200,
 					body = '[{"name":"citrus","version":"1.0.0","yanked":false,"dependencies":[]}]',
@@ -229,7 +213,7 @@ test.suite("RegistryClient", function(suite)
 
 		local result = process.run({ lutePath, path.format(fetchRegistryFixture), registryUrlValue }, {
 			cwd = path.format(credentialWorkingDirectory),
-			env = setmetatable({ LOOM_REGISTRY_TOKEN = "" }, { __index = process.env }),
+			env = process.env,
 		})
 		assert.eq(result.exitcode, 0)
 

@@ -28,12 +28,7 @@ local function getTemporaryInstallDirectory(registryUrl: string, packageSource: 
 	)
 end
 
-local function getAuthenticationToken(registryUrl: string): string?
-	local token = process.env.LOOM_REGISTRY_TOKEN
-	if token ~= nil and token ~= "" then
-		return token
-	end
-
+local function getRegistryToken(registryUrl: string): string?
 	local parsedUrl = registryUrlUtil.parse(registryUrl)
 
 	local providedToken = credentials.resolveToken({
@@ -51,50 +46,11 @@ local function getAuthenticationToken(registryUrl: string): string?
 	end
 
 	return nil
-end
-
-local function getArtifactoryToken(registryUrl: string): string?
-	local token = process.env.LOOM_ARTIFACTORY_TOKEN
-	if token ~= nil and token ~= "" then
-		return token
-	end
-
-	local parsedUrl = registryUrlUtil.parse(registryUrl)
-	local providedToken = credentials.resolveToken({
-		protocol = parsedUrl.protocol,
-		host = parsedUrl.host,
-		path = "/api/v1/publish",
-	})
-	if providedToken ~= nil and providedToken ~= "" then
-		return providedToken
-	end
-
-	local store = authenticationStore.loadAuthenticationStore()
-	local entry = store[parsedUrl.host]
-	if typeof(entry) == "table" and typeof(entry.token) == "string" and entry.token ~= "" then
-		return entry.token
-	end
-
-	return nil
-end
-
-local function requirePublishToken(registryUrl: string): string
-	local token = getArtifactoryToken(registryUrl)
-	if token ~= nil then
-		return token
-	end
-
-	local parsedUrl = registryUrlUtil.parse(registryUrl)
-	error(
-		`No Artifactory token configured for registry {parsedUrl.host}. `
-			.. `Set LOOM_ARTIFACTORY_TOKEN, configure a credential provider, or run `
-			.. `\`lute pkg auth --domain {parsedUrl.host}\`.`
-	)
 end
 
 local function registryRequest(registryUrl: string, endpoint: string): string
 	local url = `{registryUrlUtil.normalize(registryUrl)}{endpoint}`
-	local token = getAuthenticationToken(registryUrl)
+	local token = getRegistryToken(registryUrl)
 
 	local headers: { [string]: string } = {
 		["User-Agent"] = "lute-pkg",
@@ -202,13 +158,16 @@ local function publishPackage(registryUrl: string?, archive: buffer)
 
 	local normalizedRegistryUrl = registryUrlUtil.normalize(registryUrl)
 	local url = `{normalizedRegistryUrl}/api/v1/publish`
-	local token = requirePublishToken(registryUrl)
+	local token = getRegistryToken(registryUrl)
 	local headers: { [string]: string } = {
 		["User-Agent"] = "lute-pkg",
 		["Accept"] = "application/json",
 		["Content-Type"] = "application/zip",
-		["artifactory-token"] = token,
 	}
+
+	if token ~= nil then
+		headers["Authorization"] = `Bearer {token}`
+	end
 
 	local metadata: net.Metadata = {
 		method = "POST",
