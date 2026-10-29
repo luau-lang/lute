@@ -6,7 +6,7 @@ Manage dependencies declared in `loom.config.luau`.
 
 ```bash
 lute pkg install
-lute pkg publish [--dry-run]
+lute pkg publish [--dry-run | --list]
 ```
 
 ## Publishing
@@ -43,6 +43,8 @@ In addition to common glob patterns the following is the behavior of files:
 - Symlinks in the package source are not supported.
 
 Use `--dry-run` to validate the manifest and build the ZIP in memory without uploading it. This does not require a registry or credentials and does not write an archive to disk.
+
+Use `--list` to print the sorted list of files that would be included in the ZIP, including its generated `loom.config.luau`, without building or uploading the package.
 
 Uploads use the `registry` in the package's manifest. Publishing requires an Artifactory token, resolved in this order: `LOOM_ARTIFACTORY_TOKEN`, a configured credential provider, then the auth store managed by `lute pkg auth --domain <registry-host> --token <token>`. The ZIP is sent to `<registry>/api/v1/publish`.
 

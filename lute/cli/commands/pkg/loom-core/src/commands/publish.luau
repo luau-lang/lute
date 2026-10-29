@@ -7,12 +7,13 @@ local publishManifest = require("../publish")
 local publishArtifact = require("../publishartifact")
 local registry = require("../registry")
 
-local USAGE = "Usage: lute pkg publish [--dry-run]"
+local USAGE = "Usage: lute pkg publish [--dry-run | --list]"
 
 local function publish(...: string)
 	local args = cli.parser()
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
 	args:add("dry-run", "flag", { help = "Validate and build the package without uploading it" })
+	args:add("list", "flag", { help = "Print files that would be included in the published package" })
 
 	local valid, err = pcall(function(...: string)
 		args:parse({ ... })
@@ -38,6 +39,17 @@ local function publish(...: string)
 	end
 	local project = manifest.parseFile(sourceManifestPath)
 	local package = project.package
+	if args:has("list") then
+		for _, name in
+			publishArtifact.list(directory, sourceManifestPath, {
+				contentRoot = package.contentRoot,
+				files = package.files,
+			})
+		do
+			print(name)
+		end
+		return
+	end
 	local generatedManifest = publishManifest.flattenPackage(package, project.registry)
 	local archive = publishArtifact.build(directory, sourceManifestPath, generatedManifest, {
 		contentRoot = package.contentRoot,

@@ -92,11 +92,11 @@ test.suite("LutePkgPublish", function(suite)
 		for _, flag in { "--help", "-h" } do
 			local result = run(workingDirectory, flag)
 			assert.eq(result.exitcode, 0)
-			assert.strContains(result.stdout, "Usage: lute pkg publish [--dry-run]")
+			assert.strContains(result.stdout, "Usage: lute pkg publish [--dry-run | --list]")
 		end
 		local result = process.run({ lutePath, "pkg", "--help" })
 		assert.eq(result.exitcode, 0)
-		assert.strContains(result.stdout, "publish [--dry-run]")
+		assert.strContains(result.stdout, "publish [--dry-run | --list]")
 	end)
 
 	suite:case("rejectsInvalidArgumentsBeforeLoadingAManifest", function(assert)
@@ -112,6 +112,28 @@ test.suite("LutePkgPublish", function(suite)
 		local result = run(workingDirectory, "--dry-run")
 		assert.eq(result.exitcode, 1)
 		assert.strContains(result.stderr, "No package manifest found")
+	end)
+
+	suite:case("listsTheFilesIncludedInAPublishedPackage", function(assert)
+		writeManifest(
+			workingDirectory,
+			[[return {
+	package = {
+		name = "example",
+		version = "1.0.0",
+		content_root = "src",
+		files = { "*.luau", "assets/" },
+	},
+}
+]]
+		)
+		writeFile(path.join(workingDirectory, "src", "init.luau"), 'return "published"\n')
+		writeFile(path.join(workingDirectory, "src", "assets", "data.bin"), "data\n")
+		writeFile(path.join(workingDirectory, "src", "ignored.txt"), "ignored\n")
+
+		local result = run(workingDirectory, "--list")
+		assert.eq(result.exitcode, 0)
+		assert.eq(string.gsub(result.stdout, "\r\n", "\n"), "assets/data.bin\ninit.luau\nloom.config.luau\n")
 	end)
 
 	suite:case("dryRunBuildsStandaloneArchiveWithoutChangingPackageFiles", function(assert)
