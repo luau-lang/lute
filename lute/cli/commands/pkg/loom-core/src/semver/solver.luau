@@ -217,7 +217,12 @@ type DecisionFrame = {
 	read prevSelected: Resolution,
 }
 
-local function solve(universe: Universe, roots: { [string]: Requirement }, locked: { [string]: string }?): Resolution
+local function solve(
+	universe: Universe,
+	roots: { [string]: Requirement },
+	locked: { [string]: string }?,
+	expandCandidate: ((PackageVersion) -> ())?
+): Resolution
 	-- Seed the constraint set from root requirements, keyed by slot.
 	local initial: ConstraintSet = {}
 	for alias, req in roots do
@@ -282,6 +287,9 @@ local function solve(universe: Universe, roots: { [string]: Requirement }, locke
 		-- Advance with the first candidate (universe is sorted newest-first).
 		if #candidates > 0 then
 			local candidate = candidates[1]
+			if expandCandidate then
+				expandCandidate(candidate)
+			end
 			local sourceKey = `{candidate.name}@{candidate.versionString}`
 			local nextSelected = table.clone(selected)
 			nextSelected[slotKey] = candidate
@@ -310,6 +318,9 @@ local function solve(universe: Universe, roots: { [string]: Requirement }, locke
 				if frame.candidateIdx < #frame.candidates then
 					local idx = frame.candidateIdx + 1
 					local candidate = frame.candidates[idx]
+					if expandCandidate then
+						expandCandidate(candidate)
+					end
 					local sourceKey = `{candidate.name}@{candidate.versionString}`
 					local nextSelected = table.clone(frame.prevSelected)
 					nextSelected[frame.slotKey] = candidate
