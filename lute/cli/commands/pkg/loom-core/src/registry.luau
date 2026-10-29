@@ -28,12 +28,7 @@ local function getTemporaryInstallDirectory(registryUrl: string, packageSource: 
 	)
 end
 
-local function getAuthenticationToken(registryUrl: string): string?
-	local token = process.env.LOOM_REGISTRY_TOKEN
-	if token ~= nil and token ~= "" then
-		return token
-	end
-
+local function getRegistryToken(registryUrl: string): string?
 	local parsedUrl = registryUrlUtil.parse(registryUrl)
 
 	local providedToken = credentials.resolveToken({
@@ -55,7 +50,7 @@ end
 
 local function registryRequest(registryUrl: string, endpoint: string): string
 	local url = `{registryUrlUtil.normalize(registryUrl)}{endpoint}`
-	local token = getAuthenticationToken(registryUrl)
+	local token = getRegistryToken(registryUrl)
 
 	local headers: { [string]: string } = {
 		["User-Agent"] = "lute-pkg",
@@ -153,6 +148,53 @@ local function fetchContentUrl(registryUrl: string, packageSource: string, versi
 		`Missing contentUrl in response for '{packageSource}@{version}'`
 	)
 	return data.contentUrl
+end
+
+local function publishPackage(registryUrl: string?, archive: buffer)
+	assert(
+		registryUrl ~= nil and registryUrl ~= "",
+		"No registry configured for publishing. Add a 'registry' field to loom.config.luau."
+	)
+
+	local normalizedRegistryUrl = registryUrlUtil.normalize(registryUrl)
+	local url = `{normalizedRegistryUrl}/api/v1/publish`
+	local token = getRegistryToken(registryUrl)
+	local headers: { [string]: string } = {
+		["User-Agent"] = "lute-pkg",
+		["Accept"] = "application/json",
+		["Content-Type"] = "application/zip",
+	}
+
+	if token ~= nil then
+		headers["Authorization"] = `Bearer {token}`
+	end
+
+	local metadata: net.Metadata = {
+		method = "POST",
+		headers = headers,
+		body = buffer.tostring(archive),
+	}
+	local ok, responseOrError = pcall(net.request, url, metadata)
+	if not ok then
+		error(`Failed to publish package to {url}: {responseOrError}`, 0)
+	end
+
+	local response = responseOrError :: net.Response
+	if response.status == 401 or response.status == 403 then
+		local parsedUrl = registryUrlUtil.parse(registryUrl)
+		error(
+			`Registry publish authentication failed for {url}: HTTP {response.status}. `
+				.. `Run \`lute pkg auth --domain {parsedUrl.host}\` to set credentials.`
+		)
+	end
+
+	if response.status == 409 then
+		error(`Package version already exists at registry: {url}`)
+	end
+
+	if not response.ok then
+		error(`Registry publish failed: {url}: HTTP {response.status}\n{string.sub(response.body, 1, 200)}`)
+	end
 end
 
 type PackageRequest = {
@@ -279,4 +321,5 @@ return {
 	getTemporaryInstallDirectory = getTemporaryInstallDirectory,
 	installPackage = installPackage,
 	indexToPackageVersions = indexToPackageVersions,
+	publishPackage = publishPackage,
 }
