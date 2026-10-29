@@ -1009,9 +1009,41 @@ local function resolveRegistryDependencies(
 		return
 	end
 
-	-- Build or fetch the universe.
-	local effectiveUniverse: semver.Universe
+	-- Fetch direct registry package indexes. Transitive indexes are fetched as
+	-- their parent candidate is selected by the solver.
+	local rawUniverse: semver.Universe = {}
+	local effectiveUniverse: semver.Universe = {}
 	local sourceOverridedDeps: { [string]: { [string]: string } } = {}
+	local registryOverrideTargets = getRegistryOverrideTargets(state, overrides, rootRegistryUrl)
+
+	local function rebuildEffectiveUniverse()
+		local rebuilt, rebuiltSourceOverridedDeps =
+			buildEffectiveUniverse(rawUniverse, overrides, state.registrySources, registryOverrideTargets)
+		table.clear(effectiveUniverse)
+		for name, versions in rebuilt do
+			effectiveUniverse[name] = versions
+		end
+		table.clear(sourceOverridedDeps)
+		for key, dependencies in rebuiltSourceOverridedDeps do
+			sourceOverridedDeps[key] = dependencies
+		end
+	end
+
+	local function addRegistryPackage(registryPackageName: string)
+		if rawUniverse[registryPackageName] ~= nil then
+			return
+		end
+
+		local registryUrl = state.registryUrlByPackage[registryPackageName]
+		assert(registryUrl ~= nil, `No registry configured for package '{registryPackageName}'.`)
+		local source = state.registrySources[registryPackageName] or registryPackageName
+		local partial = registry.fetchUniverse(registryUrl, { { name = source, source = source } })
+		local namespaced = namespaceRegistryUniverse(partial, registryUrl, state)
+		for name, versions in namespaced do
+			rawUniverse[name] = versions
+		end
+		rebuildEffectiveUniverse()
+	end
 
 	if universe == nil then
 		local packagesByRegistryUrl: { [string]: { { name: string, source: string } } } = {}
@@ -1038,50 +1070,42 @@ local function resolveRegistryDependencies(
 			})
 		end
 
-		effectiveUniverse = {}
 		for url, names in packagesByRegistryUrl do
 			local partial = registry.fetchUniverse(url, names)
 			local namespaced = namespaceRegistryUniverse(partial, url, state)
 			for name, versions in namespaced do
-				effectiveUniverse[name] = versions
+				rawUniverse[name] = versions
 			end
 		end
 	else
-		effectiveUniverse = table.clone(universe)
+		for name, versions in universe do
+			rawUniverse[name] = versions
+		end
 		local namespacedUrls: { [string]: boolean } = {}
 		for _, req in state.registryRequirements do
 			local url = state.registryUrlByPackage[req.name]
 			if url and not namespacedUrls[url] then
 				local namespaced = namespaceRegistryUniverse(universe, url, state)
 				for name, versions in namespaced do
-					effectiveUniverse[name] = versions
+					rawUniverse[name] = versions
 				end
 				namespacedUrls[url] = true
 			end
 		end
 	end
 
-	if universe == nil then
-		-- this is the path normally
-		fetchActiveRegistryOverrideTargets(effectiveUniverse, state, overrides, rootRegistryUrl)
-	elseif
-		rootRegistryUrl and next(getActiveRegistryOverrides(effectiveUniverse, overrides, state.registrySources))
-	then
-		-- this is only for tests (normal production instillation does not pass in a universe)
-		local namespaced = namespaceRegistryUniverse(universe, rootRegistryUrl, state)
-		for name, versions in namespaced do
-			effectiveUniverse[name] = versions
+	rebuildEffectiveUniverse()
+
+	local resolution = semver.solve(
+		effectiveUniverse,
+		state.registryRequirements,
+		lockedRegistryVersions,
+		function(candidate)
+			for _, dependency in candidate.dependencies do
+				addRegistryPackage(dependency.name)
+			end
 		end
-	end
-
-	-- Build a modified universe that respects overrides.
-	if next(overrides) ~= nil then
-		local registryOverrideTargets = getRegistryOverrideTargets(state, overrides, rootRegistryUrl)
-		effectiveUniverse, sourceOverridedDeps =
-			buildEffectiveUniverse(effectiveUniverse, overrides, state.registrySources, registryOverrideTargets)
-	end
-
-	local resolution = semver.solve(effectiveUniverse, state.registryRequirements, lockedRegistryVersions)
+	)
 
 	-- Look up the solver-selected version for a dependency's compatibility slot.
 	local function getResolvedVersion(requirement: semver.Requirement): semver.PackageVersion

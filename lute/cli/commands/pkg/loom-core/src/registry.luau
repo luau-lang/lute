@@ -213,35 +213,12 @@ type PackageRequest = {
 
 local function fetchUniverse(registryUrl: string, packageRequests: { PackageRequest }): semver.Universe
 	local universe: semver.Universe = {}
-	local fetched: { [string]: boolean } = {}
-	local queue: { PackageRequest } = {}
 
 	for _, packageRequest in packageRequests do
-		if not fetched[packageRequest.name] then
-			table.insert(queue, packageRequest)
-			fetched[packageRequest.name] = true
-		end
-	end
-
-	local queueIndex = 1
-	while queueIndex <= #queue do
-		local packageRequest = queue[queueIndex]
-		queueIndex += 1
-
-		local entries = fetchPackageIndex(registryUrl, packageRequest.source)
-		local versions = indexToPackageVersions(entries, packageRequest.name)
-		universe[packageRequest.name] = versions
-
-		for _, pkgVersion in versions do
-			for _, dep in pkgVersion.dependencies do
-				if not fetched[dep.name] then
-					table.insert(queue, {
-						name = dep.name,
-						source = dep.name,
-					})
-					fetched[dep.name] = true
-				end
-			end
+		if universe[packageRequest.name] == nil then
+			local entries = fetchPackageIndex(registryUrl, packageRequest.source)
+			local versions = indexToPackageVersions(entries, packageRequest.name)
+			universe[packageRequest.name] = versions
 		end
 	end
 
