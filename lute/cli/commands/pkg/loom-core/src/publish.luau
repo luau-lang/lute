@@ -125,8 +125,8 @@ local function flattenPackage(package: manifest.PackageManifest, registry: strin
 		"\tpackage = {",
 		`\t\tname = {quote(name)},`,
 		`\t\tversion = {quote(version)},`,
-		"\t\tdependencies = {",
 	}
+	table.insert(lines, "\t\tdependencies = {")
 	appendDependencies(lines, package.dependencies, "\t\t\t", false)
 	table.insert(lines, "\t\t},")
 	table.insert(lines, "\t\tdev_dependencies = {")

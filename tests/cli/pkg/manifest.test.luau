@@ -43,6 +43,111 @@ test.suite("PackageManifest", function(suite)
 		assert.eq(registryCitrus.version, "^1.0.0")
 	end)
 
+	suite:case("normalizesPackageContentRoot", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		content_root = "./src/../src",
+	},
+}
+]])
+
+		local package = manifest.parseFile(path.format(manifestPath)).package
+		assert.eq(package.contentRoot, "src")
+	end)
+
+	suite:case("parsesPackageFilesPatterns", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		files = { "*.luau", "!**/*.spec.luau", "!**/__tests__/" },
+	},
+}
+]])
+
+		local package = manifest.parseFile(path.format(manifestPath)).package
+		assert.eq(package.files, { "*.luau", "!**/*.spec.luau", "!**/__tests__/" })
+	end)
+
+	suite:case("rejectsNonArrayPackageFiles", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		files = "*.luau",
+	},
+}
+]])
+
+		assert.throwsWith("Expected 'files' field in package manifest to be an array of strings", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
+	suite:case("rejectsNonStringPackageFilesPattern", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		files = { "*.luau", 1 },
+	},
+}
+]])
+
+		assert.throwsWith("Expected 'files' field in package manifest to be an array of strings", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
+	suite:case("rejectsUnsafePackageContentRoot", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		content_root = "../src",
+	},
+}
+]])
+
+		assert.throwsWith("'content_root' must stay inside the package directory", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
+	suite:case("rejectsWindowsPathsInPackageContentRoot", function(assert)
+		if not system.win32 then
+			return
+		end
+
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		content_root = "..\\private",
+	},
+}
+]])
+
+		assert.throwsWith("'content_root' must stay inside the package directory", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		content_root = "C:/private",
+	},
+}
+]])
+
+		assert.throwsWith("'content_root' must be relative to the package directory", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
 	suite:case("rejectsAnEmptyPackageName", function(assert)
 		writeManifest([[return {
 	package = {

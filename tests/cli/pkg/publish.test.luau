@@ -61,6 +61,8 @@ return {
 	package = {
 		name = "publisher",
 		version = "1.2.3",
+		content_root = "src",
+		files = { "**/*.luau", "!**/*.spec.luau" },
 		dependencies = {
 			registryAlias = alias,
 			pathAlias = { sourceKind = "path", source = "./path", version = "^2.0.0" },
@@ -89,6 +91,8 @@ return {
 
 		assert.eq(package.name, "publisher")
 		assert.eq(package.version, "1.2.3")
+		assert.eq(package.contentRoot, nil)
+		assert.eq(package.files, nil)
 		assert.eq(package.dependencies.registryAlias.sourceKind, "registry")
 		assert.eq(package.dependencies.registryAlias.source, "vendor/registry")
 		assert.eq(package.dependencies.pathAlias.sourceKind, "registry")
