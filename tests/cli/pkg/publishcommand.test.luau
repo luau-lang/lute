@@ -28,8 +28,26 @@ end
 local function run(directory: path.Path, ...: string): process.ProcessResult
 	return process.run({ lutePath, "pkg", "publish", ... }, {
 		cwd = path.format(directory),
-		env = setmetatable({ LOOM_ARTIFACTORY_TOKEN = "publish-command-test-token" }, { __index = process.env }),
+		env = process.env,
 	})
+end
+
+local function writeRegistryCredentialProvider(domain: string, token: string)
+	writeFile(
+		path.join(workingDirectory, ".config.luau"),
+		[[return {
+		lute = {
+			credentials = {
+				providers = { "./credentials.luau" },
+			},
+		},
+	}
+]]
+	)
+	writeFile(
+		path.join(workingDirectory, "credentials.luau"),
+		'return {\n\thost = "' .. domain .. '",\n\tresolve = function()\n\t\treturn "' .. token .. '"\n\tend,\n}\n'
+	)
 end
 
 local function writeVirtualPackage(registryUrl: string?): path.Path
@@ -211,6 +229,7 @@ test.suite("LutePkgPublish", function(suite)
 		})
 		closeServer = instance.close
 		local registryUrl = `http://{instance.hostname}:{instance.port}`
+		writeRegistryCredentialProvider(`{instance.hostname}:{instance.port}`, "publish-command-test-token")
 		local second = writeVirtualPackage(registryUrl)
 		writePackage(path.join(workingDirectory, "library"), "vendor/library")
 		writeFile(path.join(second, "src", "init.luau"), "return 42\n")
@@ -230,7 +249,7 @@ test.suite("LutePkgPublish", function(suite)
 		assert.eq(request.method, "POST")
 		assert.eq(request.path, "/api/v1/publish")
 		assert.eq(request.headers["content-type"], "application/zip")
-		assert.eq(request.headers["artifactory-token"], "publish-command-test-token")
+		assert.eq(request.headers["authorization"], "Bearer publish-command-test-token")
 
 		local reader = unzip.load(buffer.fromstring(request.body))
 		assert.eq(reader:getStats().fileCount, 3)
