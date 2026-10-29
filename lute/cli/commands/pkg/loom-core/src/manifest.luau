@@ -183,12 +183,15 @@ local function parseManifest(t: unknown, manifestDirectory: string): ProjectMani
 
 	local pkg = t.package
 
-	assert(pkg.name == nil or typeof(pkg.name) == "string", "Expected 'name' field in package manifest")
+	assert(
+		pkg.name == nil or (typeof(pkg.name) == "string" and #pkg.name > 0),
+		"Expected 'name' field in package manifest to be a non-empty string"
+	)
 	-- FIXME(Luau): Luau currently refines `pkg` to have `version` based on this check, but
 	-- also produces a type error for the access _in_ the condition without the cast here.
 	assert(
-		(pkg :: any).version == nil or typeof((pkg :: any).version) == "string",
-		"Expected 'version' field in package manifest"
+		(pkg :: any).version == nil or (typeof((pkg :: any).version) == "string" and #(pkg :: any).version > 0),
+		"Expected 'version' field in package manifest to be a non-empty string"
 	)
 
 	local hasName = pkg.name ~= nil
@@ -230,8 +233,14 @@ local function parseFile(manifestPath: string): ProjectManifest
 	return parseManifest(manifestTable, path.dirname(path.format(path.resolve(manifestPath))))
 end
 
+local function parseString(contents: string): ProjectManifest
+	local manifestTable = luau.load(luau.compile(contents))()
+	return parseManifest(manifestTable, ".")
+end
+
 return {
 	isSourceKind = isSourceKind,
 	parseSourceKind = parseSourceKind,
 	parseFile = parseFile,
+	parseString = parseString,
 }

@@ -43,6 +43,34 @@ test.suite("PackageManifest", function(suite)
 		assert.eq(registryCitrus.version, "^1.0.0")
 	end)
 
+	suite:case("rejectsAnEmptyPackageName", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "",
+		version = "0.0.0",
+	},
+}
+]])
+
+		assert.throwsWith("Expected 'name' field in package manifest to be a non-empty string", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
+	suite:case("rejectsAnEmptyPackageVersion", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "",
+	},
+}
+]])
+
+		assert.throwsWith("Expected 'version' field in package manifest to be a non-empty string", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
 	suite:case("usesExplicitRegistrySourceAsThePackageName", function(assert)
 		writeManifest([[return {
 	package = {
