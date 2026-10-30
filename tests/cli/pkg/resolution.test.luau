@@ -136,6 +136,137 @@ test.suite("RegistryResolution", function(suite)
 		instance.close()
 	end)
 
+	suite:case("doesNotFetchDependenciesOfUnselectedHistoricalVersions", function(assert)
+		local requests = 0
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				requests += 1
+				assert.eq(req.path, "/api/v1/package-index/citrus")
+				return {
+					status = 200,
+					body = [[
+[
+	{
+		"name":"citrus",
+		"version":"0.1.18",
+		"yanked":false,
+		"dependencies":[{"name":"historical-dependency","versionRequirement":"^1.0.0"}]
+	},
+	{"name":"citrus","version":"0.1.20","yanked":false,"dependencies":[]}
+]
+]],
+				}
+			end,
+		})
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "0.1.20",
+			},]],
+			nil,
+			nil,
+			`http://{instance.hostname}:{instance.port}`
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.citrus, "citrus@0.1.20")
+		assert.eq(requests, 1)
+
+		instance.close()
+	end)
+
+	suite:case("fetchesDependenciesForBacktrackedCandidatesOnlyWhenSelected", function(assert)
+		local requests: { [string]: number } = {}
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				requests[req.path] = (requests[req.path] or 0) + 1
+				if req.path == "/api/v1/package-index/citrus" then
+					return {
+						status = 200,
+						body = [[
+[
+	{
+		"name":"citrus",
+		"version":"1.1.0",
+		"yanked":false,
+		"dependencies":[
+			{"name":"lemon","versionRequirement":"1.1.0"},
+			{"name":"lime","versionRequirement":"1.0.0"}
+		]
+	},
+	{
+		"name":"citrus",
+		"version":"1.0.0",
+		"yanked":false,
+		"dependencies":[
+			{"name":"lemon","versionRequirement":"1.0.0"},
+			{"name":"lime","versionRequirement":"1.0.0"}
+		]
+	}
+]
+]],
+					}
+				elseif req.path == "/api/v1/package-index/lemon" then
+					return {
+						status = 200,
+						body = [[
+[
+	{"name":"lemon","version":"1.1.0","yanked":false,"dependencies":[]},
+	{"name":"lemon","version":"1.0.0","yanked":false,"dependencies":[]}
+]
+]],
+					}
+				end
+
+				assert.eq(req.path, "/api/v1/package-index/lime")
+				return {
+					status = 200,
+					body = [[
+[
+	{
+		"name":"lime",
+		"version":"1.0.0",
+		"yanked":false,
+		"dependencies":[{"name":"lemon","versionRequirement":"1.0.0"}]
+	}
+]
+]],
+				}
+			end,
+		})
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			`http://{instance.hostname}:{instance.port}`
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.citrus, "citrus@1.0.0")
+		assert.eq(requests["/api/v1/package-index/citrus"], 1)
+		assert.eq(requests["/api/v1/package-index/lemon"], 1)
+		assert.eq(requests["/api/v1/package-index/lime"], 1)
+
+		instance.close()
+	end)
+
 	suite:case("lockfileEntryHasCorrectShape", function(assert)
 		writeConfig(
 			workingDirectory,
