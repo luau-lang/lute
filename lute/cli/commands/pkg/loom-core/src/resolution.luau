@@ -112,16 +112,48 @@ local function fetchSource(spec: manifest.DependencySpec): SourceLocation
 	end
 end
 
-local function getSourceInstallPath(spec: manifest.DependencySpec, rootDirectory: string, selectedPath: string): string
+local function getSourceImportRoot(
+	key: string,
+	selectedDirectory: string,
+	packageManifest: manifest.ProjectManifest
+): string
+	-- manifest has already verified content root does not leave package
+	local contentRoot = packageManifest.package.contentRoot
+	local importRoot = if contentRoot
+		then path.format(path.resolve(selectedDirectory, contentRoot))
+		else selectedDirectory
+	assert(
+		fs.exists(importRoot) and fs.type(importRoot) == "dir",
+		`Package '{key}' content root is not a directory: {importRoot}`
+	)
+	return importRoot
+end
+
+local function getSourceInstallPath(
+	spec: manifest.DependencySpec,
+	rootDirectory: string,
+	location: SourceLocation,
+	importRoot: string
+): string
 	if spec.sourceKind == "path" then
 		return path.posix.format({
-			parts = path.relative(rootDirectory, selectedPath).parts,
+			parts = path.relative(rootDirectory, importRoot).parts,
 			absolute = false,
 		})
 	end
 
 	assert(spec.sourceKind == "github", `Unsupported source kind: {spec.sourceKind} for package {spec.name}`)
-	return store.getGitHubInstallPath(spec.source, spec.rev, spec.target)
+	local checkout = location.checkout
+	assert(checkout ~= nil, `GitHub package '{spec.name}' has no checkout`)
+	local relativeImportRoot = path.relative(checkout.root, importRoot)
+	return store.getGitHubInstallPath(
+		spec.source,
+		spec.rev,
+		path.posix.format({
+			parts = relativeImportRoot.parts,
+			absolute = false,
+		})
+	)
 end
 
 export type ResolveOptions = {
@@ -282,6 +314,7 @@ end
 local function collectSourcePackageDependencies(
 	key: string,
 	location: SourceLocation,
+	dependencyManifest: manifest.ProjectManifest,
 	overrides: { [string]: manifest.DependencySpec },
 	rootRegistryUrl: string?,
 	transitiveDependencies: { [string]: string },
@@ -294,14 +327,6 @@ local function collectSourcePackageDependencies(
 	unresolvedRegistryDevDependencies: { [string]: { [string]: semver.Requirement } },
 	registryUrlByPackage: { [string]: string }
 )
-	local nestedManifestPath = getManifestPath(location.directory)
-	if not fs.exists(nestedManifestPath) then
-		error(`Package '{key}' does not contain a manifest: {nestedManifestPath}`)
-	end
-
-	local dependencyManifest = manifest.parseFile(nestedManifestPath)
-	assertNotVirtualPackage(key, dependencyManifest)
-
 	local function collectDependencies(
 		dependencies: { [string]: manifest.DependencySpec },
 		targetDependencies: { [string]: string },
@@ -401,10 +426,18 @@ local function resolveSourcePackage(
 	end
 
 	local location = fetchSource(spec)
+	local nestedManifestPath = getManifestPath(location.directory)
+	if not fs.exists(nestedManifestPath) then
+		error(`Package '{key}' does not contain a manifest: {nestedManifestPath}`)
+	end
+	local dependencyManifest = manifest.parseFile(nestedManifestPath)
+	assertNotVirtualPackage(key, dependencyManifest)
+	local importRoot = getSourceImportRoot(key, location.directory, dependencyManifest)
 
 	collectSourcePackageDependencies(
 		key,
 		location,
+		dependencyManifest,
 		overrides,
 		rootRegistryUrl,
 		transitiveDependencies,
@@ -429,7 +462,7 @@ local function resolveSourcePackage(
 			else spec.source,
 		sourceKind = spec.sourceKind,
 		target = if spec.sourceKind == "github" then spec.target else nil,
-		installPath = getSourceInstallPath(spec, rootDirectory, location.directory),
+		installPath = getSourceInstallPath(spec, rootDirectory, location, importRoot),
 		dependencies = transitiveDependencies,
 		devDependencies = transitiveDevDependencies,
 		registry = nil,
@@ -609,8 +642,10 @@ local function pathDepsAreStale(
 		if pkg.sourceKind ~= "path" then
 			continue
 		end
-		local packageInstallPath = path.format(path.join(rootDirectory, pkg.installPath))
-		local depManifestPath = path.format(path.join(packageInstallPath, "loom.config.luau"))
+		-- installPath is the package's import root and can be below the directory
+		-- containing its manifest when the package declares content_root.
+		local packageDirectory = path.format(path.resolve(rootDirectory, pkg.source))
+		local depManifestPath = path.format(path.join(packageDirectory, "loom.config.luau"))
 		if not fs.exists(depManifestPath) then
 			return true, `path dependency '{pkg.name}' has no manifest`
 		end
@@ -1146,7 +1181,7 @@ local function buildLockfile(
 		else nil
 
 	local lock: lockfile.Lockfile = table.freeze({
-		version = 4,
+		version = 5,
 		packages = state.packages,
 		dependencies = state.dependencies,
 		devDependencies = frozenDevDependencies,
