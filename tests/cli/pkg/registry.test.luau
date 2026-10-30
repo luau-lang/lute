@@ -324,6 +324,32 @@ test.suite("RegistryClient", function(suite)
 		assert.eq(versions[1].versionString, "1.0.0")
 	end)
 
+	suite:case("indexToPackageVersions_skipsVersionsWithInvalidDependencyConstraints", function(assert)
+		local entries = {
+			{
+				name = "citrus",
+				version = "1.0.0",
+				yanked = false,
+				dependencies = {
+					{
+						name = "lemon",
+						versionRequirement = "master",
+					},
+				},
+			},
+			{
+				name = "citrus",
+				version = "1.1.0",
+				yanked = false,
+				dependencies = {},
+			},
+		}
+
+		local versions = registry.indexToPackageVersions(entries, "citrus")
+		assert.eq(#versions, 1)
+		assert.eq(versions[1].versionString, "1.1.0")
+	end)
+
 	suite:case("indexToPackageVersions_dependencyWithoutAlias", function(assert)
 		local entries = {
 			{
