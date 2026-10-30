@@ -121,6 +121,28 @@ local function constraintsFor(set: ConstraintSet, slotKey: string): { Requiremen
 	return list
 end
 
+local function satisfiesRequirements(version: parser.Version, requirements: { Requirement }): boolean
+	return tableext.all(requirements, function(req)
+		return parser.satisfies(version, req.constraint)
+	end)
+end
+
+-- Check for packages solver already chose, goes through selected package slot and
+-- verify slot still satisfy every requirement.
+local function findInvalidSelectedSlot(set: ConstraintSet, selected: Resolution): string?
+	local invalidSlot: string? = nil
+
+	for slotKey, packageVersion in selected do
+		if not satisfiesRequirements(packageVersion.version, constraintsFor(set, slotKey)) then
+			if invalidSlot == nil or slotKey < invalidSlot then
+				invalidSlot = slotKey
+			end
+		end
+	end
+
+	return invalidSlot
+end
+
 -- Pick the slot with the fewest satisfying candidates (MRV heuristic).
 -- Tie-break alphabetically for determinism.
 -- Returns nil when all constrained slots are already selected.
@@ -142,10 +164,7 @@ local function pickPending(set: ConstraintSet, selected: Resolution, universe: U
 		local reqs = constraintsFor(set, slotKey)
 		local count = 0
 		for _, candidate in candidates do
-			local satisfiesAll = tableext.all(reqs, function(req)
-				return parser.satisfies(candidate.version, req.constraint)
-			end)
-			if satisfiesAll then
+			if satisfiesRequirements(candidate.version, reqs) then
 				count += 1
 			end
 		end
@@ -165,7 +184,6 @@ local function pickPending(set: ConstraintSet, selected: Resolution, universe: U
 end
 
 -- Merge `deps` into the constraint set under sourceKey.
--- TODO check the constraints against already-selected versions (forward checking).
 local function propagateDeps(
 	set: ConstraintSet,
 	sourceKey: string,
@@ -220,7 +238,9 @@ local function solve(universe: Universe, roots: { [string]: Requirement }, locke
 	local selected: Resolution = {}
 
 	while true do
-		local slotKey = pickPending(constraints, selected, universe)
+		-- Check old chosen dependencies to verify they still satisfy all constraints.
+		local invalidSlotKey = findInvalidSelectedSlot(constraints, selected)
+		local slotKey = invalidSlotKey or pickPending(constraints, selected, universe)
 
 		if slotKey == nil then
 			return table.freeze(selected)
@@ -234,14 +254,15 @@ local function solve(universe: Universe, roots: { [string]: Requirement }, locke
 
 		local reqs = constraintsFor(constraints, slotKey)
 
-		-- Filter candidates to those satisfying all current constraints.
+		-- Filter candidates to those satisfying all current constraints. An invalid
+		-- selected slot deliberately no candidates here so it enters the normal
+		-- backtracking path below.
 		local candidates: { PackageVersion } = {}
-		for _, candidate in universe[name] do
-			local satisfiesAll = tableext.all(reqs, function(r)
-				return parser.satisfies(candidate.version, r.constraint)
-			end)
-			if satisfiesAll then
-				table.insert(candidates, candidate)
+		if invalidSlotKey == nil then
+			for _, candidate in universe[name] do
+				if satisfiesRequirements(candidate.version, reqs) then
+					table.insert(candidates, candidate)
+				end
 			end
 		end
 
