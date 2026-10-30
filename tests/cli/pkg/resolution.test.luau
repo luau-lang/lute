@@ -228,6 +228,92 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus@2.1.0")
 	end)
 
+	suite:case("keepsMajorVersionSlotsWhenStitchingLockfileEdges", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "1.0.0", { citrus = req("citrus", "^0.5.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "1.2.0"),
+				namedVersion("citrus", "0.5.1"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.neq(lock.packages["citrus@1.2.0"], nil)
+		assert.neq(lock.packages["citrus@0.5.1"], nil)
+		assert.eq(lock.dependencies.citrus, "citrus@1.2.0")
+		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus@0.5.1")
+	end)
+
+	suite:case("keepsMajorVersionSlotsForDeferredPathPackageEdges", function(assert)
+		local registryUrl = "https://registry.example.com"
+		local libDirectory = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDirectory)
+		writeConfig(
+			libDirectory,
+			"lib",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^0.5.0",
+			},]],
+			nil,
+			nil,
+			registryUrl
+		)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			registryUrl
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.2.0"),
+				namedVersion("citrus", "0.5.1"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.citrus, "citrus@1.2.0")
+		assert.eq(lock.packages.lib.dependencies.citrus, "citrus@0.5.1")
+	end)
+
 	suite:case("registryAliasesUseSourceAsThePackageName", function(assert)
 		writeConfig(
 			workingDirectory,
