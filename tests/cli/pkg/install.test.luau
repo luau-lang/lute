@@ -14,7 +14,7 @@ local function writeConfig(dir: path.Path, name: string, deps: string, registryU
 	local registrySection = if registryUrl then `\n\tregistry = "{registryUrl}",` else ""
 	local devDependenciesSection = if devDeps then `\n\t\tdevDependencies = \{{devDeps}\n\t\t},` else ""
 	fs.writeStringToFile(
-		path.join(dir, "loom.config.luau"),
+		path.join(dir, "pkg.luau"),
 		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n\t\tdependencies = \{{deps}\n\t\t},{devDependenciesSection}\n\t},{registrySection}\n}\n`
 	)
 end
@@ -93,7 +93,7 @@ test.suite("LutePkgInstall", function(suite)
 
 		run(workingDirectory)
 
-		assert.that(fs.exists(path.join(workingDirectory, "loom.lock.luau")))
+		assert.that(fs.exists(path.join(workingDirectory, "pkg.lock.luau")))
 	end)
 
 	suite:case("installsSinglePathDependency", function(assert)
@@ -182,7 +182,7 @@ test.suite("LutePkgInstall", function(suite)
 		assert.strContains(result.stdout, "Resolved 1 package(s).")
 		assert.strContains(result.stdout, "a (path, 1 dep(s))")
 
-		local lockfile = fs.readFileToString(path.join(workingDirectory, "loom.lock.luau"))
+		local lockfile = fs.readFileToString(path.join(workingDirectory, "pkg.lock.luau"))
 		assert.strContains(lockfile, '"a"')
 		assert.strContains(lockfile, '"b"')
 	end)
@@ -204,7 +204,7 @@ test.suite("LutePkgInstall", function(suite)
 
 		run(workingDirectory)
 
-		local lockfile = fs.readFileToString(path.join(workingDirectory, "loom.lock.luau"))
+		local lockfile = fs.readFileToString(path.join(workingDirectory, "pkg.lock.luau"))
 		assert.strContains(lockfile, "version = 4")
 		assert.strContains(lockfile, '"path"')
 		assert.strContains(lockfile, "installPath")
@@ -313,7 +313,7 @@ test.suite("LutePkgInstall", function(suite)
 			},]]
 		)
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.lock.luau"),
+			path.join(workingDirectory, "pkg.lock.luau"),
 			table.concat({
 				"return {\n",
 				"\tversion = 4,\n",

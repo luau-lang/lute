@@ -79,7 +79,7 @@ test.suite("RegistryClient", function(suite)
 
 	suite:case("publishRequiresARegistry", function(assert)
 		assert.throwsWith(
-			"No registry configured for publishing. Add a 'registry' field to loom.config.luau.",
+			"No registry configured for publishing. Add a 'registry' field to pkg.luau.",
 			function()
 				registry.publishPackage(nil, buffer.create(0))
 			end

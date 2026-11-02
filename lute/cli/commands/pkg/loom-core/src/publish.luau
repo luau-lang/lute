@@ -73,7 +73,7 @@ local function getSourcePackageName(
 	dependency: manifest.PathDependencySpec | manifest.GitHubDependencySpec
 ): string
 	local directory = getSourcePackageDirectory(dependency)
-	local manifestPath = path.format(path.join(directory, "loom.config.luau"))
+	local manifestPath = path.format(path.join(directory, "pkg.luau"))
 	assert(fs.exists(manifestPath), `Cannot publish dependency '{alias}': package manifest not found: {manifestPath}`)
 
 	local sourceManifest = manifest.parseFile(manifestPath)

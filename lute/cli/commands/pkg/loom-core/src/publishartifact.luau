@@ -3,7 +3,7 @@ local path = require("@std/path")
 local filesFilter = require("./filesfilter")
 local zipWriter = require("./zipwriter")
 
-local PACKAGE_MANIFEST = "loom.config.luau"
+local PACKAGE_MANIFEST = "pkg.luau"
 
 type PublishableFile = zipWriter.Entry
 

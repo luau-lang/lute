@@ -10,11 +10,11 @@ local semver = require("./semver")
 local store = require("./store")
 
 local function getManifestPath(directory: string): string
-	return `{directory}/loom.config.luau`
+	return `{directory}/pkg.luau`
 end
 
 local function getLockfilePath(directory: string): string
-	return `{directory}/loom.lock.luau`
+	return `{directory}/pkg.lock.luau`
 end
 
 local function getKey(spec: manifest.DependencySpec): string
@@ -553,7 +553,7 @@ local function pathDepsAreStale(
 			continue
 		end
 		local packageInstallPath = path.format(path.join(rootDirectory, pkg.installPath))
-		local depManifestPath = path.format(path.join(packageInstallPath, "loom.config.luau"))
+		local depManifestPath = path.format(path.join(packageInstallPath, "pkg.luau"))
 		if not fs.exists(depManifestPath) then
 			return true, `path dependency '{pkg.name}' has no manifest`
 		end
@@ -852,7 +852,7 @@ local function resolveRegistryDependencies(
 			local url = state.registryUrlByPackage[req.name]
 			assert(
 				url ~= nil,
-				`No registry configured for package '{req.name}'. Add a 'registry' field to your loom.config.luau.`
+				`No registry configured for package '{req.name}'. Add a 'registry' field to your pkg.luau.`
 			)
 
 			if not packagesByRegistryUrl[url] then

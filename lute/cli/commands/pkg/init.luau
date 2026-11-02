@@ -13,9 +13,9 @@ local function printHelp()
 Loom package manager for Luau projects.
 
 COMMANDS:
-  install                                   Install dependencies from loom.config.luau
+  install                                   Install dependencies from pkg.luau
   auth --token <token> [--domain <domain>]  Save authentication credentials
-  run <script.luau> [args...]               Run a Luau script from loom.lock.
+  run <script.luau> [args...]               Run a Luau script from pkg.lock.
   publish [--dry-run | --list]              Publish the package in the current directory
 
 Use --help with any command for more information.

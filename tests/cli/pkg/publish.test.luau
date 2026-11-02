@@ -12,7 +12,7 @@ local githubRevision = "publish-test-revision"
 local githubFixtureDirectory = store.getPackagePath(store.getGitHubCheckoutKey(githubSource, githubRevision))
 
 local function writeManifest(directory: path.Path, contents: string)
-	fs.writeStringToFile(path.join(directory, "loom.config.luau"), contents)
+	fs.writeStringToFile(path.join(directory, "pkg.luau"), contents)
 end
 
 local function parseGeneratedManifest(contents: string): manifest.ProjectManifest
@@ -83,7 +83,7 @@ return {
 		writePackageManifest(path.join(workingDirectory, "dev-path"), "vendor/dev-path")
 		writePackageManifest(path.join(path.parse(githubFixtureDirectory), "package"), "vendor/git")
 
-		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "pkg.luau")))
 		local flattened =
 			publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest, sourceManifest.registry)
 		local generated = parseGeneratedManifest(flattened)
@@ -128,7 +128,7 @@ return {
 ]]
 		)
 
-		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "pkg.luau")))
 		local flattened = publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest)
 		assert.strContains(flattened, '["end"] = {')
 
@@ -152,7 +152,7 @@ return {
 ]]
 		)
 
-		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "pkg.luau")))
 		assert.throwsWith("Cannot publish dependency 'localDependency': path dependencies require a version", function()
 			publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest)
 		end)
@@ -173,7 +173,7 @@ return {
 ]]
 		)
 
-		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "pkg.luau")))
 		local flattened = publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest)
 		local generated = parseGeneratedManifest(flattened)
 		assert.eq(next(generated.package.devDependencies), nil)
@@ -194,7 +194,7 @@ return {
 ]]
 		)
 
-		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "pkg.luau")))
 		assert.throwsWith("Invalid package version: '^1.2.3'", function()
 			publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest)
 		end)
@@ -213,7 +213,7 @@ return {
 ]]
 		)
 
-		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "pkg.luau")))
 		assert.throwsWith("Cannot publish a virtual package: package name and version are required", function()
 			publishManifest.flattenPackage(sourceManifest.package)
 		end)
@@ -234,7 +234,7 @@ return {
 ]]
 		)
 
-		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "pkg.luau")))
 		assert.throwsWith("Invalid dependency version constraint: 'not-a-version'", function()
 			publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest)
 		end)
