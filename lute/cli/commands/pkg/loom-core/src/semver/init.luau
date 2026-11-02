@@ -24,4 +24,5 @@ return {
 	formatConstraint = parser.formatConstraint,
 
 	solve = solver.solve,
+	getSlotKey = solver.getSlotKey,
 }
