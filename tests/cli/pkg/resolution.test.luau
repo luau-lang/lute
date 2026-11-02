@@ -2800,10 +2800,7 @@ return {
 	},
 }]]
 		)
-		fs.writeStringToFile(
-			path.join(appleDirectory, "pkg.luau"),
-			[[return { package = { dependencies = {} } }]]
-		)
+		fs.writeStringToFile(path.join(appleDirectory, "pkg.luau"), [[return { package = { dependencies = {} } }]])
 
 		assert.throwsWith(
 			"'apple' points at a virtual package, which cannot be depended on; point at one of its packages' directories instead (for GitHub, set 'target')",
