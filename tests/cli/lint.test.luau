@@ -2322,6 +2322,50 @@ end
 		})
 	end)
 
+	suite:case("unusedVariableConst", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+const x = 3
+    ]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
+					count = 1,
+				},
+				{
+					expectedOutput = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ const x = 3
+   │       ^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("unusedVariableConstUsed", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+const x = 3
+
+print(x)
+    ]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.unused_variable, count = 0 },
+				{ expectedOutput = "Error applying lint rule", count = 0 },
+			},
+		})
+	end)
+
 	suite:case("unusedVariableWithTableInsertDefaultWriteOnlyApi", function(assert)
 		lintTestHelper(assert, {
 			content = [[
