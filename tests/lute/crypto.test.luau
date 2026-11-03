@@ -3,6 +3,21 @@ local test = require("@std/test")
 local crypto = require("@lute/crypto")
 
 test.suite("CryptoRuntimeTests", function(suite)
+	for name, hash in crypto.hash :: { [string]: crypto.Hash<any> } do
+		suite:case(`incrementalHashMatchesDigest: {name}`, function(assert)
+			local messagePart1 = "abcdefghijklmnop"
+			local messagePart2 = "qrtstuv...numbers"
+			local messagePart3 = "random stuff this is a message"
+
+			local hasher = crypto.fresh(hash)
+			for _, part in { messagePart1, messagePart2, messagePart3 } do
+				hasher:update(part)
+			end
+
+			assert.eq(crypto.digest(hash, messagePart1 .. messagePart2 .. messagePart3), hasher:digest())
+		end)
+	end
+
 	suite:case("secretboxIsARoundtripStrings", function(assert)
 		local message = "Remember, remember the Fifth of November."
 		local box = crypto.secretbox.seal(message)

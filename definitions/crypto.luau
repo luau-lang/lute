@@ -11,6 +11,21 @@ crypto.hash = table.freeze({
 	blake2b256 = {} :: Hash<"blake2b256">,
 })
 
+type IncrementalHasherData = typeof(table.freeze({}))
+type IncrementalHasherMT = {
+	__index: {
+		read update: (h: IncrementalHasher, message: string | buffer) -> buffer,
+		read digest: (h: IncrementalHasher) -> buffer,
+	},
+}
+
+export type IncrementalHasher = setmetatable<IncrementalHasherData, IncrementalHasherMT>
+
+--- Initializes a new cryptographic hash instance that supports incremental constructing a hash from message chunks
+function crypto.fresh(hash: Hash<any>): IncrementalHasher
+	error("not implemented")
+end
+
 --- Computes a cryptographic hash of `message` using the given `hash` algorithm. Returns the hash as a buffer.
 function crypto.digest(hash: Hash<any>, message: string | buffer): buffer
 	error("not implemented")

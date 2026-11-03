@@ -1,4 +1,6 @@
 #include "lute/crypto.h"
+
+#include "lute/common.h"
 #include "lute/userdatas.h"
 
 #include "lua.h"
@@ -9,7 +11,9 @@
 #include "sodium/crypto_secretbox.h"
 #include "sodium/randombytes.h"
 
+#include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace crypto
@@ -20,6 +24,7 @@ static const char kSecretboxProperty[] = "secretbox";
 static const char kPasswordProperty[] = "password";
 
 static const char kDigestName[] = "digest";
+static const char kFreshName[] = "fresh";
 
 static const char kCiphertextField[] = "ciphertext";
 static const char kKeyField[] = "key";
@@ -30,6 +35,7 @@ static const char kSealName[] = "seal";
 static const char kOpenName[] = "open";
 static const char kPasswordHashName[] = "hash";
 static const char kVerifyPasswordHashName[] = "verify";
+static const char kIncrementalHasherMeta[] = "IncrementalHasherMeta";
 
 struct HashFunction
 {
@@ -44,27 +50,6 @@ static const HashFunction hashFunctions[] = {
     {"sha512", EVP_sha512()},
     {"blake2b256", EVP_blake2b256()},
 };
-
-int makeHashFunctionMap(lua_State* L)
-{
-    lua_createtable(L, 0, std::size(hashFunctions));
-
-    for (auto& [name, md] : hashFunctions)
-    {
-        lua_pushlightuserdatatagged(L, (void*) md, kHashFunctionTag);
-        lua_setfield(L, -2, name.c_str());
-    }
-
-    return 1;
-}
-
-const env_md_st* checkHashFunction(lua_State* L, int idx)
-{
-    if (auto typ = static_cast<const env_md_st*>(lua_tolightuserdatatagged(L, idx, kHashFunctionTag)))
-        return typ;
-
-    luaL_typeerrorL(L, idx, "hash function");
-}
 
 struct BinaryData
 {
@@ -95,6 +80,93 @@ BinaryData checkBinaryData(lua_State* L, int idx)
     }
 
     luaL_error(L, "failed to extract binary data from stack: %d", idx);
+}
+
+struct IncrementalHasher
+{
+    IncrementalHasher(const env_md_st* hasher)
+        : hasher(hasher)
+        , finalized(false)
+    {
+        context = EVP_MD_CTX_new();
+        if (!context)
+            LUTE_ASSERT(!"Allocating new stateful crypto context failed.");
+        EVP_DigestInit_ex(context, hasher, nullptr);
+    }
+
+    ~IncrementalHasher()
+    {
+        // Just calls EVP_MD_CTX_free under the hood
+        EVP_MD_CTX_destroy(context);
+    }
+
+    static const IncrementalHasher* checkIncrementalHasher(lua_State* L, int idx)
+    {
+        if (const auto sh = static_cast<const IncrementalHasher*>(lua_touserdatatagged(L, 1, kIncrementalHasherTag)))
+            return sh;
+        luaL_typeerror(L, idx, "Stateful hasher");
+    }
+
+    static int update(lua_State* L)
+    {
+        auto* hasher = checkIncrementalHasher(L, 1);
+        if (hasher->finalized)
+        {
+            luaL_error(L, "update: attempted to call `update` after `digest` - initialize a new hasher");
+        }
+        BinaryData bd = checkBinaryData(L, 2);
+        EVP_DigestUpdate(hasher->context, bd.data, bd.length);
+        return 0;
+    }
+
+    static int digest(lua_State* L)
+    {
+        // Const cast here is intentional - we need to set finalized, but only when digest is invoked
+        auto* hasher = const_cast<IncrementalHasher*>(checkIncrementalHasher(L, 1));
+        if (hasher->finalized)
+            luaL_errorL(L, "digest: cannot re-invoke `digest` after it's been called");
+        uint8_t* buffer = static_cast<uint8_t*>(lua_newbuffer(L, EVP_MD_size(hasher->hasher)));
+
+        EVP_DigestFinal_ex(hasher->context, buffer, nullptr);
+        hasher->finalized = true;
+        return 1;
+    }
+
+    const env_md_st* hasher;
+    EVP_MD_CTX* context;
+    bool finalized = false;
+};
+
+int makeHashFunctionMap(lua_State* L)
+{
+    lua_createtable(L, 0, std::size(hashFunctions));
+
+    for (auto& [name, md] : hashFunctions)
+    {
+        lua_pushlightuserdatatagged(L, (void*)md, kHashFunctionTag);
+        lua_setfield(L, -2, name.c_str());
+    }
+
+    return 1;
+}
+
+const env_md_st* checkHashFunction(lua_State* L, int idx)
+{
+    if (auto typ = static_cast<const env_md_st*>(lua_tolightuserdatatagged(L, idx, kHashFunctionTag)))
+        return typ;
+
+    luaL_typeerrorL(L, idx, "hash function");
+}
+
+int lua_fresh(lua_State* L)
+{
+    auto* hf = checkHashFunction(L, 1);
+    LUTE_ASSERT(hf);
+
+    void* data = lua_newuserdatataggedwithmetatable(L, sizeof(IncrementalHasher), kIncrementalHasherTag);
+
+    new (static_cast<IncrementalHasher*>(data)) IncrementalHasher(hf);
+    return 1;
 }
 
 // digest(hash: hash<any>, message: string | buffer): buffer
@@ -259,6 +331,40 @@ int makePasswordHashLibrary(lua_State* L)
     return 1;
 }
 
+static const std::unordered_map<std::string, lua_CFunction> kIncrementalHasherIndexMethods = {
+    {"update", IncrementalHasher::update},
+    {"digest", IncrementalHasher::digest},
+};
+
+void initializeIncrementalHasherMetatable(lua_State* L)
+{
+    if (!lua_checkstack(L, 3))
+        luaL_error(L, "Unable to initialize the Stateful Hasher metatable");
+
+    luaL_newmetatable(L, "IncrementalHasher");
+
+    lua_createtable(L, 0, kIncrementalHasherIndexMethods.size());
+    for (const auto& [name, func] : kIncrementalHasherIndexMethods)
+    {
+        lua_pushcfunction(L, func, name.c_str());
+        lua_setfield(L, -2, name.c_str());
+    }
+    lua_setfield(L, -2, "__index");
+
+    lua_pushstring(L, kIncrementalHasherMeta);
+    lua_setfield(L, -2, "__type");
+
+    lua_setuserdatadtor(
+        L,
+        kIncrementalHasherTag,
+        [](lua_State* L, void* ud)
+        {
+            std::destroy_at(static_cast<IncrementalHasher*>(ud));
+        }
+    );
+    lua_setuserdatametatable(L, kIncrementalHasherTag);
+}
+
 } // namespace crypto
 
 const char* const Crypto::properties[] = {
@@ -269,11 +375,15 @@ const char* const Crypto::properties[] = {
 
 const luaL_Reg Crypto::lib[] = {
     {crypto::kDigestName, crypto::lua_digest},
+    {crypto::kFreshName, crypto::lua_fresh},
     {nullptr, nullptr},
 };
 
 int Crypto::pushLibrary(lua_State* L)
 {
+
+    crypto::initializeIncrementalHasherMetatable(L);
+
     lua_createtable(L, 0, std::size(Crypto::lib) + std::size(Crypto::properties));
 
     for (auto& [name, func] : Crypto::lib)
