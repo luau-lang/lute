@@ -2493,7 +2493,7 @@ test.suite("Overrides", function(suite)
 		)
 	end)
 
-	suite:case("registryOverrideCyclesAreRejected", function(assert)
+	suite:case("overrideChainsAreRejected", function(assert)
 		writeConfig(
 			workingDirectory,
 			"root",
@@ -2508,12 +2508,36 @@ test.suite("Overrides", function(suite)
 			},
 			banana = {
 				sourceKind = "registry",
-				source = "apple",
+				source = "citrus",
 				version = "1.0.0",
 			},]]
 		)
 
-		assert.throwsWith("Registry override cycle: apple -> banana -> apple", function()
+		assert.throwsWith("Override chain: apple -> banana. Flatten this to a single override.", function()
+			resolution.resolve(path.format(workingDirectory), nil)
+		end)
+	end)
+
+	suite:case("pathOverrideChainsAreRejected", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			"",
+			nil,
+			[[
+
+			apple = {
+				name = "banana",
+				sourceKind = "path",
+				source = "./apple-fork",
+			},
+			banana = {
+				sourceKind = "path",
+				source = "./banana-fork",
+			},]]
+		)
+
+		assert.throwsWith("Override chain: apple -> banana. Flatten this to a single override.", function()
 			resolution.resolve(path.format(workingDirectory), nil)
 		end)
 	end)

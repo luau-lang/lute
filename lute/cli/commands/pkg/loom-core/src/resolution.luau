@@ -233,48 +233,19 @@ local function getMemberKeys(
 	return members
 end
 
--- Registry overrides may replace one package name with another. Follow those
--- replacements to reject cycles up front.
-local function assertNoRegistryOverrideCycles(overrides: { [string]: manifest.DependencySpec })
+-- Reject all override chains (any override where the target is also an override key).
+-- Self overrides are okay.
+local function assertNoOverrideChains(overrides: { [string]: manifest.DependencySpec })
 	local names: { string } = {}
-	for name, spec in overrides do
-		if spec.sourceKind == "registry" then
-			table.insert(names, name)
-		end
+	for name in overrides do
+		table.insert(names, name)
 	end
 	table.sort(names)
 
-	local visited: { [string]: boolean } = {}
-	for _, start in names do
-		if visited[start] then
-			continue
-		end
-
-		local chain: { string } = {}
-		local positions: { [string]: number } = {}
-		local current = start
-		while true do
-			if positions[current] then
-				local cycle: { string } = {}
-				for i = positions[current], #chain do
-					table.insert(cycle, chain[i])
-				end
-				table.insert(cycle, current)
-				error(`Registry override cycle: {table.concat(cycle, " -> ")}`)
-			end
-
-			if visited[current] then
-				break
-			end
-			visited[current] = true
-			positions[current] = #chain + 1
-			table.insert(chain, current)
-
-			local spec = overrides[current]
-			if spec == nil or spec.sourceKind ~= "registry" or spec.name == current then
-				break
-			end
-			current = spec.name
+	for _, name in names do
+		local spec = overrides[name]
+		if spec.name ~= name and overrides[spec.name] ~= nil then
+			error(`Override chain: {name} -> {spec.name}. Flatten this to a single override.`)
 		end
 	end
 end
@@ -1169,7 +1140,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 
 	local lockfilePath = getLockfilePath(rootDirectory)
 	local rootManifest = manifest.parseFile(rootManifestPath)
-	assertNoRegistryOverrideCycles(rootManifest.overrides)
+	assertNoOverrideChains(rootManifest.overrides)
 
 	local reusedLock, lockedRegistryVersions =
 		tryReuseLockfile(rootManifest, lockfilePath, rootDirectory, excludeDev, options)
