@@ -736,7 +736,7 @@ test.suite("SourcePackageImportRoots", function(suite)
 		fs.createDirectory(path.join(libDirectory, "src"), { makeParents = true })
 		fs.createDirectory(path.join(libDirectory, "alternate"), { makeParents = true })
 		fs.writeStringToFile(
-			path.join(libDirectory, "loom.config.luau"),
+			path.join(libDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "lib",
@@ -762,7 +762,7 @@ test.suite("SourcePackageImportRoots", function(suite)
 		assert.eq(first.packages.lib.installPath, "lib/src")
 
 		fs.writeStringToFile(
-			path.join(libDirectory, "loom.config.luau"),
+			path.join(libDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "lib",
@@ -781,7 +781,7 @@ test.suite("SourcePackageImportRoots", function(suite)
 		local libDirectory = path.join(workingDirectory, "lib")
 		fs.createDirectory(libDirectory)
 		fs.writeStringToFile(
-			path.join(libDirectory, "loom.config.luau"),
+			path.join(libDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "lib",

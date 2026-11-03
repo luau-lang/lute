@@ -275,7 +275,7 @@ local function expectedSourceInstallPath(
 		return nil, `unsupported source kind: {key}`
 	end
 
-	local manifestPath = path.format(path.join(selectedDirectory, "loom.config.luau"))
+	local manifestPath = path.format(path.join(selectedDirectory, "pkg.luau"))
 	if not fs.exists(manifestPath) or fs.type(manifestPath) ~= "file" then
 		return nil, `package '{pkg.name}' has no manifest`
 	end
