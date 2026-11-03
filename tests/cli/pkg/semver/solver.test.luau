@@ -291,6 +291,58 @@ test.suite("solver.solve", function(suite)
 		assert.eq(resolution["shared@1"].versionString, "1.2.0")
 	end)
 
+	suite:case("backtracksWhenLaterDependencyInvalidatesSelectedSlot", function(assert)
+		-- A forces shared to be selected before B. B@1.1.0 then narrows shared's
+		-- constraint so the already-selected 1.5.0 is invalid; B must retry 1.0.0.
+		local universe: solver.Universe = {
+			a = {
+				namedVersion("a", "1.0.0", { shared = req("shared", "^1.0.0") }),
+			},
+			b = {
+				namedVersion("b", "1.1.0", { shared = req("shared", ">=1.0.0 <1.3.0") }),
+				namedVersion("b", "1.0.0", { shared = req("shared", "^1.0.0") }),
+			},
+			shared = {
+				namedVersion("shared", "1.5.0"),
+			},
+		}
+
+		local resolution = solver.solve(universe, {
+			a = req("a", "^1.0.0"),
+			b = req("b", "^1.0.0"),
+		})
+
+		assert.eq(resolution["b@1"].versionString, "1.0.0")
+		assert.eq(resolution["shared@1"].versionString, "1.5.0")
+	end)
+
+	suite:case("selectedSlotConflictReportsAllConstraints", function(assert)
+		local universe: solver.Universe = {
+			a = {
+				namedVersion("a", "1.0.0", { shared = req("shared", "^1.0.0") }),
+			},
+			b = {
+				namedVersion("b", "1.1.0", { shared = req("shared", ">=1.0.0 <1.3.0") }),
+			},
+			shared = {
+				namedVersion("shared", "1.5.0"),
+			},
+		}
+
+		local ok, err = pcall(function()
+			solver.solve(universe, {
+				a = req("a", "^1.0.0"),
+				b = req("b", "^1.0.0"),
+			})
+		end)
+
+		assert.eq(ok, false)
+		local errStr = tostring(err)
+		assert.strContains(errStr, "version conflict for 'shared'")
+		assert.strContains(errStr, "<2.0.0")
+		assert.strContains(errStr, "<1.3.0")
+	end)
+
 	suite:case("backtracksOnDeepTransitiveFailure", function(assert)
 		local universe: solver.Universe = {
 			X = {
