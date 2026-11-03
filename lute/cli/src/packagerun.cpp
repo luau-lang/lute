@@ -48,7 +48,7 @@ std::optional<std::string> getAbsolutePathToNearestLockfile(std::string entryFil
     std::optional<std::string> currentPath = getParentPath(entryFile);
     while (currentPath)
     {
-        std::string lockfilePath = joinPaths(*currentPath, "loom.lock.luau");
+        std::string lockfilePath = joinPaths(*currentPath, "pkg.lock.luau");
         if (isFile(lockfilePath))
             return lockfilePath;
 

@@ -78,12 +78,9 @@ test.suite("RegistryClient", function(suite)
 	end)
 
 	suite:case("publishRequiresARegistry", function(assert)
-		assert.throwsWith(
-			"No registry configured for publishing. Add a 'registry' field to loom.config.luau.",
-			function()
-				registry.publishPackage(nil, buffer.create(0))
-			end
-		)
+		assert.throwsWith("No registry configured for publishing. Add a 'registry' field to pkg.luau.", function()
+			registry.publishPackage(nil, buffer.create(0))
+		end)
 	end)
 
 	suite:case("publishOmitsAuthorizationWithoutARegistryCredential", function(assert)

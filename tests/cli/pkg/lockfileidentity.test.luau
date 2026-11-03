@@ -7,7 +7,7 @@ local system = require("@std/system")
 local test = require("@std/test")
 
 local workingDirectory = path.join(system.tmpdir(), "lute-pkg-lockfile-identity")
-local lockfilePath = path.join(workingDirectory, "loom.lock.luau")
+local lockfilePath = path.join(workingDirectory, "pkg.lock.luau")
 
 local function writeLockfile(contents: string)
 	fs.writeStringToFile(lockfilePath, contents)
@@ -182,7 +182,7 @@ test.suite("RegistryLockfileIdentity", function(suite)
 
 	suite:case("doesNotReuseGitHubEntriesWithAnIncorrectTargetInstallPath", function(assert)
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.config.luau"),
+			path.join(workingDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "root",
@@ -218,7 +218,7 @@ test.suite("RegistryLockfileIdentity", function(suite)
 ]])
 
 		local lock = lockfile.parseFile(path.format(lockfilePath))
-		local rootManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		local rootManifest = manifest.parseFile(path.format(path.join(workingDirectory, "pkg.luau")))
 		local satisfied, reason = lockfile.satisfiesManifest(lock, rootManifest, path.format(workingDirectory), false)
 		assert.eq(satisfied, false)
 		assert.eq(reason, "github store path changed: apple@v1.0.0")

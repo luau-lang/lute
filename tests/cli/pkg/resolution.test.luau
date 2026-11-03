@@ -32,7 +32,7 @@ local function writeConfig(
 	local registrySection = if registryUrl then `\n\tregistry = "{registryUrl}",` else ""
 
 	fs.writeStringToFile(
-		path.join(dir, "loom.config.luau"),
+		path.join(dir, "pkg.luau"),
 		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n{sections},\n\t},{overridesSection}{registrySection}\n}\n`
 	)
 end
@@ -395,7 +395,7 @@ test.suite("RegistryResolution", function(suite)
 		)
 
 		assert.throwsWith(
-			"No registry configured for package 'citrus'. Add a 'registry' field to your loom.config.luau.",
+			"No registry configured for package 'citrus'. Add a 'registry' field to your pkg.luau.",
 			function()
 				resolution.resolve(path.format(workingDirectory), nil)
 			end
@@ -465,7 +465,7 @@ test.suite("RegistryResolution", function(suite)
 		local libDir = path.join(workingDirectory, "lib")
 		fs.createDirectory(libDir)
 		fs.writeStringToFile(
-			path.join(libDir, "loom.config.luau"),
+			path.join(libDir, "pkg.luau"),
 			[[return {
 	package = {
 		name = "lib",
@@ -714,7 +714,7 @@ test.suite("RegistryResolution", function(suite)
 
 		resolution.resolve(path.format(workingDirectory), universe)
 
-		local lockfilePath = path.join(workingDirectory, "loom.lock.luau")
+		local lockfilePath = path.join(workingDirectory, "pkg.lock.luau")
 		assert.that(fs.exists(lockfilePath))
 
 		local content = fs.readFileToString(lockfilePath)
@@ -1072,7 +1072,7 @@ test.suite("DevDependencies", function(suite)
 
 		resolution.resolve(path.format(workingDirectory), nil)
 
-		local lockfilePath = path.join(workingDirectory, "loom.lock.luau")
+		local lockfilePath = path.join(workingDirectory, "pkg.lock.luau")
 		local content = fs.readFileToString(lockfilePath)
 		assert.strContains(content, "version = 4")
 	end)
@@ -1363,7 +1363,7 @@ test.suite("LockfileReuse", function(suite)
 		fs.createDirectory(libDir)
 
 		local function writeLibConfig(registryUrl: string)
-			fs.writeStringToFile(path.join(libDir, "loom.config.luau"), [[return {
+			fs.writeStringToFile(path.join(libDir, "pkg.luau"), [[return {
 	package = {
 		name = "lib",
 		version = "0.0.0",
@@ -1412,7 +1412,7 @@ test.suite("LockfileReuse", function(suite)
 		fs.createDirectory(libDir)
 
 		local function writeLibConfig(version: string)
-			fs.writeStringToFile(path.join(libDir, "loom.config.luau"), [[return {
+			fs.writeStringToFile(path.join(libDir, "pkg.luau"), [[return {
 	package = {
 		name = "lib",
 		version = "0.0.0",
@@ -1912,7 +1912,7 @@ test.suite("Overrides", function(suite)
 		})
 		local registryUrl = `http://{instance.hostname}:{instance.port}`
 
-		fs.writeStringToFile(path.join(workingDirectory, "loom.config.luau"), [[return {
+		fs.writeStringToFile(path.join(workingDirectory, "pkg.luau"), [[return {
 	package = {
 		name = "root",
 		version = "0.0.0",
@@ -2412,7 +2412,7 @@ test.suite("Overrides", function(suite)
 
 	suite:case("shorthandStringSyntaxParsesAsRegistryDep", function(assert)
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.config.luau"),
+			path.join(workingDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "root",
@@ -2443,7 +2443,7 @@ test.suite("Overrides", function(suite)
 
 	suite:case("registryUrlStoredInLockfile", function(assert)
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.config.luau"),
+			path.join(workingDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "root",
@@ -2472,7 +2472,7 @@ test.suite("Overrides", function(suite)
 
 	suite:case("reResolvesWhenRegistryUrlChanges", function(assert)
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.config.luau"),
+			path.join(workingDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "root",
@@ -2502,7 +2502,7 @@ test.suite("Overrides", function(suite)
 
 		-- Change registry URL — should trigger re-resolution
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.config.luau"),
+			path.join(workingDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "root",
@@ -2581,7 +2581,7 @@ test.suite("Overrides", function(suite)
 
 	suite:case("reResolvesWhenRegistrySourceChanges", function(assert)
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.config.luau"),
+			path.join(workingDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "root",
@@ -2608,7 +2608,7 @@ test.suite("Overrides", function(suite)
 
 		-- Change source — should trigger re-resolution
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.config.luau"),
+			path.join(workingDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "root",
@@ -2647,7 +2647,7 @@ test.suite("Overrides", function(suite)
 		fs.createDirectory(devToolDirectory, { makeParents = true })
 
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.config.luau"),
+			path.join(workingDirectory, "pkg.luau"),
 			[[local workspace = require("./workspace")
 return {
 	common = workspace.common,
@@ -2663,7 +2663,7 @@ return {
 			[[return { common = table.freeze({ version = "1.0.0" }) }]]
 		)
 		fs.writeStringToFile(
-			path.join(appleDirectory, "loom.config.luau"),
+			path.join(appleDirectory, "pkg.luau"),
 			[[local root = require("../../workspace")
 return {
 	package = {
@@ -2679,7 +2679,7 @@ return {
 }]]
 		)
 		fs.writeStringToFile(
-			path.join(coreDirectory, "loom.config.luau"),
+			path.join(coreDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "core",
@@ -2691,7 +2691,7 @@ return {
 }]]
 		)
 		fs.writeStringToFile(
-			path.join(devToolDirectory, "loom.config.luau"),
+			path.join(devToolDirectory, "pkg.luau"),
 			[[return { package = { name = "dev-tool", version = "1.0.0" } }]]
 		)
 
@@ -2715,7 +2715,7 @@ return {
 		local appleDirectory = path.join(workingDirectory, "repository", "modules", "apple")
 		fs.createDirectory(appleDirectory, { makeParents = true })
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.config.luau"),
+			path.join(workingDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		dependencies = {
@@ -2728,7 +2728,7 @@ return {
 }]]
 		)
 		fs.writeStringToFile(
-			path.join(appleDirectory, "loom.config.luau"),
+			path.join(appleDirectory, "pkg.luau"),
 			[[return { package = { name = "apple", version = "1.0.0" } }]]
 		)
 
@@ -2749,7 +2749,7 @@ return {
 		fs.createDirectory(helperDirectory, { makeParents = true })
 
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.config.luau"),
+			path.join(workingDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		dependencies = {
@@ -2762,7 +2762,7 @@ return {
 }]]
 		)
 		fs.writeStringToFile(
-			path.join(toolkitDirectory, "loom.config.luau"),
+			path.join(toolkitDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "toolkit",
@@ -2774,7 +2774,7 @@ return {
 }]]
 		)
 		fs.writeStringToFile(
-			path.join(helperDirectory, "loom.config.luau"),
+			path.join(helperDirectory, "pkg.luau"),
 			[[return { package = { name = "helper", version = "1.0.0" } }]]
 		)
 
@@ -2789,7 +2789,7 @@ return {
 		fs.createDirectory(appleDirectory, { makeParents = true })
 
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.config.luau"),
+			path.join(workingDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "root",
@@ -2800,10 +2800,7 @@ return {
 	},
 }]]
 		)
-		fs.writeStringToFile(
-			path.join(appleDirectory, "loom.config.luau"),
-			[[return { package = { dependencies = {} } }]]
-		)
+		fs.writeStringToFile(path.join(appleDirectory, "pkg.luau"), [[return { package = { dependencies = {} } }]])
 
 		assert.throwsWith(
 			"'apple' points at a virtual package, which cannot be depended on; point at one of its packages' directories instead (for GitHub, set 'target')",
@@ -2820,7 +2817,7 @@ return {
 		fs.createDirectory(bananaDirectory, { makeParents = true })
 
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.config.luau"),
+			path.join(workingDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		dependencies = {
@@ -2831,11 +2828,11 @@ return {
 }]]
 		)
 		fs.writeStringToFile(
-			path.join(appleDirectory, "loom.config.luau"),
+			path.join(appleDirectory, "pkg.luau"),
 			[[return { package = { name = "apple", version = "1.0.0" } }]]
 		)
 		fs.writeStringToFile(
-			path.join(bananaDirectory, "loom.config.luau"),
+			path.join(bananaDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "banana",
@@ -2859,7 +2856,7 @@ return {
 		fs.createDirectory(bananaDirectory, { makeParents = true })
 
 		fs.writeStringToFile(
-			path.join(workingDirectory, "loom.config.luau"),
+			path.join(workingDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		dependencies = {
@@ -2872,11 +2869,11 @@ return {
 }]]
 		)
 		fs.writeStringToFile(
-			path.join(appleDirectory, "loom.config.luau"),
+			path.join(appleDirectory, "pkg.luau"),
 			[[return { package = { name = "apple", version = "1.0.0" } }]]
 		)
 		fs.writeStringToFile(
-			path.join(bananaDirectory, "loom.config.luau"),
+			path.join(bananaDirectory, "pkg.luau"),
 			[[return {
 	package = {
 		name = "banana",

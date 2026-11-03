@@ -5,7 +5,7 @@ local system = require("@std/system")
 local test = require("@std/test")
 
 local workingDirectory = path.join(system.tmpdir(), "lute-pkg-manifest")
-local manifestPath = path.join(workingDirectory, "loom.config.luau")
+local manifestPath = path.join(workingDirectory, "pkg.luau")
 
 local function writeManifest(contents: string)
 	fs.writeStringToFile(manifestPath, contents)

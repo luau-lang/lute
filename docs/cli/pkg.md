@@ -1,6 +1,6 @@
 # pkg
 
-Manage dependencies declared in `loom.config.luau`.
+Manage dependencies declared in `pkg.luau`.
 
 ## Usage
 
@@ -13,7 +13,7 @@ lute pkg publish [--dry-run | --list]
 
 Run `lute pkg publish` from a package directory to publish that package. 
 
-Publishing evaluates `loom.config.luau`, then writes a generated, normalized `loom.config.luau` into the ZIP. The generated manifest flattens the values into the evaluated values rather than the original `require` expressions, and its production path and GitHub dependencies are converted to registry dependencies when they declare a version constraint. For example:
+Publishing evaluates `pkg.luau`, then writes a generated, normalized `pkg.luau` into the ZIP. The generated manifest flattens the values into the evaluated values rather than the original `require` expressions, and its production path and GitHub dependencies are converted to registry dependencies when they declare a version constraint. For example:
 
 ```luau
 dependencies = {
@@ -39,14 +39,14 @@ In addition to common glob patterns the following is the behavior of files:
 - A normal pattern includes matching files; a pattern prefixed with `!` excludes them.
 - If at least one normal pattern is present, files that do not match any pattern are excluded. If `files` contains only `!` patterns, unmatched files are included.
 - Hidden files and directories are excluded unless a positive `files` pattern explicitly includes them. `.gitignore` does not affect the archive.
-- The source `loom.config.luau` is included as `loom.config.luau.orig`, preventing it from colliding with the generated manifest at `loom.config.luau`.
+- The source `pkg.luau` is excluded; the ZIP contains only the generated manifest at `pkg.luau`.
 - Symlinks in the package source are not supported.
 
 Use `--dry-run` to validate the manifest and build the ZIP in memory without uploading it. This does not require a registry or credentials and does not write an archive to disk.
 
-Use `--list` to print the sorted list of files that would be included in the ZIP, including its generated `loom.config.luau`, without building or uploading the package.
+Use `--list` to print the sorted list of files that would be included in the ZIP, including its generated `pkg.luau`, without building or uploading the package.
 
-Uploads use the `registry` in the package's manifest. Publishing requires an Artifactory token, resolved in this order: `LOOM_ARTIFACTORY_TOKEN`, a configured credential provider, then the auth store managed by `lute pkg auth --domain <registry-host> --token <token>`. The ZIP is sent to `<registry>/api/v1/publish`.
+Uploads use the `registry` in the package's manifest and send the ZIP to `<registry>/api/v1/publish`. When registry credentials are available, Lute sends them as an HTTP Bearer token. It resolves them first from a configured credential provider, then from the auth store managed by `lute pkg auth --domain <registry-host> --token <token>`; publishing can proceed without credentials when the registry permits anonymous uploads (see more in Package-registry authentication).
 
 ## Package-source authentication
 

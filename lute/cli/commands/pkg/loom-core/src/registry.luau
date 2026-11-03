@@ -153,7 +153,7 @@ end
 local function publishPackage(registryUrl: string?, archive: buffer)
 	assert(
 		registryUrl ~= nil and registryUrl ~= "",
-		"No registry configured for publishing. Add a 'registry' field to loom.config.luau."
+		"No registry configured for publishing. Add a 'registry' field to pkg.luau."
 	)
 
 	local normalizedRegistryUrl = registryUrlUtil.normalize(registryUrl)

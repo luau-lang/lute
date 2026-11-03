@@ -452,7 +452,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         std::optional<std::string> lockfile = getAbsolutePathToNearestLockfile(validPath);
         if (!lockfile)
         {
-            reporter.formatError("Error: No loom.lock file found for '%s'", validPath.c_str());
+            reporter.formatError("Error: No pkg.lock file found for '%s'", validPath.c_str());
             return 1;
         }
 

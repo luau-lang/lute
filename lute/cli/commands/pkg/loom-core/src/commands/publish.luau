@@ -33,7 +33,7 @@ local function publish(...: string)
 	end
 
 	local directory = path.format(process.cwd())
-	local sourceManifestPath = path.format(path.join(directory, "loom.config.luau"))
+	local sourceManifestPath = path.format(path.join(directory, "pkg.luau"))
 	if not fs.exists(sourceManifestPath) then
 		error("No package manifest found", 0)
 	end

@@ -18,7 +18,7 @@ local function writeFile(file: path.Path, contents: string)
 end
 
 local function writeManifest(directory: path.Path, contents: string)
-	writeFile(path.join(directory, "loom.config.luau"), contents)
+	writeFile(path.join(directory, "pkg.luau"), contents)
 end
 
 local function writePackage(directory: path.Path, name: string, version: string?)
@@ -69,7 +69,7 @@ local function writeVirtualPackage(registryUrl: string?): path.Path
 	local second = path.join(workingDirectory, "second")
 	writeManifest(
 		second,
-		[[local root = require("../loom.config")
+		[[local root = require("../pkg")
 return {
 	registry = root.registry,
 	package = {
@@ -151,13 +151,13 @@ test.suite("LutePkgPublish", function(suite)
 
 		local result = run(workingDirectory, "--list")
 		assert.eq(result.exitcode, 0)
-		assert.eq(string.gsub(result.stdout, "\r\n", "\n"), "assets/data.bin\ninit.luau\nloom.config.luau\n")
+		assert.eq(string.gsub(result.stdout, "\r\n", "\n"), "assets/data.bin\ninit.luau\npkg.luau\n")
 	end)
 
 	suite:case("dryRunBuildsStandaloneArchiveWithoutChangingPackageFiles", function(assert)
 		writePackage(workingDirectory, "standalone")
 		writeFile(path.join(workingDirectory, "init.luau"), "return 42\n")
-		local configPath = path.join(workingDirectory, "loom.config.luau")
+		local configPath = path.join(workingDirectory, "pkg.luau")
 		local original = fs.readFileToString(configPath)
 		local project = manifest.parseFile(path.format(configPath))
 		local archive = publishArtifact.build(
@@ -233,9 +233,9 @@ test.suite("LutePkgPublish", function(suite)
 		local second = writeVirtualPackage(registryUrl)
 		writePackage(path.join(workingDirectory, "library"), "vendor/library")
 		writeFile(path.join(second, "src", "init.luau"), "return 42\n")
-		writeFile(path.join(second, "loom.lock.luau"), "return {}\n")
+		writeFile(path.join(second, "pkg.lock.luau"), "return {}\n")
 		writeFile(path.join(workingDirectory, "sibling.luau"), "return 0\n")
-		local original = fs.readFileToString(path.join(second, "loom.config.luau"))
+		local original = fs.readFileToString(path.join(second, "pkg.luau"))
 
 		local dryRun = run(second, "--dry-run")
 		assert.eq(dryRun.exitcode, 0)
@@ -254,10 +254,10 @@ test.suite("LutePkgPublish", function(suite)
 		local reader = unzip.load(buffer.fromstring(request.body))
 		assert.eq(reader:getStats().fileCount, 3)
 		assert.eq(readEntry(reader, "src/init.luau"), "return 42\n")
-		assert.eq(readEntry(reader, "loom.lock.luau"), "return {}\n")
-		assert.eq(reader:findEntry("loom.config.luau.orig"), nil)
+		assert.eq(readEntry(reader, "pkg.lock.luau"), "return {}\n")
+		assert.eq(reader:findEntry("pkg.luau.orig"), nil)
 		local generatedPath = path.join(workingDirectory, "generated.luau")
-		writeFile(generatedPath, readEntry(reader, "loom.config.luau"))
+		writeFile(generatedPath, readEntry(reader, "pkg.luau"))
 		local generated = manifest.parseFile(path.format(generatedPath))
 		local package = generated.package :: manifest.PackageManifest
 		assert.eq(package.name, "second")
@@ -267,7 +267,7 @@ test.suite("LutePkgPublish", function(suite)
 		assert.eq(package.dependencies.alias.version, "^1.0.0")
 		assert.eq(next(package.devDependencies), nil)
 		assert.eq(generated.registry, registryUrl)
-		assert.eq(fs.readFileToString(path.join(second, "loom.config.luau")), original)
+		assert.eq(fs.readFileToString(path.join(second, "pkg.luau")), original)
 	end)
 
 	suite:case("reportsUploadFailureWithoutPrintingSuccess", function(assert)
