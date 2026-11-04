@@ -83,7 +83,10 @@ test.suite("PackageManifest", function(suite)
 }
 ]])
 
-		assert.eq(manifest.parseFile(path.format(manifestPath)).package.readme, "docs/overview.md")
+		assert.eq(
+			manifest.parseFile(path.format(manifestPath)).package.readme,
+			path.format(path.join("docs", "overview.md"))
+		)
 
 		writeManifest([[return {
 	package = { name = "root", version = "0.0.0" },
