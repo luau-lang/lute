@@ -1,0 +1,5 @@
+[dependency]
+name = "nghttp2"
+remote = "https://github.com/nghttp2/nghttp2.git"
+branch = "v1.69.0"
+revision = "68cb6900fde14c77f0cd7add0e094a862960eb99"
