@@ -1,5 +1,7 @@
+local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
+local system = require("@std/system")
 local test = require("@std/test")
 local testutil = require("../testutil")
 
@@ -70,5 +72,75 @@ test.suite("LuteTestCommand", function(suite)
 		assert.eq(result.exitcode, 0)
 		assert.neq(result.stdout:find("of 1", 1, true), nil)
 		assert.neq(result.stdout:find("1 passed", 1, true), nil)
+	end)
+end)
+
+test.suite("LuteTestWorkerFailures", function(suite)
+	local testDir = path.join(system.tmpdir(), `lute-test-worker-failures-{process.pid()}`)
+	local testFile = path.join(testDir, "load.test.luau")
+
+	suite:beforeEach(function()
+		fs.createDirectory(testDir)
+	end)
+
+	suite:afterEach(function()
+		fs.removeDirectory(testDir, { recursive = true })
+	end)
+
+	suite:case("reportsStacktraceForTestFileError", function(assert)
+		fs.writeStringToFile(
+			testFile,
+			[[local function failLoad()
+	error("test load failed", 0)
+end
+failLoad()
+]]
+		)
+
+		local result = process.run({ lutePath, "test", path.format(testFile) })
+
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stdout, "Worker failures:")
+		assert.strContains(result.stdout, "test load failed")
+		assert.strContains(result.stdout, "load.test.luau:2 function failLoad")
+		assert.strContains(result.stdout, "load.test.luau:4")
+	end)
+
+	suite:case("reportsStacktraceForRequiredModuleError", function(assert)
+		fs.writeStringToFile(path.join(testDir, "dependency.luau"), 'error("dependency load failed", 0)')
+		fs.writeStringToFile(
+			testFile,
+			[[local function loadDependency()
+	return require("./dependency")
+end
+loadDependency()
+]]
+		)
+
+		local result = process.run({ lutePath, "test", path.format(testFile) })
+
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stdout, "Worker failures:")
+		assert.strContains(result.stdout, "dependency load failed")
+		assert.strContains(result.stdout, "dependency.luau:1")
+		assert.strContains(result.stdout, "load.test.luau:2 function loadDependency")
+		assert.strContains(result.stdout, "load.test.luau:4")
+	end)
+
+	suite:case("successfulTestFileHasNoWorkerFailure", function(assert)
+		fs.writeStringToFile(
+			testFile,
+			[[local test = require("@std/test")
+test.case("passing", function(assert)
+	assert.eq(1, 1)
+end)
+]]
+		)
+
+		local result = process.run({ lutePath, "test", path.format(testFile) })
+
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, "1 passed")
+		assert.strNotContains(result.stdout, "Worker failures:")
 	end)
 end)
