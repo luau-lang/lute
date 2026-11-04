@@ -2,6 +2,7 @@ return {
 	package = {
 		name = "lib",
 		version = "0.0.0",
+		content_root = "src",
 		dependencies = {
 			utils = {
 				name = "shared",

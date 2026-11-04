@@ -1,5 +1,5 @@
 return {
-	version = 4,
+	version = 5,
 	dependencies = {
 		first = "first",
 	},

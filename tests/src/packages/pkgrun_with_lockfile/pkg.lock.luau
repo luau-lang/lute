@@ -1,5 +1,5 @@
 return {
-	version = 3,
+	version = 5,
 	dependencies = {
 		dep = "dep@v1.2.3",
 	},

@@ -199,7 +199,7 @@ test.suite("RegistryLockfileIdentity", function(suite)
 }]]
 		)
 		writeLockfile([[return {
-	version = 3,
+	version = 5,
 	dependencies = {
 		apple = "apple@v1.0.0",
 	},

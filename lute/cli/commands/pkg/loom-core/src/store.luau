@@ -63,10 +63,11 @@ local function toStorePath(key: string): string
 	return `{STORE_PATH_PREFIX}{key}`
 end
 
-local function getGitHubInstallPath(source: string, rev: string, target: string?): string
+-- `relativeImportRoot` is the selected target plus its optional content_root.
+local function getGitHubInstallPath(source: string, rev: string, relativeImportRoot: string?): string
 	local checkoutPath = toStorePath(getGitHubCheckoutKey(source, rev))
-	if target then
-		local installPath = path.join(checkoutPath, target)
+	if relativeImportRoot then
+		local installPath = path.join(checkoutPath, relativeImportRoot)
 		return path.posix.format({
 			parts = installPath.parts,
 			absolute = false,
