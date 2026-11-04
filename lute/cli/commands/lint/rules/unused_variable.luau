@@ -107,7 +107,7 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 
 	visitor.visitStatBlockEnd = popAndSaveUnusedLocals
 
-	function visitor.visitStatLocalDeclaration(stat: syntax.CstStatLocal)
+	local function visitStatDeclaration(stat: syntax.CstStatLocal | syntax.CstStatConst)
 		-- For each (var, value) pair, ignore references to the var in the value
 		for i, localVar in stat.variables do
 			if stat.values[i] then
@@ -135,6 +135,9 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 
 		return false
 	end
+
+	visitor.visitStatLocalDeclaration = visitStatDeclaration
+	visitor.visitStatConstDeclaration = visitStatDeclaration
 
 	function visitor.visitStatFor(stat: syntax.CstStatFor)
 		-- Push a scope for the loop variable
