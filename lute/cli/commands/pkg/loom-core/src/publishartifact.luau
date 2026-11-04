@@ -100,13 +100,23 @@ local function collectFiles(
 	end
 end
 
-local function isSymlink(filePath: path.Path): boolean
-	local name = path.basename(filePath)
-	assert(name ~= nil, `Cannot determine file name for {path.format(filePath)}`)
-	for _, entry in fs.listDirectory(path.dirname(filePath)) do
-		if entry.name == name then
-			return entry.type == "link"
+local function hasSymlinkComponent(root: path.Path, relativePath: path.Path): boolean
+	local current = root
+	for _, part in relativePath.parts do
+		local found = false
+		for _, entry in fs.listDirectory(current) do
+			if entry.name == part then
+				if entry.type == "link" then
+					return true
+				end
+				found = true
+				break
+			end
 		end
+		if not found then
+			return false
+		end
+		current = path.join(current, part)
 	end
 	return false
 end
@@ -135,7 +145,7 @@ local function resolveReadmeFile(root: path.Path, readme: string?): path.Path?
 	assert(#normalized.parts > 0 and normalized.parts[1] ~= "..", "'readme' must stay inside the package directory")
 	local readmePath = path.resolve(path.format(root), normalized)
 	assert(
-		fs.exists(readmePath) and fs.type(readmePath) == "file" and not isSymlink(readmePath),
+		fs.exists(readmePath) and fs.type(readmePath) == "file" and not hasSymlinkComponent(root, normalized),
 		"'readme' must resolve to a regular file"
 	)
 	return readmePath

@@ -100,16 +100,21 @@ local function parseTarget(target: unknown, name: string, sectionName: string): 
 	})
 end
 
+local function normalizePackagePath(value: unknown, field: string): path.Path
+	assert(typeof(value) == "string" and #value > 0, `Expected '{field}' to be a non-empty string`)
+	assert(not path.isAbsolute(value), `'{field}' must be relative to the package directory`)
+
+	local normalized = path.normalize(value)
+	assert(normalized.parts[1] ~= "..", `'{field}' must stay inside the package directory`)
+	return normalized
+end
+
 local function parseContentRoot(contentRoot: unknown): string?
 	if contentRoot == nil then
 		return nil
 	end
 
-	assert(typeof(contentRoot) == "string" and #contentRoot > 0, "Expected 'content_root' to be a non-empty string")
-	assert(not path.isAbsolute(contentRoot), "'content_root' must be relative to the package directory")
-
-	local normalized = path.normalize(contentRoot)
-	assert(normalized.parts[1] ~= "..", "'content_root' must stay inside the package directory")
+	local normalized = normalizePackagePath(contentRoot, "content_root")
 	if #normalized.parts == 0 then
 		return nil
 	end
@@ -120,8 +125,8 @@ local function parseReadme(readme: unknown): string?
 	if readme == nil then
 		return nil
 	end
-	assert(typeof(readme) == "string", "Expected 'readme' to be a string")
-	return readme
+
+	return path.format(normalizePackagePath(readme, "readme"))
 end
 
 local function parseFiles(files: unknown): { string }?

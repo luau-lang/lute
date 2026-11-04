@@ -162,6 +162,18 @@ test.suite("Publish artifact", function(suite)
 		end)
 	end)
 
+	suite:case("rejectsAReadmeThroughASymlinkedDirectory", function(assert)
+		local packageDirectory = path.join(workingDirectory, "package")
+		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
+		writeFile(path.join(workingDirectory, "private", "overview.md"), "private\n")
+		fs.symbolicLink("../private", path.join(packageDirectory, "docs"))
+
+		assert.throwsWith("'readme' must resolve to a regular file", function()
+			buildArtifact(packageDirectory, sourceManifestPath, { files = { "missing" }, readme = "docs/overview.md" })
+		end)
+	end)
+
 	suite:case("reservesThePublishedReadmeRootEntryCaseInsensitively", function(assert)
 		local packageDirectory = path.join(workingDirectory, "package")
 		fs.createDirectory(packageDirectory)

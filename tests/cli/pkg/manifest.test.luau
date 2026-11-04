@@ -71,7 +71,7 @@ test.suite("PackageManifest", function(suite)
 		assert.eq(package.files, { "*.luau", "!**/*.spec.luau", "!**/__tests__/" })
 	end)
 
-	suite:case("preservesPackageReadme", function(assert)
+	suite:case("normalizesPackageReadme", function(assert)
 		fs.createDirectory(path.join(workingDirectory, "docs"))
 		fs.writeStringToFile(path.join(workingDirectory, "docs", "overview.md"), "overview\n")
 		writeManifest([[return {
@@ -83,7 +83,7 @@ test.suite("PackageManifest", function(suite)
 }
 ]])
 
-		assert.eq(manifest.parseFile(path.format(manifestPath)).package.readme, "./docs/../docs/overview.md")
+		assert.eq(manifest.parseFile(path.format(manifestPath)).package.readme, "docs/overview.md")
 
 		writeManifest([[return {
 	package = { name = "root", version = "0.0.0" },
@@ -98,7 +98,22 @@ test.suite("PackageManifest", function(suite)
 	package = { name = "root", version = "0.0.0", readme = false },
 }
 ]])
-		assert.throwsWith("Expected 'readme' to be a string", function()
+		assert.throwsWith("Expected 'readme' to be a non-empty string", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
+	suite:case("rejectsUnsafePackageReadme", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		readme = "../private.md",
+	},
+}
+]])
+
+		assert.throwsWith("'readme' must stay inside the package directory", function()
 			manifest.parseFile(path.format(manifestPath))
 		end)
 	end)
