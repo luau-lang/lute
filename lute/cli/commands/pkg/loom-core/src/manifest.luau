@@ -42,6 +42,10 @@ export type PackageManifest = {
 	read name: string?,
 	read version: string?,
 	read contentRoot: string?,
+	-- Optional path to specify a readme, if missing tries readme at pkg.luau directory
+	-- or assumes no readme.
+	read readme: string?,
+	read metadata: { [any]: any }?,
 	-- Publish filters relative to contentRoot. Positive patterns include files;
 	-- patterns prefixed with ! exclude them.
 	read files: { string }?,
@@ -110,6 +114,14 @@ local function parseContentRoot(contentRoot: unknown): string?
 		return nil
 	end
 	return path.format(normalized)
+end
+
+local function parseReadme(readme: unknown): string?
+	if readme == nil then
+		return nil
+	end
+	assert(typeof(readme) == "string", "Expected 'readme' to be a string")
+	return readme
 end
 
 local function parseFiles(files: unknown): { string }?
@@ -242,7 +254,13 @@ local function parseManifest(t: unknown, manifestDirectory: string): ProjectMani
 		"Package manifest must specify both 'name' and 'version', or neither for a virtual package"
 	)
 	local contentRoot = parseContentRoot((pkg :: any).content_root)
+	local readme = parseReadme((pkg :: any).readme)
 	local files = parseFiles((pkg :: any).files)
+	local metadata = (pkg :: any).metadata
+	assert(
+		metadata == nil or typeof(metadata) == "table",
+		"Expected 'metadata' field in package manifest to be a table"
+	)
 
 	local dependencies = parseDependencyMap((pkg :: any).dependencies, "dependencies", manifestDirectory)
 	local devDependencies = parseDependencyMap((pkg :: any).dev_dependencies, "dev_dependencies", manifestDirectory)
@@ -262,6 +280,8 @@ local function parseManifest(t: unknown, manifestDirectory: string): ProjectMani
 	return table.freeze({
 		package = table.freeze({
 			contentRoot = contentRoot,
+			readme = readme,
+			metadata = metadata,
 			files = files,
 			name = pkg.name,
 			version = pkg.version,

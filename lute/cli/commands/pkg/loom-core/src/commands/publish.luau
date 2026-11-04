@@ -44,6 +44,7 @@ local function publish(...: string)
 			publishArtifact.list(directory, sourceManifestPath, {
 				contentRoot = package.contentRoot,
 				files = package.files,
+				readme = package.readme,
 			})
 		do
 			print(name)
@@ -54,6 +55,7 @@ local function publish(...: string)
 	local archive = publishArtifact.build(directory, sourceManifestPath, generatedManifest, {
 		contentRoot = package.contentRoot,
 		files = package.files,
+		readme = package.readme,
 	})
 	local identity = `{package.name :: string}@{package.version :: string}`
 	print(`Built {identity} ({buffer.len(archive)} bytes).`)

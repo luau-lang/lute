@@ -4,6 +4,7 @@ local filesFilter = require("./filesfilter")
 local zipWriter = require("./zipwriter")
 
 local PACKAGE_MANIFEST = "pkg.luau"
+local PUBLISHED_README = "PUBLISHED_README.md"
 
 type PublishableFile = zipWriter.Entry
 
@@ -15,6 +16,7 @@ type CollectedFile = {
 export type BuildOptions = {
 	contentRoot: string?,
 	files: { string }?,
+	readme: string?,
 }
 
 local function assertSafePathPart(part: string)
@@ -83,6 +85,10 @@ local function collectFiles(
 				name ~= PACKAGE_MANIFEST,
 				`Cannot publish file '{name}': archive path is reserved for the generated package manifest; rename the source file`
 			)
+			assert(
+				string.lower(name) ~= string.lower(PUBLISHED_README),
+				`Cannot publish file '{name}': archive path is reserved for the published README; rename the source file`
+			)
 			assert(not names[name], `Duplicate archive path: '{name}'`)
 			names[name] = true
 
@@ -92,6 +98,47 @@ local function collectFiles(
 			})
 		end
 	end
+end
+
+local function isSymlink(filePath: path.Path): boolean
+	local name = path.basename(filePath)
+	assert(name ~= nil, `Cannot determine file name for {path.format(filePath)}`)
+	for _, entry in fs.listDirectory(path.dirname(filePath)) do
+		if entry.name == name then
+			return entry.type == "link"
+		end
+	end
+	return false
+end
+
+local function findDefaultReadme(root: path.Path): path.Path?
+	local entries = fs.listDirectory(root)
+	table.sort(entries, function(a: fs.DirectoryEntry, b: fs.DirectoryEntry)
+		return a.name < b.name
+	end)
+	for _, entry in entries do
+		if string.lower(entry.name) == "readme.md" and entry.type == "file" then
+			return path.join(root, entry.name)
+		end
+	end
+	return nil
+end
+
+local function resolveReadmeFile(root: path.Path, readme: string?): path.Path?
+	if readme == nil then
+		return findDefaultReadme(root)
+	end
+
+	assert(typeof(readme) == "string" and #readme > 0, "Expected 'readme' to be a non-empty string")
+	assert(not path.isAbsolute(readme), "'readme' must be relative to the package directory")
+	local normalized = path.normalize(readme)
+	assert(#normalized.parts > 0 and normalized.parts[1] ~= "..", "'readme' must stay inside the package directory")
+	local readmePath = path.resolve(path.format(root), normalized)
+	assert(
+		fs.exists(readmePath) and fs.type(readmePath) == "file" and not isSymlink(readmePath),
+		"'readme' must resolve to a regular file"
+	)
+	return readmePath
 end
 
 local function resolveContentDirectory(root: path.Path, contentRoot: string?): path.Path
@@ -127,6 +174,19 @@ local function collectPublishableFiles(
 	return publishableFiles
 end
 
+local function collectReadme(packageDirectory: string, options: BuildOptions?): CollectedFile?
+	local root = path.resolve(packageDirectory)
+	local readme = if options == nil then nil else options.readme
+	local readmePath = resolveReadmeFile(root, readme)
+	if readmePath == nil then
+		return nil
+	end
+	return {
+		path = readmePath,
+		name = PUBLISHED_README,
+	}
+end
+
 local function build(
 	packageDirectory: string,
 	sourceManifestPath: string,
@@ -144,6 +204,13 @@ local function build(
 			name = file.name,
 		})
 	end
+	local readme = collectReadme(packageDirectory, options)
+	if readme ~= nil then
+		table.insert(entries, {
+			contents = buffer.fromstring(fs.readFileToString(readme.path)),
+			name = readme.name,
+		})
+	end
 	table.sort(entries, function(a: PublishableFile, b: PublishableFile)
 		return a.name < b.name
 	end)
@@ -155,6 +222,9 @@ local function list(packageDirectory: string, sourceManifestPath: string, option
 	local names = { PACKAGE_MANIFEST }
 	for _, file in collectPublishableFiles(packageDirectory, sourceManifestPath, options) do
 		table.insert(names, file.name)
+	end
+	if collectReadme(packageDirectory, options) ~= nil then
+		table.insert(names, PUBLISHED_README)
 	end
 	table.sort(names)
 	return names

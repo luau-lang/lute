@@ -71,6 +71,53 @@ test.suite("PackageManifest", function(suite)
 		assert.eq(package.files, { "*.luau", "!**/*.spec.luau", "!**/__tests__/" })
 	end)
 
+	suite:case("preservesPackageReadme", function(assert)
+		fs.createDirectory(path.join(workingDirectory, "docs"))
+		fs.writeStringToFile(path.join(workingDirectory, "docs", "overview.md"), "overview\n")
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		readme = "./docs/../docs/overview.md",
+	},
+}
+]])
+
+		assert.eq(manifest.parseFile(path.format(manifestPath)).package.readme, "./docs/../docs/overview.md")
+
+		writeManifest([[return {
+	package = { name = "root", version = "0.0.0" },
+}
+]])
+		fs.writeStringToFile(path.join(workingDirectory, "README.md"), "default\n")
+		assert.eq(manifest.parseFile(path.format(manifestPath)).package.readme, nil)
+	end)
+
+	suite:case("rejectsANonStringPackageReadme", function(assert)
+		writeManifest([[return {
+	package = { name = "root", version = "0.0.0", readme = false },
+}
+]])
+		assert.throwsWith("Expected 'readme' to be a string", function()
+			manifest.parseFile(path.format(manifestPath))
+		end)
+	end)
+
+	suite:case("acceptsOpaquePackageMetadata", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		metadata = { authors = { "Alice <alice@example.com>" }, visibility = false },
+	},
+}
+]])
+
+		local metadata = manifest.parseFile(path.format(manifestPath)).package.metadata :: any
+		assert.eq(metadata.authors, { "Alice <alice@example.com>" })
+		assert.eq(metadata.visibility, false)
+	end)
+
 	suite:case("rejectsNonArrayPackageFiles", function(assert)
 		writeManifest([[return {
 	package = {

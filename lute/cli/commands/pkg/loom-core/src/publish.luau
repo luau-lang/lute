@@ -25,6 +25,56 @@ local function formatKey(key: string): string
 	return `[{quote(key)}]`
 end
 
+-- only sorted to maintain a reproducible zip
+local function sortedMetadataKeys(metadata: { [any]: any }): { string | number }
+	local keys: { string | number } = {}
+	for key in metadata do
+		local keyType = typeof(key)
+		assert(keyType == "string" or keyType == "number", "Package metadata table keys must be strings or numbers")
+		table.insert(keys, key :: string | number)
+	end
+	table.sort(keys, function(a: string | number, b: string | number): boolean
+		local aType = typeof(a)
+		local bType = typeof(b)
+		if aType ~= bType then
+			return aType == "number"
+		end
+		if aType == "number" then
+			return (a :: number) < (b :: number)
+		end
+		return (a :: string) < (b :: string)
+	end)
+	return keys
+end
+
+local function formatMetadataKey(key: string | number): string
+	if typeof(key) == "string" then
+		return formatKey(key)
+	end
+	return `[{tostring(key)}]`
+end
+
+local function serializeMetadataValue(value: any, indent: string, visited: { [any]: boolean }): string
+	local valueType = typeof(value)
+	if valueType == "string" then
+		return quote(value)
+	elseif valueType == "number" or valueType == "boolean" then
+		return tostring(value)
+	elseif valueType == "table" then
+		assert(not visited[value], "Package metadata must not contain cyclic tables")
+		visited[value] = true
+		local lines = { "{" }
+		for _, key in sortedMetadataKeys(value) do
+			local serialized = serializeMetadataValue(value[key], indent .. "\t", visited)
+			table.insert(lines, `{indent}\t{formatMetadataKey(key)} = {serialized},`)
+		end
+		visited[value] = nil
+		table.insert(lines, indent .. "}")
+		return table.concat(lines, "\n")
+	end
+	error(`Package metadata values must be strings, numbers, booleans, or tables; got {valueType}`)
+end
+
 local function sortedDependencyAliases(dependencies: { [string]: manifest.DependencySpec }): { string }
 	local aliases: { string } = {}
 	for alias in dependencies do
@@ -132,6 +182,10 @@ local function flattenPackage(package: manifest.PackageManifest, registry: strin
 	table.insert(lines, "\t\tdev_dependencies = {")
 	appendDependencies(lines, package.devDependencies, "\t\t\t", true)
 	table.insert(lines, "\t\t},")
+	if package.metadata ~= nil then
+		local metadata = serializeMetadataValue(package.metadata, "\t\t", {})
+		table.insert(lines, `\t\tmetadata = {metadata},`)
+	end
 	table.insert(lines, "\t},")
 	if registry ~= nil then
 		table.insert(lines, `\tregistry = {quote(registry)},`)
