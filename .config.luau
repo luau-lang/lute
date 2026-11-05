@@ -11,7 +11,11 @@ return {
 	},
 	lute = {
 		lint = {
-			ignores = { "**/*.d.luau", "**/*.snap.luau" },
+			ignores = {
+				"**/*.d.luau",
+				"**/*.snap.luau",
+				"tests/cli/format/stylua/**",
+			},
 		},
 		format = {
 			ignores = {
@@ -19,6 +23,7 @@ return {
 				"**/generated-types.luau",
 				"definitions/syntax/mutablecst.luau",
 				"**/*unformatted*.luau",
+				"tests/cli/format/stylua/**",
 				"tests/parserExamples/**",
 				"tests/src/debug/compile_error.luau",
 			},
