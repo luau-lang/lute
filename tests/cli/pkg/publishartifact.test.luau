@@ -170,7 +170,7 @@ test.suite("Publish artifact", function(suite)
 		fs.createDirectory(packageDirectory)
 		local sourceManifestPath = writePackageManifest(packageDirectory)
 		writeFile(path.join(workingDirectory, "private", "overview.md"), "private\n")
-		fs.symbolicLink("../private", path.join(packageDirectory, "docs"))
+		fs.symbolicLink(path.format(path.join("..", "private")), path.join(packageDirectory, "docs"))
 
 		local reader = unzip.load(
 			buildArtifact(packageDirectory, sourceManifestPath, { files = { "missing" }, readme = "docs/overview.md" })

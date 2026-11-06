@@ -116,7 +116,10 @@ test.suite("PackageManifest", function(suite)
 }
 ]])
 
-		assert.eq(manifest.parseFile(path.format(manifestPath)).package.readme, path.format("../private.md"))
+		assert.eq(
+			manifest.parseFile(path.format(manifestPath)).package.readme,
+			path.format(path.join("..", "private.md"))
+		)
 	end)
 
 	suite:case("acceptsOpaquePackageMetadata", function(assert)
