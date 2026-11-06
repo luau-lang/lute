@@ -62,10 +62,11 @@ test.suite("Publish artifact", function(suite)
 		assert.eq(buffer.tostring(first), buffer.tostring(second))
 
 		local reader = unzip.load(first)
-		assert.eq(reader:getStats().fileCount, 8)
+		assert.eq(reader:getStats().fileCount, 9)
 		assert.eq(readEntry(reader, "pkg.luau"), generatedManifest)
 		assert.that(reader:findEntry("pkg.luau.orig") == nil)
 		assert.eq(readEntry(reader, "README.md"), "read me\n")
+		assert.eq(readEntry(reader, "PUBLISHED_README.md"), "read me\n")
 		assert.eq(readEntry(reader, "src/init.luau"), 'return "package"\n')
 		assert.eq(readEntry(reader, "assets/data.bin"), "a\0b")
 		assert.eq(readEntry(reader, "src/pkg.luau"), "return {}\n")
@@ -89,7 +90,7 @@ test.suite("Publish artifact", function(suite)
 			files = { "README.md", ".gitignore", ".well-known/" },
 		})
 		local reader = unzip.load(artifact)
-		assert.eq(reader:getStats().fileCount, 4)
+		assert.eq(reader:getStats().fileCount, 5)
 		assert.eq(readEntry(reader, "README.md"), "published\n")
 		assert.eq(readEntry(reader, ".gitignore"), "ignored\n")
 		assert.eq(readEntry(reader, ".well-known/config"), "config\n")
@@ -106,7 +107,89 @@ test.suite("Publish artifact", function(suite)
 			files = { "*.luau" },
 		})
 
-		assert.eq(files, { "pkg.luau", "src/init.luau" })
+		assert.eq(files, { "PUBLISHED_README.md", "pkg.luau", "src/init.luau" })
+	end)
+
+	suite:case("copiesTheReadmeToThePublishedReadmeEntryEvenWhenExcluded", function(assert)
+		local packageDirectory = path.join(workingDirectory, "package")
+		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
+		writeFile(path.join(packageDirectory, "docs", "overview.md"), "overview\n")
+		writeFile(path.join(packageDirectory, "src", "init.luau"), 'return "published"\n')
+
+		local options: publishArtifact.BuildOptions = {
+			contentRoot = "src",
+			files = { "*.luau" },
+			readme = "docs/overview.md",
+		}
+		local artifact = buildArtifact(packageDirectory, sourceManifestPath, options)
+		local reader = unzip.load(artifact)
+		assert.eq(readEntry(reader, "PUBLISHED_README.md"), "overview\n")
+		assert.that(reader:findEntry("docs/overview.md") == nil)
+		assert.eq(publishArtifact.list(path.format(packageDirectory), path.format(sourceManifestPath), options), {
+			"PUBLISHED_README.md",
+			"init.luau",
+			"pkg.luau",
+		})
+	end)
+
+	suite:case("usesTheLowerCaseReadmeAsTheDefaultPublishedReadme", function(assert)
+		local packageDirectory = path.join(workingDirectory, "package")
+		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
+		writeFile(path.join(packageDirectory, "readme.md"), "default\n")
+
+		local reader = unzip.load(buildArtifact(packageDirectory, sourceManifestPath))
+		assert.eq(readEntry(reader, "PUBLISHED_README.md"), "default\n")
+	end)
+
+	suite:case("validatesTheConfiguredReadme", function(assert)
+		local packageDirectory = path.join(workingDirectory, "package")
+		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
+
+		writeFile(path.join(workingDirectory, "private.md"), "private\n")
+		local outsideReader = unzip.load(
+			buildArtifact(packageDirectory, sourceManifestPath, { files = { "missing" }, readme = "../private.md" })
+		)
+		assert.eq(readEntry(outsideReader, "PUBLISHED_README.md"), "private\n")
+		assert.throwsWith("'readme' must resolve to a regular file", function()
+			buildArtifact(packageDirectory, sourceManifestPath, { readme = "missing.md" })
+		end)
+
+		writeFile(path.join(packageDirectory, "source.md"), "source\n")
+		fs.symbolicLink("source.md", path.join(packageDirectory, "linked.md"))
+		local reader = unzip.load(
+			buildArtifact(packageDirectory, sourceManifestPath, { files = { "missing" }, readme = "linked.md" })
+		)
+		assert.eq(readEntry(reader, "PUBLISHED_README.md"), "source\n")
+	end)
+
+	suite:case("allowsAReadmeThroughASymlinkedDirectory", function(assert)
+		local packageDirectory = path.join(workingDirectory, "package")
+		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
+		writeFile(path.join(workingDirectory, "private", "overview.md"), "private\n")
+		fs.symbolicLink(path.format(path.join("..", "private")), path.join(packageDirectory, "docs"))
+
+		local reader = unzip.load(
+			buildArtifact(packageDirectory, sourceManifestPath, { files = { "missing" }, readme = "docs/overview.md" })
+		)
+		assert.eq(readEntry(reader, "PUBLISHED_README.md"), "private\n")
+	end)
+
+	suite:case("reservesThePublishedReadmeRootEntryCaseInsensitively", function(assert)
+		local packageDirectory = path.join(workingDirectory, "package")
+		fs.createDirectory(packageDirectory)
+		local sourceManifestPath = writePackageManifest(packageDirectory)
+		writeFile(path.join(packageDirectory, "published_readme.MD"), "conflict\n")
+
+		assert.throwsWith(
+			"Cannot publish file 'published_readme.MD': archive path is reserved for the published README; rename the source file",
+			function()
+				buildArtifact(packageDirectory, sourceManifestPath)
+			end
+		)
 	end)
 
 	suite:case("rejectsSymlinksInProjectSource", function(assert)
@@ -159,7 +242,7 @@ test.suite("Publish artifact", function(suite)
 
 		local artifact = buildArtifact(packageDirectory, sourceManifestPath, { contentRoot = "src" })
 		local reader = unzip.load(artifact)
-		assert.eq(reader:getStats().fileCount, 3)
+		assert.eq(reader:getStats().fileCount, 4)
 		assert.eq(readEntry(reader, "pkg.luau"), generatedManifest)
 		assert.eq(readEntry(reader, "init.luau"), 'return "package"\n')
 		assert.eq(readEntry(reader, "assets/data.bin"), "a\0b")
@@ -291,7 +374,7 @@ test.suite("Publish artifact", function(suite)
 
 		local artifact = buildArtifact(packageDirectory, sourceManifestPath)
 		local reader = unzip.load(artifact)
-		assert.eq(reader:getStats().fileCount, 7)
+		assert.eq(reader:getStats().fileCount, 8)
 		assert.eq(readEntry(reader, "pkg.luau"), generatedManifest)
 		assert.that(reader:findEntry(".gitignore") == nil)
 		assert.eq(readEntry(reader, "README.md"), "published\n")

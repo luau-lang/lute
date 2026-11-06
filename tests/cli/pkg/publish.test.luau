@@ -63,6 +63,12 @@ return {
 		version = "1.2.3",
 		content_root = "src",
 		files = { "**/*.luau", "!**/*.spec.luau" },
+		readme = "docs/overview.md",
+		metadata = {
+			authors = { "Alice <alice@example.com>", "@alice" },
+			description = "A short package description",
+			keywords = { "ui", "utilities" },
+		},
 		dependencies = {
 			registryAlias = alias,
 			pathAlias = { sourceKind = "path", source = "./path", version = "^2.0.0" },
@@ -79,6 +85,8 @@ return {
 }
 ]]
 		)
+		fs.createDirectory(path.join(workingDirectory, "docs"))
+		fs.writeStringToFile(path.join(workingDirectory, "docs", "overview.md"), "overview\n")
 		writePackageManifest(path.join(workingDirectory, "path"), "vendor/path")
 		writePackageManifest(path.join(workingDirectory, "dev-path"), "vendor/dev-path")
 		writePackageManifest(path.join(path.parse(githubFixtureDirectory), "package"), "vendor/git")
@@ -95,6 +103,13 @@ return {
 		assert.eq(string.find(flattened, "content_root", 1, true), nil)
 		assert.eq(package.files, nil)
 		assert.eq(string.find(flattened, "files", 1, true), nil)
+		assert.eq(package.readme, nil)
+		assert.eq(string.find(flattened, "readme", 1, true), nil)
+		assert.eq(package.metadata, {
+			authors = { "Alice <alice@example.com>", "@alice" },
+			description = "A short package description",
+			keywords = { "ui", "utilities" },
+		})
 		assert.eq(package.dependencies.registryAlias.sourceKind, "registry")
 		assert.eq(package.dependencies.registryAlias.source, "vendor/registry")
 		assert.eq(package.dependencies.pathAlias.sourceKind, "registry")
