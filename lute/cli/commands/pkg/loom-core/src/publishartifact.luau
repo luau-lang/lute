@@ -7,7 +7,7 @@ local PACKAGE_MANIFEST = "pkg.luau"
 
 type PublishableFile = zipWriter.Entry
 
-type CollectedFile = {
+export type CollectedFile = {
 	path: path.Path,
 	name: string,
 }
@@ -162,5 +162,6 @@ end
 
 return table.freeze({
 	build = build,
+	collect = collectPublishableFiles,
 	list = list,
 })
