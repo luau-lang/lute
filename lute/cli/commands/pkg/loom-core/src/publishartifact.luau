@@ -114,14 +114,20 @@ local function findDefaultReadme(root: path.Path): path.Path?
 end
 
 local function resolveReadmeFile(root: path.Path, readme: string?): path.Path?
+	local readmePath: path.Path
 	if readme == nil then
-		return findDefaultReadme(root)
+		local defaultReadmePath = findDefaultReadme(root)
+		if defaultReadmePath == nil then
+			return nil
+		end
+		readmePath = defaultReadmePath
+	else
+		assert(typeof(readme) == "string" and #readme > 0, "Expected 'readme' to be a non-empty string")
+		assert(not path.isAbsolute(readme), "'readme' must be relative to the package directory")
+		local normalized = path.normalize(readme)
+		readmePath = path.resolve(path.format(root), normalized)
 	end
 
-	assert(typeof(readme) == "string" and #readme > 0, "Expected 'readme' to be a non-empty string")
-	assert(not path.isAbsolute(readme), "'readme' must be relative to the package directory")
-	local normalized = path.normalize(readme)
-	local readmePath = path.resolve(path.format(root), normalized)
 	assert(fs.exists(readmePath) and fs.type(readmePath) == "file", "'readme' must resolve to a regular file")
 	return readmePath
 end
