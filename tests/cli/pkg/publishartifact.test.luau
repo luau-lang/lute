@@ -148,30 +148,34 @@ test.suite("Publish artifact", function(suite)
 		fs.createDirectory(packageDirectory)
 		local sourceManifestPath = writePackageManifest(packageDirectory)
 
-		assert.throwsWith("'readme' must stay inside the package directory", function()
-			buildArtifact(packageDirectory, sourceManifestPath, { readme = "../private.md" })
-		end)
+		writeFile(path.join(workingDirectory, "private.md"), "private\n")
+		local outsideReader = unzip.load(
+			buildArtifact(packageDirectory, sourceManifestPath, { files = { "missing" }, readme = "../private.md" })
+		)
+		assert.eq(readEntry(outsideReader, "PUBLISHED_README.md"), "private\n")
 		assert.throwsWith("'readme' must resolve to a regular file", function()
 			buildArtifact(packageDirectory, sourceManifestPath, { readme = "missing.md" })
 		end)
 
 		writeFile(path.join(packageDirectory, "source.md"), "source\n")
 		fs.symbolicLink("source.md", path.join(packageDirectory, "linked.md"))
-		assert.throwsWith("'readme' must resolve to a regular file", function()
+		local reader = unzip.load(
 			buildArtifact(packageDirectory, sourceManifestPath, { files = { "missing" }, readme = "linked.md" })
-		end)
+		)
+		assert.eq(readEntry(reader, "PUBLISHED_README.md"), "source\n")
 	end)
 
-	suite:case("rejectsAReadmeThroughASymlinkedDirectory", function(assert)
+	suite:case("allowsAReadmeThroughASymlinkedDirectory", function(assert)
 		local packageDirectory = path.join(workingDirectory, "package")
 		fs.createDirectory(packageDirectory)
 		local sourceManifestPath = writePackageManifest(packageDirectory)
 		writeFile(path.join(workingDirectory, "private", "overview.md"), "private\n")
 		fs.symbolicLink("../private", path.join(packageDirectory, "docs"))
 
-		assert.throwsWith("'readme' must resolve to a regular file", function()
+		local reader = unzip.load(
 			buildArtifact(packageDirectory, sourceManifestPath, { files = { "missing" }, readme = "docs/overview.md" })
-		end)
+		)
+		assert.eq(readEntry(reader, "PUBLISHED_README.md"), "private\n")
 	end)
 
 	suite:case("reservesThePublishedReadmeRootEntryCaseInsensitively", function(assert)

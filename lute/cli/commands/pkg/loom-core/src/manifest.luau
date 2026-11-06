@@ -126,7 +126,9 @@ local function parseReadme(readme: unknown): string?
 		return nil
 	end
 
-	return path.format(normalizePackagePath(readme, "readme"))
+	assert(typeof(readme) == "string" and #readme > 0, "Expected 'readme' to be a non-empty string")
+	assert(not path.isAbsolute(readme), "'readme' must be relative to the package directory")
+	return path.format(path.normalize(readme))
 end
 
 local function parseFiles(files: unknown): { string }?

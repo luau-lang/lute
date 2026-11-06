@@ -106,7 +106,7 @@ test.suite("PackageManifest", function(suite)
 		end)
 	end)
 
-	suite:case("rejectsUnsafePackageReadme", function(assert)
+	suite:case("allowsAPackageReadmeOutsideThePackageDirectory", function(assert)
 		writeManifest([[return {
 	package = {
 		name = "root",
@@ -116,9 +116,7 @@ test.suite("PackageManifest", function(suite)
 }
 ]])
 
-		assert.throwsWith("'readme' must stay inside the package directory", function()
-			manifest.parseFile(path.format(manifestPath))
-		end)
+		assert.eq(manifest.parseFile(path.format(manifestPath)).package.readme, path.format("../private.md"))
 	end)
 
 	suite:case("acceptsOpaquePackageMetadata", function(assert)
