@@ -8,7 +8,6 @@ local store = require("./store")
 local VENDOR_DIRECTORY = ".lpm"
 local PACKAGE_MANIFEST = "pkg.luau"
 
--- A vendored file: where to copy it from, and its path relative to the entry.
 type VendorFile = {
 	source: path.Path,
 	parts: { string },
@@ -138,8 +137,6 @@ local function syncFile(source: path.Path, destination: path.Path)
 	fs.writeStringToFile(destination, contents)
 end
 
--- Removes everything under directory that isn't selected. Returns whether
--- directory is left empty.
 local function pruneDirectory(directory: path.Path, parts: { string }, selected: { [string]: boolean }): boolean
 	local empty = true
 	for _, child in fs.listDirectory(directory) do
@@ -185,10 +182,8 @@ local function getVendorDirectory(rootDirectory: string): path.Path
 	return path.join(rootDirectory, VENDOR_DIRECTORY)
 end
 
--- Copies every reachable registry and GitHub package into
--- ./.lpm/<encoded lock key>, and deletes entries and files that are no longer
--- selected. Path packages are never copied: they already live on disk, and
--- only the project knows where it mounts them in the DataModel.
+-- Path packages are not copied because they already live on disk, and only
+-- the project knows where to mount them in the DataModel.
 local function vendor(rootDirectory: string, lock: lockfile.Lockfile, includeDev: boolean): VendorResult
 	local vendorDirectory = getVendorDirectory(rootDirectory)
 	local reachable = lockfile.getReachablePackageKeys(lock, includeDev)
