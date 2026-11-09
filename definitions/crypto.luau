@@ -11,7 +11,7 @@ crypto.hash = table.freeze({
 	blake2b256 = {} :: Hash<"blake2b256">,
 })
 
-type IncrementalHasherData = typeof(table.freeze({}))
+type IncrementalHasherData = {}
 type IncrementalHasherMT = {
 	__index: {
 		read update: (h: IncrementalHasher, message: string | buffer) -> buffer,
