@@ -105,13 +105,17 @@ BinaryData checkBinaryData(lua_State* L, int idx)
 
 struct IncrementalHasher
 {
-    IncrementalHasher(const env_md_st* hasher)
+    IncrementalHasher(lua_State* L, const env_md_st* hasher, std::string constructionContext)
         : hasher(hasher)
         , finalized(false)
     {
         context = EVP_MD_CTX_new();
         if (!context)
+        {
             LUTE_ASSERT(!"Allocating new stateful crypto context failed.");
+            luaL_error(L, "%s: Failed to construct IncrementalHasher instance", constructionContext.c_str());
+        }
+
         EVP_DigestInit_ex(context, hasher, nullptr);
     }
 
@@ -158,14 +162,13 @@ struct IncrementalHasher
     bool finalized = false;
 };
 
+// fresh(hash: hash<any>) : IncrementalHasher
 int lua_fresh(lua_State* L)
 {
     auto* hf = checkHashFunction(L, 1);
     LUTE_ASSERT(hf);
-
     void* data = lua_newuserdatataggedwithmetatable(L, sizeof(IncrementalHasher), kIncrementalHasherTag);
-
-    new (static_cast<IncrementalHasher*>(data)) IncrementalHasher(hf);
+    new (static_cast<IncrementalHasher*>(data)) IncrementalHasher(L, hf, "crypto.fresh");
     return 1;
 }
 
