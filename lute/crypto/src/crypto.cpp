@@ -51,6 +51,27 @@ static const HashFunction hashFunctions[] = {
     {"blake2b256", EVP_blake2b256()},
 };
 
+int makeHashFunctionMap(lua_State* L)
+{
+    lua_createtable(L, 0, std::size(hashFunctions));
+
+    for (auto& [name, md] : hashFunctions)
+    {
+        lua_pushlightuserdatatagged(L, (void*)md, kHashFunctionTag);
+        lua_setfield(L, -2, name.c_str());
+    }
+
+    return 1;
+}
+
+const env_md_st* checkHashFunction(lua_State* L, int idx)
+{
+    if (auto typ = static_cast<const env_md_st*>(lua_tolightuserdatatagged(L, idx, kHashFunctionTag)))
+        return typ;
+
+    luaL_typeerrorL(L, idx, "hash function");
+}
+
 struct BinaryData
 {
     const void* data;
@@ -121,7 +142,7 @@ struct IncrementalHasher
 
     static int digest(lua_State* L)
     {
-        // Const cast here is intentional - we need to set finalized, but only when digest is invoked
+        // Const cast here is intentional - we need to update finalized
         auto* hasher = const_cast<IncrementalHasher*>(checkIncrementalHasher(L, 1));
         if (hasher->finalized)
             luaL_errorL(L, "digest: cannot re-invoke `digest` after it's been called");
@@ -136,27 +157,6 @@ struct IncrementalHasher
     EVP_MD_CTX* context;
     bool finalized = false;
 };
-
-int makeHashFunctionMap(lua_State* L)
-{
-    lua_createtable(L, 0, std::size(hashFunctions));
-
-    for (auto& [name, md] : hashFunctions)
-    {
-        lua_pushlightuserdatatagged(L, (void*)md, kHashFunctionTag);
-        lua_setfield(L, -2, name.c_str());
-    }
-
-    return 1;
-}
-
-const env_md_st* checkHashFunction(lua_State* L, int idx)
-{
-    if (auto typ = static_cast<const env_md_st*>(lua_tolightuserdatatagged(L, idx, kHashFunctionTag)))
-        return typ;
-
-    luaL_typeerrorL(L, idx, "hash function");
-}
 
 int lua_fresh(lua_State* L)
 {

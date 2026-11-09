@@ -16,6 +16,16 @@ test.suite("CryptoRuntimeTests", function(suite)
 
 			assert.eq(crypto.digest(hash, messagePart1 .. messagePart2 .. messagePart3), hasher:digest())
 		end)
+
+		suite:case(`incrementalHashDigestTwiceErrors: {name}`, function(assert)
+			local hasher = crypto.fresh(hash)
+			hasher:update("message")
+			hasher:digest()
+
+			assert.throws(function()
+				hasher:digest()
+			end)
+		end)
 	end
 
 	suite:case("secretboxIsARoundtripStrings", function(assert)
