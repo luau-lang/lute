@@ -93,6 +93,136 @@ test.suite("RegistryResolution", function(suite)
 		assert.neq(lock.packages["citrus@1.3.0"], nil)
 	end)
 
+	suite:case("doesNotFetchDependenciesOfUnselectedHistoricalVersions", function(assert)
+		local requests = 0
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				requests += 1
+				assert.eq(req.path, "/api/v1/package-index/citrus")
+				return {
+					status = 200,
+					body = [[
+[
+	{
+		"name":"citrus",
+		"version":"0.1.18",
+		"yanked":false,
+		"dependencies":[{"name":"historical-dependency","versionRequirement":"^1.0.0"}]
+	},
+	{"name":"citrus","version":"0.1.20","yanked":false,"dependencies":[]}
+]
+]],
+				}
+			end,
+		})
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "0.1.20",
+			},]],
+			nil,
+			nil,
+			`http://{instance.hostname}:{instance.port}`
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.citrus, "citrus@0.1.20")
+		assert.eq(requests, 1)
+
+		instance.close()
+	end)
+
+	suite:case("fetchesDependenciesForBacktrackedCandidatesOnlyWhenSelected", function(assert)
+		local requests: { [string]: number } = {}
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				requests[req.path] = (requests[req.path] or 0) + 1
+				if req.path == "/api/v1/package-index/citrus" then
+					return {
+						status = 200,
+						body = [[
+[
+	{
+		"name":"citrus",
+		"version":"1.1.0",
+		"yanked":false,
+		"dependencies":[
+			{"name":"lemon","versionRequirement":"1.1.0"},
+			{"name":"lime","versionRequirement":"1.0.0"}
+		]
+	},
+	{
+		"name":"citrus",
+		"version":"1.0.0",
+		"yanked":false,
+		"dependencies":[
+			{"name":"lemon","versionRequirement":"1.0.0"},
+			{"name":"lime","versionRequirement":"1.0.0"}
+		]
+	}
+]
+]],
+					}
+				elseif req.path == "/api/v1/package-index/lemon" then
+					return {
+						status = 200,
+						body = [[
+[
+	{"name":"lemon","version":"1.1.0","yanked":false,"dependencies":[]},
+	{"name":"lemon","version":"1.0.0","yanked":false,"dependencies":[]}
+]
+]],
+					}
+				end
+
+				assert.eq(req.path, "/api/v1/package-index/lime")
+				return {
+					status = 200,
+					body = [[
+[
+	{
+		"name":"lime",
+		"version":"1.0.0",
+		"yanked":false,
+		"dependencies":[{"name":"lemon","versionRequirement":"1.0.0"}]
+	}
+]
+]],
+				}
+			end,
+		})
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			`http://{instance.hostname}:{instance.port}`
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.citrus, "citrus@1.0.0")
+		assert.eq(requests["/api/v1/package-index/citrus"], 1)
+		assert.eq(requests["/api/v1/package-index/lemon"], 1)
+		assert.eq(requests["/api/v1/package-index/lime"], 1)
+
+		instance.close()
+	end)
 	suite:case("lockfileEntryHasCorrectShape", function(assert)
 		writeConfig(
 			workingDirectory,
@@ -1802,6 +1932,89 @@ test.suite("Overrides", function(suite)
 		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus@3.2.0")
 	end)
 
+	suite:case("registryOverridesRewriteChildrenOfOverriddenPackage", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "2.0.0",
+			},
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "3.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "2.0.0", { citrus = req("citrus", "^2.0.0") }),
+				namedVersion("lemon", "1.0.0", { citrus = req("citrus", "^1.0.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "3.0.0"),
+				namedVersion("citrus", "2.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.lemon, "lemon@2.0.0")
+		assert.eq(lock.packages["lemon@2.0.0"].dependencies.citrus, "citrus@3.0.0")
+	end)
+
+	suite:case("registryOverrideReplacesTransitiveRegistryPackageName", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus-fork",
+				version = "3.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "1.0.0", { citrus = req("citrus", "^2.0.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "2.0.0"),
+			},
+			["citrus-fork"] = {
+				namedVersion("citrus-fork", "3.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus-fork@3.0.0")
+		assert.eq(lock.packages["citrus-fork@3.0.0"].source, "citrus-fork")
+		assert.eq(lock.packages["citrus@2.0.0"], nil)
+	end)
+
 	suite:case("versionPinWorksForDirectDep", function(assert)
 		writeConfig(
 			workingDirectory,
@@ -2033,6 +2246,72 @@ test.suite("Overrides", function(suite)
 		instance.close()
 	end)
 
+	suite:case("registryOverrideFetchesRenamedTransitivePackageFromRootRegistry", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				if req.path == "/api/v1/package-index/lemon" then
+					return {
+						status = 200,
+						body = [[
+[{
+	"name":"lemon",
+	"version":"1.0.0",
+	"yanked":false,
+	"dependencies":[{"name":"citrus","versionRequirement":"^2.0.0"}]
+}]
+]],
+					}
+				elseif req.path == "/api/v1/package-index/citrus" then
+					return {
+						status = 200,
+						body = [[
+[{"name":"citrus","version":"2.0.0","yanked":false,"dependencies":[]}]
+]],
+					}
+				end
+
+				assert.eq(req.path, "/api/v1/package-index/citrus-fork")
+				return {
+					status = 200,
+					body = [[
+[{"name":"citrus-fork","version":"3.0.0","yanked":false,"dependencies":[]}]
+]],
+				}
+			end,
+		})
+		local registryUrl = `http://{instance.hostname}:{instance.port}`
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus-fork",
+				version = "3.0.0",
+			},]],
+			registryUrl
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+
+		local lemonKey = lock.dependencies.lemon
+		assert.eq(lock.packages[lemonKey].dependencies.citrus, "citrus-fork@3.0.0")
+		assert.eq(lock.packages["citrus-fork@3.0.0"].registry, registryUrl)
+
+		instance.close()
+	end)
+
 	suite:case("sourceOverridePathResolvesNestedPathDeps", function(assert)
 		local sharedDir = path.join(workingDirectory, "shared")
 		fs.createDirectory(sharedDir)
@@ -2089,9 +2368,11 @@ test.suite("Overrides", function(suite)
 		assert.eq(reused.packages.citrus.dependencies.shared, "shared")
 	end)
 
-	suite:case("sourceOverrideAppliesRegistryOverridesToNestedDependencies", function(assert)
+	suite:case("registryOverrideAppliesToNestedDependenciesWithoutNestedRegistry", function(assert)
 		local consumerDir = path.join(workingDirectory, "consumer")
 		fs.createDirectory(consumerDir)
+		-- Intentionally omit `registry`: the root registry override must make the
+		-- consumer's original registry configuration unnecessary.
 		writeConfig(
 			consumerDir,
 			"consumer",
@@ -2101,10 +2382,7 @@ test.suite("Overrides", function(suite)
 				sourceKind = "registry",
 				source = "citrus",
 				version = "^1.0.0",
-			},]],
-			nil,
-			nil,
-			"https://nested-registry.example.com"
+			},]]
 		)
 
 		local rootRegistryUrl = "https://root-registry.example.com"
@@ -2147,6 +2425,51 @@ test.suite("Overrides", function(suite)
 
 		assert.eq(lock.packages[citrusKey].rev, "2.0.0")
 		assert.eq(lock.packages[citrusKey].registry, rootRegistryUrl)
+	end)
+
+	suite:case("sourceOverrideAppliesToNestedDependenciesWithoutNestedRegistry", function(assert)
+		local consumerDir = path.join(workingDirectory, "consumer")
+		fs.createDirectory(consumerDir)
+		-- The consumer's declared registry dependency is replaced before its
+		-- registry is consulted, so it does not need a registry of its own.
+		writeConfig(
+			consumerDir,
+			"consumer",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local overrideDir = path.join(workingDirectory, "citrus-fork")
+		fs.createDirectory(overrideDir)
+		writeConfig(overrideDir, "citrus", "")
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			consumer = {
+				sourceKind = "path",
+				source = "./consumer",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "path",
+				source = "./citrus-fork",
+			},]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+
+		assert.eq(lock.packages.consumer.dependencies.citrus, "citrus")
+		assert.eq(lock.packages.citrus.sourceKind, "path")
 	end)
 
 	suite:case("directRegistryOverrideOutsideOriginalRangeReusesLockfile", function(assert)
@@ -2320,7 +2643,122 @@ test.suite("Overrides", function(suite)
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 
 		assert.neq(lock.overrides, nil)
-		assert.eq((lock.overrides :: any).citrus, "2.0.0")
+		assert.eq((lock.overrides :: any).citrus, "registry:citrus@2.0.0")
+	end)
+
+	suite:case("registryOverrideSourceChangeInvalidatesTransitiveLockfile", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus-fork-one",
+				version = "3.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "1.0.0", { citrus = req("citrus", "^2.0.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "2.0.0"),
+			},
+			["citrus-fork-one"] = {
+				namedVersion("citrus-fork-one", "3.0.0"),
+			},
+			["citrus-fork-two"] = {
+				namedVersion("citrus-fork-two", "3.0.0"),
+			},
+		}
+
+		resolution.resolve(path.format(workingDirectory), universe)
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus-fork-two",
+				version = "3.0.0",
+			},]]
+		)
+
+		assert.throwsWith(
+			"--locked: lockfile does not satisfy manifest (override changed: citrus). Run `lute pkg install` to update.",
+			function()
+				resolution.resolve(path.format(workingDirectory), universe, { locked = true })
+			end
+		)
+	end)
+
+	suite:case("overrideChainsAreRejected", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			"",
+			nil,
+			[[
+
+			apple = {
+				sourceKind = "registry",
+				source = "banana",
+				version = "1.0.0",
+			},
+			banana = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "1.0.0",
+			},]]
+		)
+
+		assert.throwsWith("Override chain: apple -> banana. Flatten this to a single override.", function()
+			resolution.resolve(path.format(workingDirectory), nil)
+		end)
+	end)
+
+	suite:case("pathOverrideChainsAreRejected", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			"",
+			nil,
+			[[
+
+			apple = {
+				name = "banana",
+				sourceKind = "path",
+				source = "./apple-fork",
+			},
+			banana = {
+				sourceKind = "path",
+				source = "./banana-fork",
+			},]]
+		)
+
+		assert.throwsWith("Override chain: apple -> banana. Flatten this to a single override.", function()
+			resolution.resolve(path.format(workingDirectory), nil)
+		end)
 	end)
 
 	suite:case("lockfileVersionIsFiveWithOverrides", function(assert)
