@@ -101,6 +101,12 @@ export type CstStatAssign = cst.CstStatAssign
 
 export type CstStatCompoundAssign = cst.CstStatCompoundAssign
 
+export type CstAttributeSimple = cst.CstAttributeSimple
+
+export type CstAttributeParametrized = cst.CstAttributeParametrized
+
+export type CstAttributeList = cst.CstAttributeList
+
 export type CstAttribute = cst.CstAttribute
 
 export type CstStatFunction = cst.CstStatFunction
