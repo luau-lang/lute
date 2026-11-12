@@ -82,6 +82,11 @@ if(LUTE_EXTERN_C)
     set(LUAU_EXTERN_C ON)
 endif()
 
+option(LUTE_NO_VENDOR "Don't vendor dependencies" OFF)
+if (LUTE_NO_VENDOR)
+    find_package(PkgConfig REQUIRED)
+endif()
+
 # luau setup
 set(LUAU_BUILD_CLI OFF)
 set(LUAU_BUILD_TESTS OFF)
@@ -89,49 +94,43 @@ set(LUAU_BUILD_TESTS OFF)
 add_subdirectory(extern/luau)
 
 # libuv setup
-set(LIBUV_BUILD_SHARED OFF)
-set(BUILD_SHARED_LIBS OFF) # why does an option for LIBUV_BUILD_SHARED exist separately
-set(LIBUV_BUILD_TESTS OFF)
-set(LIBUV_BUILD_BENCH OFF)
-add_subdirectory(extern/libuv)
+if (LUTE_NO_VENDOR)
+    pkg_check_modules(LIBUV REQUIRED IMPORTED_TARGET libuv)
+    add_library(libuv::libuv ALIAS PkgConfig::LIBUV)
+else()
+    set(LIBUV_BUILD_SHARED OFF)
+    set(BUILD_SHARED_LIBS OFF) # why does an option for LIBUV_BUILD_SHARED exist separately
+    set(LIBUV_BUILD_TESTS OFF)
+    set(LIBUV_BUILD_BENCH OFF)
+    add_subdirectory(extern/libuv)
+endif()
 
 # Define libuv include directory here, before it's needed by other subdirectories
 set(LIBUV_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/libuv/include)
 
 # zlib setup
-#
-set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "Do not build examples" FORCE)
-set(ZLIB_BUILD_TESTING OFF CACHE BOOL "Do not build zlib tests" FORCE)
-set(ZLIB_BUILD_SHARED OFF CACHE BOOL "Do not build shared zlib" FORCE)
-set(ZLIB_BUILD_STATIC ON CACHE BOOL "Build static zlib" FORCE)
-set(ZLIB_INSTALL OFF CACHE BOOL "Do not install zlib" FORCE)
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static zlib" FORCE)
-add_subdirectory(extern/zlib)
-if(TARGET zlibstatic AND NOT TARGET ZLIB::ZLIB)
-    add_library(ZLIB::ZLIB INTERFACE IMPORTED GLOBAL)
-    target_link_libraries(ZLIB::ZLIB INTERFACE "$<BUILD_INTERFACE:zlibstatic>")
-endif()
-
-set(ZLIB_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/zlib")
-
-if(MSVC)
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstaticd.lib" CACHE FILEPATH "" FORCE)
-    else()
-        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstatic.lib" CACHE FILEPATH "" FORCE)
-    endif()
+if (LUTE_NO_VENDOR)
+    find_package(ZLIB REQUIRED)
 else()
-    set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz.a" CACHE FILEPATH "" FORCE)
+    set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "Do not build examples" FORCE)
+    set(ZLIB_BUILD_TESTING OFF CACHE BOOL "Do not build zlib tests" FORCE)
+    set(ZLIB_BUILD_SHARED OFF CACHE BOOL "Do not build shared zlib" FORCE)
+    set(ZLIB_BUILD_STATIC ON CACHE BOOL "Build static zlib" FORCE)
+    set(ZLIB_INSTALL OFF CACHE BOOL "Do not install zlib" FORCE)
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static zlib" FORCE)
+    add_subdirectory(extern/zlib)
+    if(TARGET zlibstatic AND NOT TARGET ZLIB::ZLIB)
+        add_library(ZLIB::ZLIB INTERFACE IMPORTED GLOBAL)
+        target_link_libraries(ZLIB::ZLIB INTERFACE "$<BUILD_INTERFACE:zlibstatic>")
+    endif()
 endif()
-set(ZLIB_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/zlib;${ZLIB_OUTPUT_DIR} CACHE PATH "" FORCE)
-set(ZLIB_INCLUDE_DIRS ${ZLIB_INCLUDE_DIR} CACHE STRING "" FORCE)
-set(ZLIB_LIBRARIES ZLIB::ZLIB CACHE STRING "" FORCE)
 
 # boringssl setup
 set(BUILD_TESTING OFF)
 add_subdirectory(extern/boringssl)
 set(BORINGSSL_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/boringssl")
 set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/boringssl/include)
+find_package(OpenSSL REQUIRED)
 
 # Suppress frame-size warnings in boringssl when sanitizers are enabled
 if (LUTE_ENABLE_SANITIZERS AND NOT MSVC)
@@ -153,68 +152,77 @@ endif()
 
 # curl setup
 
-set(USE_LIBIDN2 OFF)
-set(USE_NGHTTP2 OFF)
-set(CURL_USE_LIBPSL OFF)
-set(CURL_USE_LIBSSH2 OFF)
-set(CURL_ZLIB ON)
-SET(CURL_ZSTD OFF CACHE STRING "Disable ZSTD" FORCE)
-set(CURL_BROTLI OFF CACHE STRING "Disable brotli support" FORCE)
-set(CURL_ENABLE_SSL ON)
-set(CURL_USE_OPENSSL ON)
-set(BUILD_EXAMPLES OFF)
-set(BUILD_CURL_EXE OFF)
-set(BUILD_SHARED_LIBS OFF)
-set(BUILD_STATIC_LIBS ON)
-set(CURL_ENABLE_EXPORT_TARGET OFF)
-
-# curl's OpenSSL-family probes run in nested try-compile projects, where the
-# in-tree ZLIB::ZLIB target is not visible. These are false for BoringSSL.
-set(HAVE_DES_ECB_ENCRYPT "" CACHE INTERNAL "curl BoringSSL feature probe")
-set(HAVE_SSL_SET0_WBIO "" CACHE INTERNAL "curl BoringSSL feature probe")
-set(HAVE_OPENSSL_SRP "" CACHE INTERNAL "curl BoringSSL feature probe")
-
-# lute/net only speaks HTTP/HTTPS/WebSocket.
-set(CURL_DISABLE_FTP    ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_TFTP   ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_FILE   ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_DICT   ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_TELNET ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_LDAP   ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_LDAPS  ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_SMB    ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_SMTP   ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_IMAP   ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_POP3   ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_GOPHER ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_RTSP   ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_MQTT   ON CACHE BOOL "" FORCE)
-set(CURL_DISABLE_IPFS   ON CACHE BOOL "" FORCE)
-
-# One more set of DISABLES. We might need to re-enable these at some point
-# if we need the features they provide
-set(CURL_DISABLE_AWS            ON  CACHE BOOL "" FORCE)
-set(CURL_DISABLE_INSTALL        ON  CACHE BOOL "" FORCE)
-set(ENABLE_UNIX_SOCKETS         OFF CACHE BOOL "" FORCE)
-
-set(HAVE_BORINGSSL ON)
-add_subdirectory(extern/curl)
+if (LUTE_NO_VENDOR)
+    find_package(CURL REQUIRED)
+else()
+    set(USE_LIBIDN2 OFF)
+    set(USE_NGHTTP2 OFF)
+    set(CURL_USE_LIBPSL OFF)
+    set(CURL_USE_LIBSSH2 OFF)
+    set(CURL_ZLIB ON)
+    SET(CURL_ZSTD OFF CACHE STRING "Disable ZSTD" FORCE)
+    set(CURL_BROTLI OFF CACHE STRING "Disable brotli support" FORCE)
+    set(CURL_ENABLE_SSL ON)
+    set(CURL_USE_OPENSSL ON)
+    set(BUILD_EXAMPLES OFF)
+    set(BUILD_CURL_EXE OFF)
+    set(BUILD_SHARED_LIBS OFF)
+    set(BUILD_STATIC_LIBS ON)
+    set(CURL_ENABLE_EXPORT_TARGET OFF)
+    
+    # curl's OpenSSL-family probes run in nested try-compile projects, where the
+    # in-tree ZLIB::ZLIB target is not visible. These are false for BoringSSL.
+    set(HAVE_DES_ECB_ENCRYPT "" CACHE INTERNAL "curl BoringSSL feature probe")
+    set(HAVE_SSL_SET0_WBIO "" CACHE INTERNAL "curl BoringSSL feature probe")
+    set(HAVE_OPENSSL_SRP "" CACHE INTERNAL "curl BoringSSL feature probe")
+    
+    # lute/net only speaks HTTP/HTTPS/WebSocket.
+    set(CURL_DISABLE_FTP    ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_TFTP   ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_FILE   ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_DICT   ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_TELNET ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_LDAP   ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_LDAPS  ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_SMB    ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_SMTP   ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_IMAP   ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_POP3   ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_GOPHER ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_RTSP   ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_MQTT   ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_IPFS   ON CACHE BOOL "" FORCE)
+    
+    # One more set of DISABLES. We might need to re-enable these at some point
+    # if we need the features they provide
+    set(CURL_DISABLE_AWS            ON  CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_INSTALL        ON  CACHE BOOL "" FORCE)
+    set(ENABLE_UNIX_SOCKETS         OFF CACHE BOOL "" FORCE)
+    
+    set(HAVE_BORINGSSL ON)
+    add_subdirectory(extern/curl)
+endif()
 
 # uWebSockets setup
-set(WITH_BORINGSSL ON)
+if (LUTE_NO_VENDOR)
+    set(WITH_OPENSSL ON)
+else()
+    set(WITH_BORINGSSL ON)
+endif()
 set(WITH_LIBUV ON)
 set(WITH_ZLIB ON)
 
 # Set the correct libuv library name for uWebSockets
-set(LIBUV_LIBRARY uv_a)
 include(uSockets)
 include(uWebSockets)
 
-# Define include directories for uWebSockets and uSockets
-set(UWEBSOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/src)
-
 # libsodium for `pwhash`
-include(libsodium)
+if (LUTE_NO_VENDOR)
+    pkg_check_modules(SODIUM REQUIRED IMPORTED_TARGET libsodium)
+    add_library(sodium ALIAS PkgConfig::SODIUM)
+else()
+    include(libsodium)
+endif()
 
 # Lute
 set(LUTE_OPTIONS)

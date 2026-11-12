@@ -3,13 +3,11 @@ project(uWebSockets LANGUAGES C CXX)
 
 set(UWEBSOCKETS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/uWebSockets)
 
-# Include directories
-include_directories(${UWEBSOCKETS_SOURCE_DIR}/src)
-include_directories(${UWEBSOCKETS_SOURCE_DIR}/uSockets/src)
-include_directories(${LIBUV_INCLUDE_DIR})
-
 # Add the uWebSockets interface library
 add_library(uWS INTERFACE)
+
+# Include directories
+target_include_directories(uWS INTERFACE ${UWEBSOCKETS_SOURCE_DIR}/src)
 
 # Set C++20 standard for uWS target
 target_compile_features(uWS INTERFACE cxx_std_20)
@@ -40,8 +38,7 @@ if(WITH_LIBDEFLATE)
 endif()
 
 if(WITH_ZLIB)
-    target_include_directories(uWS INTERFACE ${ZLIB_INCLUDE_DIRS})
-    target_link_libraries(uWS INTERFACE ${ZLIB_LIBRARIES})
+    target_link_libraries(uWS INTERFACE ZLIB::ZLIB)
 else()
     target_compile_definitions(uWS INTERFACE UWS_NO_ZLIB)
 endif()
@@ -69,8 +66,7 @@ elseif(WITH_WOLFSSL)
 endif()
 
 if(WITH_LIBUV)
-    target_include_directories(uWS INTERFACE ${LIBUV_INCLUDE_DIR})
-    target_link_libraries(uWS INTERFACE ${LIBUV_LIBRARY})
+    target_link_libraries(uWS INTERFACE libuv::libuv)
 endif()
 
 if(WITH_ASIO)
