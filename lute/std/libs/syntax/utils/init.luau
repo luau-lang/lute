@@ -69,6 +69,42 @@ function utils.isExprInstantiate(n: types.CstNode): types.CstExprInstantiate?
 	return if n.kind == "expr" and n.tag == "instantiate" then n else nil
 end
 
+--- Returns `n` narrowed to `CstStatLocal` if this is an exported local statement
+function utils.isExportStatLocal(n: types.CstNode): types.CstStatLocal?
+	return if n.kind == "stat" and n.tag == "local" and n.isExported and n.exportKeyword then n else nil
+end
+
+--- Returns `n` narrowed to `CstStatConst` if this is an exported const statement
+function utils.isExportStatConst(n: types.CstNode): types.CstStatConst?
+	return if n.kind == "stat" and n.tag == "const" and n.isExported and n.exportKeyword then n else nil
+end
+
+--- Returns `n` narrowed to `CstStatLocalFunction` if this is exported function
+function utils.isExportStatLocalFunction(n: types.CstNode): types.CstStatLocalFunction?
+	return if n.kind == "stat" and n.tag == "localfunction" and n.isExported and n.exportKeyword then n else nil
+end
+
+-- Returns a table containing the exported items contained within a `export` statement and nil if the given node is not an export statement
+function utils.getExportedItems(n: types.CstNode): { isConst: boolean, items: { types.CstLocal } }?
+	local function gather(punctuated: types.CstPunctuated<types.CstLocal>): { types.CstLocal }
+		local t = {}
+		for _, loc in punctuated do
+			table.insert(t, loc)
+		end
+		return t
+	end
+	if local exportLocal = utils.isExportStatLocal(n) then
+		return { isConst = false, items = gather(exportLocal.variables) }
+	elseif local exportConst = utils.isExportStatConst(n) then
+		return { isConst = true, items = gather(exportConst.variables) }
+	elseif local exportStatLocalFn = utils.isExportStatLocalFunction(n) then
+		-- Export local function is always const
+		return { isConst = true, items = { exportStatLocalFn.name } }
+	end
+
+	return nil
+end
+
 --- Returns `n` narrowed to `CstExprIndexName` if it is a field access expression (e.g. `a.b`), or `nil` otherwise.
 function utils.isExprIndexName(n: types.CstNode): types.CstExprIndexName?
 	return if n.kind == "expr" and n.tag == "indexname" then n else nil
