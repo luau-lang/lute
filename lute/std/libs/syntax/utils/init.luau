@@ -1,5 +1,13 @@
 local types = require("./types")
 
+local function gather(punctuated: types.CstPunctuated<types.CstLocal>): { types.CstLocal }
+	local t = {}
+	for _, loc in punctuated do
+		table.insert(t, loc)
+	end
+	return t
+end
+
 local utils = {}
 
 --- Returns `n` narrowed to `CstLocal` if it is a local variable node, or `nil` otherwise.
@@ -86,13 +94,6 @@ end
 
 -- Returns a table containing the exported items contained within a `export` statement and nil if the given node is not an export statement
 function utils.getExportedItems(n: types.CstNode): { isConst: boolean, items: { types.CstLocal } }?
-	local function gather(punctuated: types.CstPunctuated<types.CstLocal>): { types.CstLocal }
-		local t = {}
-		for _, loc in punctuated do
-			table.insert(t, loc)
-		end
-		return t
-	end
 	if local exportLocal = utils.isExportStatLocal(n) then
 		return { isConst = false, items = gather(exportLocal.variables) }
 	elseif local exportConst = utils.isExportStatConst(n) then
