@@ -1711,8 +1711,14 @@ void Target::continueProcessHelper()
         }
         else
         {
-            // run the thread completion handler on the current thread.
-            childRuntime->runUncaughtExceptionCompletion(stoppedThread);
+            // We defer this call so that the rest of this function can finish
+            // before the completion handler signals an exit.
+            childRuntime->schedule(
+                [runtime = childRuntime.get(), L = stoppedThread, ref = stoppedThreadRef]()
+                {
+                    runtime->runUncaughtExceptionCompletion(L);
+                }
+            );
             stoppedUncaughtException = false;
         }
         stoppedThread = nullptr;
