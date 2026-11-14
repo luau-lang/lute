@@ -297,6 +297,10 @@ end
 
 local function visitLocalStatement(node: types.CstStatLocal, visitor: Visitor)
 	if visitor.visitStatLocalDeclaration(node) then
+		if node.isExported and node.exportKeyword then
+			visitToken(node.exportKeyword, visitor)
+		end
+
 		visitToken(node.localKeyword, visitor)
 		visitPunctuated(node.variables, visitor, visitLocal)
 		if node.equals then
@@ -310,6 +314,9 @@ end
 
 local function visitConstStatement(node: types.CstStatConst, visitor: Visitor)
 	if visitor.visitStatConstDeclaration(node) then
+		if node.isExported and node.exportKeyword then
+			visitToken(node.exportKeyword, visitor)
+		end
 		visitToken(node.constKeyword, visitor)
 		visitPunctuated(node.variables, visitor, visitLocal)
 		if node.equals then
@@ -582,7 +589,15 @@ local function visitStatLocalFunction(node: types.CstStatLocalFunction, visitor:
 		for _, attribute in node.func.attributes do
 			visitAttribute(attribute, visitor)
 		end
-		visitToken(node.localKeyword, visitor)
+
+		if node.isExported and node.exportKeyword then
+			visitToken(node.exportKeyword, visitor)
+		elseif node.localKeyword then
+			visitToken(node.localKeyword, visitor)
+		else
+			error("visitor error: A non-exported local function must have a local keyword")
+		end
+
 		visitToken(node.func.functionKeyword, visitor)
 		visitLocal(node.name, visitor)
 		visitExprFunction(node.func, visitor, false, false)
