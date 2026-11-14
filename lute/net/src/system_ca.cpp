@@ -2,6 +2,8 @@
 
 #include "curl/curl.h"
 
+#include <cstdlib>
+
 #if defined(__linux__)
 #include <sys/stat.h>
 #endif
@@ -9,9 +11,37 @@
 namespace net
 {
 
-#if defined(__linux__)
 namespace
 {
+
+// libcurl ignores these once CURLOPT_CAINFO / CURLOPT_CAPATH are set. The curl
+// tool reads them itself, in this order: CURL_CA_BUNDLE replaces the CA file
+// and skips the other two; otherwise SSL_CERT_DIR is the CA directory and
+// SSL_CERT_FILE is the CA file. Match that so enterprise bundles are trusted.
+const char* envOrNull(const char* name)
+{
+    const char* value = std::getenv(name);
+    if (!value || value[0] == '\0')
+        return nullptr;
+    return value;
+}
+
+struct CAEnv
+{
+    const char* file;
+    const char* dir;
+};
+
+CAEnv caFromEnv()
+{
+    const char* bundle = envOrNull("CURL_CA_BUNDLE");
+    if (bundle)
+        return {bundle, nullptr};
+
+    return {envOrNull("SSL_CERT_FILE"), envOrNull("SSL_CERT_DIR")};
+}
+
+#if defined(__linux__)
 
 // Mirrors the lists in Go's crypto/x509/root_linux.go.
 constexpr const char* kCAFiles[] = {
@@ -41,19 +71,32 @@ const char* findPath(const char* const* paths, size_t count, bool wantDir)
     return nullptr;
 }
 
-} // namespace
 #endif
+
+} // namespace
 
 void applySystemCA(CURL* curl)
 {
 #if defined(_WIN32)
     curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
-#elif defined(__APPLE__)
-    // macOS 12+ always ships /etc/ssl/cert.pem
-    curl_easy_setopt(curl, CURLOPT_CAINFO, "/etc/ssl/cert.pem");
+#else
+    CAEnv fromEnv = caFromEnv();
+    const char* cafile = fromEnv.file;
+    const char* capath = fromEnv.dir;
+
+#if defined(__APPLE__)
+    // macOS 12+ always ships /etc/ssl/cert.pem.
+    if (!cafile)
+        cafile = "/etc/ssl/cert.pem";
 #elif defined(__linux__)
-    static const char* cafile = findPath(kCAFiles, sizeof(kCAFiles) / sizeof(kCAFiles[0]), false);
-    static const char* capath = findPath(kCADirs, sizeof(kCADirs) / sizeof(kCADirs[0]), true);
+    if (!cafile)
+        cafile = findPath(kCAFiles, sizeof(kCAFiles) / sizeof(kCAFiles[0]), false);
+    // A file from the environment replaces the platform locations. The distro
+    // directory remains only when the environment did not name a file.
+    if (!fromEnv.file && !capath)
+        capath = findPath(kCADirs, sizeof(kCADirs) / sizeof(kCADirs[0]), true);
+#endif
+
     if (cafile)
         curl_easy_setopt(curl, CURLOPT_CAINFO, cafile);
     if (capath)
