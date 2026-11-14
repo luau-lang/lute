@@ -1713,9 +1713,8 @@ void Target::continueProcessHelper()
         {
             // We defer this call so that the rest of this function can finish
             // before the completion handler signals an exit.
-            Runtime* runtime = childRuntime.get();
             childRuntime->schedule(
-                [runtime, L = stoppedThread, ref = stoppedThreadRef]()
+                [runtime = childRuntime.get(), L = stoppedThread, ref = stoppedThreadRef]()
                 {
                     runtime->runUncaughtExceptionCompletion(L);
                 }
