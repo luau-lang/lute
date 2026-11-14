@@ -280,13 +280,6 @@ test.suite("CstQuery", function(suite)
 		assert.eq(#exprNumbers.nodes, 1)
 	end)
 
-	suite:case("queryExprConstantInteger", function(assert)
-		local cst = syntax.parse("local x = 42i")
-
-		local exprIntegers = query.findAllFromRoot(cst, utils.isExprConstantInteger)
-		assert.eq(#exprIntegers.nodes, 1)
-	end)
-
 	suite:case("queryExprConstantString", function(assert)
 		local cst = syntax.parse('local x = "hello"')
 

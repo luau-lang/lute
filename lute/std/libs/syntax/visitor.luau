@@ -43,7 +43,6 @@ export type Visitor = {
 	visitExprConstantString: (types.CstExprConstantString) -> boolean,
 	visitExprConstantBool: (types.CstExprConstantBool) -> boolean,
 	visitExprConstantNumber: (types.CstExprConstantNumber) -> boolean,
-	visitExprConstantInteger: (types.CstExprConstantInteger) -> boolean,
 	visitExprLocal: (types.CstExprLocal) -> boolean,
 	visitExprGlobal: (types.CstExprGlobal) -> boolean,
 	visitExprCall: (types.CstExprCall) -> boolean,
@@ -124,7 +123,6 @@ local defaultVisitor: Visitor = {
 	visitExprConstantString = alwaysVisit,
 	visitExprConstantBool = alwaysVisit,
 	visitExprConstantNumber = alwaysVisit,
-	visitExprConstantInteger = alwaysVisit,
 	visitExprEnd = alwaysVisit :: (types.CstNode) -> (),
 	visitExprLocal = alwaysVisit,
 	visitExprGlobal = alwaysVisit,
@@ -443,12 +441,6 @@ end
 
 local function visitExprConstantNumber(node: types.CstExprConstantNumber, visitor: Visitor)
 	if visitor.visitExprConstantNumber(node) then
-		visitToken(node.token, visitor)
-	end
-end
-
-local function visitExprConstantInteger(node: types.CstExprConstantInteger, visitor: Visitor)
-	if visitor.visitExprConstantInteger(node) then
 		visitToken(node.token, visitor)
 	end
 end
@@ -912,8 +904,6 @@ function visitExpr(expression: types.CstExpr, visitor: Visitor)
 			visitExprConstantBool(expression, visitor)
 		elseif expression.tag == "number" then
 			visitExprConstantNumber(expression, visitor)
-		elseif expression.tag == "integer" then
-			visitExprConstantInteger(expression, visitor)
 		elseif expression.tag == "string" then
 			visitExprConstantString(expression, visitor)
 		elseif expression.tag == "local" then
@@ -1131,7 +1121,6 @@ local function create(visit: ((types.CstNode) -> boolean)?): Visitor
 			visitExprConstantString = visit,
 			visitExprConstantBool = visit,
 			visitExprConstantNumber = visit,
-			visitExprConstantInteger = visit,
 			visitLocal = visit,
 			visitExprVarargs = visit,
 

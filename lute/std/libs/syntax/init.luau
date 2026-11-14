@@ -45,8 +45,6 @@ export type CstExprConstantBool = cst.CstExprConstantBool
 
 export type CstExprConstantNumber = cst.CstExprConstantNumber
 
-export type CstExprConstantInteger = cst.CstExprConstantInteger
-
 export type CstExprConstantString = cst.CstExprConstantString
 
 export type CstExprLocal = cst.CstExprLocal

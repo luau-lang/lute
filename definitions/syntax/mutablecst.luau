@@ -115,15 +115,6 @@ export type CstExprConstantNumber = {
 	token: CstToken<string>,
 }
 
---- An integer literal node.
-export type CstExprConstantInteger = {
-	location: Span,
-	kind: "expr",
-	tag: "integer",
-	value: number,
-	token: CstToken<string>,
-}
-
 --- A string literal node.
 export type CstExprConstantString = {
 	location: Span,
@@ -348,7 +339,6 @@ export type CstExpr =
 	| CstExprConstantNil
 	| CstExprConstantBool
 	| CstExprConstantNumber
-	| CstExprConstantInteger
 	| CstExprConstantString
 	| CstExprLocal
 	| CstExprGlobal
