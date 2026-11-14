@@ -408,11 +408,6 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 		return true
 	end
 
-	function visitor.visitExprConstantInteger(node: syntax.CstExprConstantInteger)
-		visitor.expressionIsLiteral[node] = true
-		return true
-	end
-
 	function visitor.visitExprTable(node: syntax.CstExprTable)
 		visitor.expressionIsLiteral[node] = true
 		return true

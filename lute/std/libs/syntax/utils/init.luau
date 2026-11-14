@@ -35,11 +35,6 @@ function utils.isExprConstantNumber(n: types.CstNode): types.CstExprConstantNumb
 	return if n.kind == "expr" and n.tag == "number" then n else nil
 end
 
---- Returns `n` narrowed to `CstExprConstantNumber` if it is a number literal expression, or `nil` otherwise.
-function utils.isExprConstantInteger(n: types.CstNode): types.CstExprConstantInteger?
-	return if n.kind == "expr" and n.tag == "integer" then n else nil
-end
-
 --- Returns `n` narrowed to `CstExprConstantString` if it is a string literal expression, or `nil` otherwise.
 function utils.isExprConstantString(n: types.CstNode): types.CstExprConstantString?
 	return if n.kind == "expr" and n.tag == "string" then n else nil
