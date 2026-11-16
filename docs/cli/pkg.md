@@ -6,8 +6,27 @@ Manage dependencies declared in `pkg.luau`.
 
 ```bash
 lute pkg install
+lute pkg install --vendor
 lute pkg publish [--dry-run | --list]
 ```
+
+## Vendoring
+
+Run `lute pkg install --vendor` to copy resolved registry and GitHub packages
+from Lute's shared local store into `.lpm/` in the project directory. Each
+reachable package is placed in a directory named from its lockfile key, with
+unsafe path characters percent-encoded. This makes project-local package files
+available to tools such as filesync, Rojo, and content-map workflows.
+
+Path dependencies, including workspace members, stay where the project mounted
+them; they are not copied into `.lpm/`. Registry and GitHub dependencies that
+are reachable through those path dependencies are still vendored. Use
+`--exclude-dev` with `--vendor` to omit dev-only dependencies.
+
+Registry store entries are copied whole because their package filtering happened
+at publish time. GitHub packages apply their `content_root` and `files` rules,
+matching `pkg publish`. Re-running the command synchronizes `.lpm`, pruning
+packages and files no longer selected while leaving unchanged files untouched.
 
 ## Publishing
 

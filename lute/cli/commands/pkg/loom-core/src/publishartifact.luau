@@ -8,7 +8,7 @@ local PUBLISHED_README = "PUBLISHED_README.md"
 
 type PublishableFile = zipWriter.Entry
 
-type CollectedFile = {
+export type CollectedFile = {
 	path: path.Path,
 	name: string,
 }
@@ -223,5 +223,6 @@ end
 
 return table.freeze({
 	build = build,
+	collect = collectPublishableFiles,
 	list = list,
 })

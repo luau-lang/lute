@@ -6,6 +6,7 @@ local resolution = require("../resolution")
 local path = require("@std/path")
 local process = require("@std/process")
 local store = require("../store")
+local vendor = require("../vendor")
 
 local function printDiagnostics(lock: lockfile.Lockfile, includeDev: boolean)
 	local devDependencies = if includeDev then lock.devDependencies or {} else {}
@@ -47,6 +48,7 @@ local function install(...: string)
 	local args = cli.parser()
 	args:add("exclude-dev", "flag", { help = "Skip dev dependencies" })
 	args:add("locked", "flag", { help = "Error if lockfile doesn't match manifest (CI mode)" })
+	args:add("vendor", "flag", { help = "Copy locked packages into ./.lpm next to the lockfile" })
 
 	local valid, err = pcall(cli.parse, args, { ... })
 	if not valid then
@@ -57,6 +59,7 @@ local function install(...: string)
 
 	local excludeDev = args:has("exclude-dev")
 	local locked = args:has("locked")
+	local shouldVendor = args:has("vendor")
 	local rootDirectory = path.format(process.cwd())
 	local lock = resolution.resolve(rootDirectory, nil, {
 		excludeDev = excludeDev,
@@ -88,6 +91,15 @@ local function install(...: string)
 	end
 
 	printDiagnostics(lock, not excludeDev)
+
+	if shouldVendor then
+		local result = vendor.vendor(rootDirectory, lock, not excludeDev)
+		local summary = `Vendored {result.packageCount} package(s) into {vendor.VENDOR_DIRECTORY}`
+		if result.pathPackageCount > 0 then
+			summary ..= `; {result.pathPackageCount} path package(s) stay in place`
+		end
+		print(`{summary}.`)
+	end
 end
 
 return install
