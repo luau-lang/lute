@@ -291,4 +291,58 @@ test.suite("NetTestSuite", function(suite)
 		assert.eq(true, done)
 		assert.eq(true, failed)
 	end)
+
+	suite:case("requestTimeoutFailsSlowResponse", function(assert)
+		local handlerDone = false
+		local instance = server.serve({
+			port = 0,
+			handler = function(_req: server.ReceivedRequest): server.ServerResponse
+				task.wait(1)
+				handlerDone = true
+				return { status = 200, body = "too late" }
+			end,
+		})
+
+		local start = time.now()
+		local ok, err = pcall(function()
+			return net.request(`http://{instance.hostname}:{instance.port}/`, {
+				timeout = 0.1,
+			})
+		end)
+		local elapsed = time.since(start)
+
+		assert.eq(false, ok)
+		assert.strContains(tostring(err), "timed out")
+		assert.that(elapsed < 0.9, `expected request to time out after 0.1s, took {elapsed}s`)
+
+		while not handlerDone and time.since(start) < 5 do
+			task.wait()
+		end
+		instance.close()
+	end)
+
+	suite:case("requestTimeoutAllowsFastResponse", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(_req: server.ReceivedRequest): server.ServerResponse
+				return { status = 200, body = "ok" }
+			end,
+		})
+
+		local response = net.request(`http://{instance.hostname}:{instance.port}/`, {
+			timeout = 5,
+		})
+
+		assert.eq(true, response.ok)
+		assert.eq("ok", response.body)
+		instance.close()
+	end)
+
+	suite:case("rejectsNonPositiveTimeout", function(assert)
+		assert.throwsWith("request option 'timeout' must be a positive number", function()
+			net.request("http://example.test", {
+				timeout = 0,
+			})
+		end)
+	end)
 end)
