@@ -101,6 +101,59 @@ static void onWrite(uv_write_t* req, int status)
     handle->close();
 }
 
+// A regular file is not a stream, and on Windows `uv_pipe_open` rejects file handles,
+// so redirected output to a file is written with filesystem requests instead.
+struct FileWrite
+{
+    uv_fs_t req;
+    ResumeToken resumeToken;
+    std::vector<char> buffer;
+    size_t written = 0;
+    uv_file fd = -1;
+
+    void start(uv_loop_t* loop);
+};
+
+static void onFileWrite(uv_fs_t* req)
+{
+    std::unique_ptr<FileWrite> fileWrite(static_cast<FileWrite*>(req->data));
+    ssize_t result = req->result;
+    uv_fs_req_cleanup(req);
+
+    if (result < 0)
+    {
+        fileWrite->resumeToken->fail(uv_strerror(static_cast<int>(result)));
+        return;
+    }
+
+    fileWrite->written += static_cast<size_t>(result);
+    if (fileWrite->written < fileWrite->buffer.size())
+    {
+        uv_loop_t* loop = req->loop;
+        fileWrite.release()->start(loop);
+        return;
+    }
+
+    fileWrite->resumeToken->complete(
+        [](lua_State* L)
+        {
+            return 0;
+        }
+    );
+}
+
+void FileWrite::start(uv_loop_t* loop)
+{
+    uv_buf_t iov = uv_buf_init(buffer.data() + written, static_cast<unsigned int>(buffer.size() - written));
+    req.data = this;
+    int status = uv_fs_write(loop, &req, fd, &iov, 1, -1, onFileWrite);
+    if (status < 0)
+    {
+        resumeToken->fail(uv_strerror(status));
+        delete this;
+    }
+}
+
 int write(lua_State* L)
 {
     int nargs = lua_gettop(L);
@@ -116,13 +169,23 @@ int write(lua_State* L)
     if (toWrite.empty())
         return 0;
 
+    uv_handle_type ht = uv_guess_handle(fileno(stdout));
+    if (ht == UV_FILE)
+    {
+        auto fileWrite = std::make_unique<FileWrite>();
+        fileWrite->resumeToken = getResumeToken(L);
+        fileWrite->buffer.assign(toWrite.begin(), toWrite.end());
+        fileWrite->fd = fileno(stdout);
+        fileWrite.release()->start(getRuntimeLoop(L));
+        return lua_yield(L, 0);
+    }
+
     auto handle = std::make_shared<IOHandle>();
     handle->loop = getRuntimeLoop(L);
     handle->resumeToken = getResumeToken(L);
     handle->self = handle;
     handle->buffer.assign(toWrite.begin(), toWrite.end());
 
-    uv_handle_type ht = uv_guess_handle(fileno(stdout));
     if (ht == UV_TTY)
     {
         uv_tty_t& tty = handle->streamVariant.emplace<uv_tty_t>();
@@ -130,7 +193,7 @@ int write(lua_State* L)
         if (status < 0)
             luaL_error(L, "Failed to initialize TTY: %s", uv_strerror(status));
     }
-    else if (ht == UV_NAMED_PIPE || ht == UV_FILE)
+    else if (ht == UV_NAMED_PIPE)
     {
         uv_pipe_t& pipe = handle->streamVariant.emplace<uv_pipe_t>();
         int status = uv_pipe_init(handle->loop, &pipe, 0);
