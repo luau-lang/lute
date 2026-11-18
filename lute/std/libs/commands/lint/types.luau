@@ -24,6 +24,7 @@ export type RuleOptions = { [string]: unknown }
 export type RuleContext = {
 	globals: GlobalsConfig,
 	options: RuleOptions,
+	eof: syntax.CstEof, -- the end-of-file token; its leading trivia holds the comments after the last statement
 }
 
 export type LintRule = {

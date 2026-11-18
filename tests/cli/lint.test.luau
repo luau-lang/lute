@@ -594,7 +594,7 @@ b = a
 		assert.eq(result.exitcode, 1)
 
 		local expected = [[
-lintee.luau': @std/syntax/parser.luau:12: parsing failed:
+lintee.luau': @std/syntax/parser.luau:22: parsing failed:
 (0, 0) - (0, 5): Incomplete statement: expected assignment or a function call
 ]]
 		assert.strContains(result.stdout, expected)
@@ -3163,6 +3163,42 @@ print(y)
 			configContents = configContents,
 			disableDefaultLints = true,
 			outputExpectations = { { expectedOutput = "Globals: 1 Options: nice", count = 1 } },
+		})
+	end)
+
+	suite:case("luteLintPassesEofTokenToRules", function(assert)
+		-- custom rule that reports each comment after the last statement
+		local customRuleContents = [[
+			return {
+				name = "trailingComments",
+				lint = function(cst, sourcepath, context)
+					local violations = {}
+					for _, trivia in context.eof.leadingTrivia do
+						if trivia.tag == "comment" then
+							table.insert(violations, {
+								lintname = "trailingComments",
+								location = trivia.location,
+								severity = "warning",
+								message = `Trailing comment: {trivia.text}`,
+								sourcepath = sourcepath,
+							})
+						end
+					end
+					return violations
+				end
+			}
+		]]
+
+		lintTestHelper(assert, {
+			content = "local _x = 1\n-- first\n-- second\n",
+			expectedExitCode = 1,
+			customRuleContents = customRuleContents,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = "Trailing comment: -- first", count = 1 },
+				{ expectedOutput = "Trailing comment: -- second", count = 1 },
+				{ expectedOutput = "Error applying lint rule", count = 0 },
+			},
 		})
 	end)
 
