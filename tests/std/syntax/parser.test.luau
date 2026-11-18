@@ -1088,13 +1088,26 @@ test.suite("parse", function(suite)
 
 		local localFuncStat = block.statements[1] :: syntax.CstStatLocalFunction
 		assert.eq(localFuncStat.tag, "localfunction")
-		assert.eq(localFuncStat.isExported, false)
-		assert.eq(localFuncStat.exportKeyword, nil)
 		assert.eq(#localFuncStat.func.attributes, 0)
-		assert.neq(localFuncStat.localKeyword, nil)
-		assert.eq((localFuncStat.localKeyword :: syntax.CstToken<"local">).text, "local")
+		assert.eq(localFuncStat.modifierKeyword.text, "local")
+		assertEqualsLocation(assert, localFuncStat.modifierKeyword.location, 1, 1, 1, 6)
 		assert.eq(localFuncStat.func.functionKeyword.text, "function")
 		assert.eq(localFuncStat.name.name.text, "multiply")
+	end)
+
+	suite:case("parseStatConstFunction", function(assert)
+		local block = parser.parseBlock("const function multiply(x, y) return x * y end")
+		checkIsBlock(block, assert)
+		assert.eq(#block.statements, 1)
+
+		local constFuncStat = block.statements[1] :: syntax.CstStatLocalFunction
+		assert.eq(constFuncStat.tag, "localfunction")
+		assert.eq(#constFuncStat.func.attributes, 0)
+		local constToken = constFuncStat.modifierKeyword
+		assert.eq(constToken.text, "const")
+		assertEqualsLocation(assert, constToken.location, 1, 1, 1, 6)
+		assert.eq(constFuncStat.func.functionKeyword.text, "function")
+		assert.eq(constFuncStat.name.name.text, "multiply")
 	end)
 
 	suite:case("export_no_local", function(assert)
@@ -1106,12 +1119,9 @@ test.suite("parse", function(suite)
 		local funcStat = block.statements[1] :: syntax.CstStatLocalFunction
 		assert.eq(funcStat.kind, "stat")
 		assert.eq(funcStat.tag, "localfunction")
-		assert.eq(funcStat.isExported, true)
-		assert.neq(funcStat.exportKeyword, nil)
-		local exportToken = funcStat.exportKeyword :: syntax.CstToken<"export">
+		local exportToken = funcStat.modifierKeyword
 		assert.eq(exportToken.text, "export")
 		assertEqualsLocation(assert, exportToken.location, 1, 1, 1, 7)
-		assert.eq(funcStat.localKeyword, nil)
 		assert.eq(funcStat.name.name.text, "f")
 
 		local func = funcStat.func

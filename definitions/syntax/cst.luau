@@ -546,14 +546,12 @@ export type CstStatFunction = {
 	read func: CstExprFunction,
 }
 
---- A `local function` declaration statement node.
+--- A `local function`, `const function`, or `export function` declaration statement node.
 export type CstStatLocalFunction = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "localfunction",
-	read isExported: boolean,
-	read exportKeyword: CstToken<"export">?,
-	read localKeyword: CstToken<"local">?,
+	read modifierKeyword: CstToken<"const" | "local" | "export">,
 	read name: CstLocal,
 	read func: CstExprFunction,
 }
