@@ -93,6 +93,49 @@ test.suite("RegistryResolution", function(suite)
 		assert.neq(lock.packages["citrus@1.3.0"], nil)
 	end)
 
+	suite:case("skipsHistoricalVersionsWithInvalidDependencyConstraints", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				assert.eq(req.path, "/api/v1/package-index/citrus")
+				return {
+					status = 200,
+					body = [[
+[
+	{
+		"name":"citrus",
+		"version":"0.1.18",
+		"yanked":false,
+		"dependencies":[{"name":"historical-dependency","versionRequirement":"master"}]
+	},
+	{"name":"citrus","version":"0.1.20","yanked":false,"dependencies":[]}
+]
+]],
+				}
+			end,
+		})
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "0.1.20",
+			},]],
+			nil,
+			nil,
+			`http://{instance.hostname}:{instance.port}`
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.citrus, "citrus@0.1.20")
+
+		instance.close()
+	end)
+
 	suite:case("lockfileEntryHasCorrectShape", function(assert)
 		writeConfig(
 			workingDirectory,

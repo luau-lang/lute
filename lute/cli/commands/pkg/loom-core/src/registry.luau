@@ -100,16 +100,25 @@ local function indexToPackageVersions(entries: any, packageName: string): { semv
 		end
 
 		local dependencies: { [string]: semver.Requirement } = {}
+		local hasInvalidDependencyConstraint = false
 		if entry.dependencies then
 			for _, dep in entry.dependencies do
+				local ok, constraint = pcall(semver.parseConstraint, dep.versionRequirement)
+				if not ok then
+					hasInvalidDependencyConstraint = true
+					break
+				end
 				local alias = if dep.alias and dep.alias ~= "" then dep.alias else dep.name
 				dependencies[alias] = table.freeze({
 					name = dep.name,
-					constraint = semver.parseConstraint(dep.versionRequirement),
+					constraint = constraint,
 					requiredBy = nil,
 					aliasedAs = nil,
 				})
 			end
+		end
+		if hasInvalidDependencyConstraint then
+			continue
 		end
 
 		table.insert(
