@@ -8,6 +8,7 @@ export type RuleConfig = {
 	severity: types.severity?,
 	off: true?,
 	options: types.RuleOptions?,
+	suppressible: boolean?, -- false makes suppression comments not apply to the rule
 }
 
 export type LintConfig = {

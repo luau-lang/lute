@@ -335,10 +335,11 @@ function lintCore.lintString(
 
 		local success, err = pcall(rule.lint, cst, inputFilePath, context)
 		local overwrittenSeverity = ruleConfig.severity
+		local suppressible = ruleConfig.suppressible ~= false
 		if success then
 			-- On success, err contains the returned violations
 			for _, violation in err do
-				if not violationIsSuppressed(violation, cst, directiveCache, globalIgnores) then
+				if not suppressible or not violationIsSuppressed(violation, cst, directiveCache, globalIgnores) then
 					violation.severity = if overwrittenSeverity then overwrittenSeverity else violation.severity
 					table.insert(violations, violation)
 				end

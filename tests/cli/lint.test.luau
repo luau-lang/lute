@@ -1127,6 +1127,44 @@ violator.luau:5:12-17 ──
 		})
 	end)
 
+	suite:case("luteLintUnsuppressibleRuleIgnoresDirectives", function(assert)
+		local configContents = [[
+return {
+	lute = {
+		lint = {
+			ruleconfigs = {
+				["divide_by_zero"] = {
+					suppressible = false
+				}
+			}
+		}
+	}
+}
+]]
+
+		lintTestHelper(assert, {
+			content = [[
+-- lute-lint-global-ignore(divide_by_zero)
+-- lute-lint-global-ignore(almost_swapped)
+local x = 1 / 0
+-- lute-lint-ignore(divide_by_zero)
+if true then
+	local y = 10 / 0
+	-- lute-lint-report(divide_by_zero)
+	local z = 3 / 0
+end
+a = b
+b = a
+    ]],
+			expectedExitCode = 1,
+			configContents = configContents,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 3 },
+				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 0 },
+			},
+		})
+	end)
+
 	suite:case("luteLintStringInput", function(assert)
 		local inputString = [[
 a = b
