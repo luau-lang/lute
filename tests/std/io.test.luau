@@ -213,3 +213,60 @@ test.suite("IoWriteSuite", function(suite)
 		assert.eq(output, "before exit")
 	end)
 end)
+
+test.suite("IoEwriteSuite", function(suite)
+	suite:case("ewriteBasic", function(assert)
+		local r = runScript(
+			"io_ewrite_basic",
+			[[
+			local io = require("@std/io")
+			io.ewrite("oops")
+		]]
+		)
+
+		assert.eq(r.exitcode, 0)
+		assert.eq(r.stderr, "oops")
+		assert.eq(r.stdout, "")
+	end)
+
+	suite:case("ewriteMultipleArgs", function(assert)
+		local r = runScript(
+			"io_ewrite_multi",
+			[[
+			local io = require("@std/io")
+			io.ewrite("foo", "bar", "baz")
+		]]
+		)
+
+		assert.eq(r.exitcode, 0)
+		assert.eq(r.stderr, "foobarbaz")
+	end)
+
+	suite:case("ewriteKeepsStdoutSeparate", function(assert)
+		local r = runScript(
+			"io_ewrite_separate",
+			[[
+			local io = require("@std/io")
+			io.write("data")
+			io.ewrite("diagnostic")
+			io.write("more data")
+		]]
+		)
+
+		assert.eq(r.exitcode, 0)
+		assert.eq(r.stdout, "datamore data")
+		assert.eq(r.stderr, "diagnostic")
+	end)
+
+	suite:case("ewriteTypeError", function(assert)
+		local r = runScript(
+			"io_ewrite_typeerr",
+			[[
+			local io = require("@std/io")
+			io.ewrite({} :: any)
+		]]
+		)
+
+		assert.eq(r.exitcode, 1)
+	end)
+end)
