@@ -198,3 +198,29 @@ TEST_CASE_FIXTURE(LuteFixture, "pkgrun_fails_on_lockfile_package_missing_name")
 {
     checkMalformedLockfileFails(*this, "missing_name", "package 'dep@1.0.0' is missing required field 'name'");
 }
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_does_not_match_install_roots_by_raw_string_prefix")
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_overlapping_roots/prefix/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+    CHECK(getReporter().getErrors().empty());
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_uses_the_most_specific_install_root_for_nested_packages")
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_overlapping_roots/nested/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+    CHECK(getReporter().getErrors().empty());
+}
