@@ -111,10 +111,16 @@ static void closeAndRaise(lua_State* L, const std::shared_ptr<IOHandle>& handle,
     luaL_error(L, "%s %s: %s (error %d)", what, streamName, uv_strerror(status), status);
 }
 
-// `file` must stay alive until the write completes, so callers pass a static.
-static int writeTo(lua_State* L, fs::UVFile* file, const char* streamName)
+// `fs::write_impl` reads the UVFile again for each later chunk after the call yields, so it must outlive the call.
+static fs::UVFile* regularFileFor(int fd)
 {
-    int fd = file->fd.value();
+    static fs::UVFile stdoutFile{fileno(stdout)};
+    static fs::UVFile stderrFile{fileno(stderr)};
+    return fd == fileno(stderr) ? &stderrFile : &stdoutFile;
+}
+
+static int writeTo(lua_State* L, int fd, const char* streamName)
+{
     int nargs = lua_gettop(L);
 
     std::string toWrite;
@@ -135,7 +141,7 @@ static int writeTo(lua_State* L, fs::UVFile* file, const char* streamName)
     if (ht == UV_FILE)
     {
         // A regular file is not a stream, and on Windows `uv_pipe_open` rejects file handles.
-        return fs::write_impl(L, file, toWrite.data(), toWrite.size());
+        return fs::write_impl(L, regularFileFor(fd), toWrite.data(), toWrite.size());
     }
     else if (ht == UV_NAMED_PIPE)
     {
@@ -176,14 +182,12 @@ static int writeTo(lua_State* L, fs::UVFile* file, const char* streamName)
 
 int write(lua_State* L)
 {
-    static fs::UVFile stdoutFile{fileno(stdout)};
-    return writeTo(L, &stdoutFile, "stdout");
+    return writeTo(L, fileno(stdout), "stdout");
 }
 
 int ewrite(lua_State* L)
 {
-    static fs::UVFile stderrFile{fileno(stderr)};
-    return writeTo(L, &stderrFile, "stderr");
+    return writeTo(L, fileno(stderr), "stderr");
 }
 
 int read(lua_State* L)
