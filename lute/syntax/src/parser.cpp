@@ -1777,26 +1777,20 @@ struct AstSerialize : public Luau::AstVisitor
     void serializeStat(Luau::AstStatLocalFunction* node)
     {
         lua_rawcheckstack(L, 4);
-        lua_createtable(L, 0, preambleSize + 5);
+        lua_createtable(L, 0, preambleSize + 3);
 
         serializeNodePreamble(node, "localfunction", "stat");
-
-        lua_pushboolean(L, node->name->isExported);
-        lua_setfield(L, -2, "isExported");
 
         // Serialization needs to happen in program-lexical order, so we serialize attributes and function keyword before the func expr
         serializeAttributes(node->func->attributes);
 
         const auto cstNode = lookupCstNode<Luau::CstStatLocalFunction>(node);
 
-        const char* keyword = node->name->isExported ? "export" : "local";
-        const char* fieldName = node->name->isExported ? "exportKeyword" : "localKeyword";
+        const char* keyword = node->name->isExported ? "export" : node->isConst ? "const" : "local";
 
-        // Poorly documented: you can write `export function f()` i.e const f = function(), which is exported
-        // Or you can do local function f(). We reuse the localKeywordPosition in the cst for this as you can't
-        // write export local function().
+        // The CST reuses localKeywordPosition for local, const, and export function declarations.
         serializeToken(cstNode->localKeywordPosition, keyword);
-        lua_setfield(L, -3, fieldName);
+        lua_setfield(L, -3, "modifierKeyword");
 
         serializeToken(cstNode->functionKeywordPosition, "function");
 

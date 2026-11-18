@@ -84,7 +84,7 @@ end
 
 --- Returns `n` narrowed to `CstStatLocalFunction` if this is exported function
 function utils.isExportStatLocalFunction(n: types.CstNode): types.CstStatLocalFunction?
-	return if n.kind == "stat" and n.tag == "localfunction" and n.isExported and n.exportKeyword then n else nil
+	return if n.kind == "stat" and n.tag == "localfunction" and n.modifierKeyword.text == "export" then n else nil
 end
 
 -- Returns a table containing the exported items contained within a `export` statement and nil if the given node is not an export statement

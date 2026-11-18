@@ -582,14 +582,7 @@ local function visitStatLocalFunction(node: types.CstStatLocalFunction, visitor:
 			visitAttribute(attribute, visitor)
 		end
 
-		if node.isExported and node.exportKeyword then
-			visitToken(node.exportKeyword, visitor)
-		elseif node.localKeyword then
-			visitToken(node.localKeyword, visitor)
-		else
-			error("visitor error: A non-exported local function must have a local keyword")
-		end
-
+		visitToken(node.modifierKeyword, visitor)
 		visitToken(node.func.functionKeyword, visitor)
 		visitLocal(node.name, visitor)
 		visitExprFunction(node.func, visitor, false, false)

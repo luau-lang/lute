@@ -43,12 +43,14 @@ test.suite("Utils", function(suite)
 	suite:case("isExportStatLocalFunction", function(assert)
 		local exported = syntax.parse("export function f() end").root.statements[1]
 		local plain = syntax.parse("local function f() end").root.statements[1]
+		local constFunc = syntax.parse("const function f() end").root.statements[1]
 		local global = syntax.parse("function f() end").root.statements[1]
 		local variable = syntax.parse("export local x").root.statements[1]
 		local constant = syntax.parse("export const x = 1").root.statements[1]
 
 		assert.that(utils.isExportStatLocalFunction(exported) == exported)
 		assert.eq(utils.isExportStatLocalFunction(plain), nil)
+		assert.eq(utils.isExportStatLocalFunction(constFunc), nil)
 		assert.eq(utils.isExportStatLocalFunction(global), nil)
 		assert.eq(utils.isExportStatLocalFunction(variable), nil)
 		assert.eq(utils.isExportStatLocalFunction(constant), nil)
