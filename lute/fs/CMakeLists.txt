@@ -2,6 +2,7 @@ add_library(Lute.Fs STATIC)
 
 target_sources(Lute.Fs PRIVATE
     include/lute/fs.h
+    include/lute/uvfile.h
 
     src/fs.cpp
     src/fs_impl.h

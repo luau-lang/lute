@@ -168,4 +168,48 @@ test.suite("IoWriteSuite", function(suite)
 		assert.eq(r.exitcode, 0)
 		assert.eq(#r.stdout, 3)
 	end)
+
+	-- Runs a script through the system shell with stdout redirected to a file.
+	-- No `timeout` option: on Windows it starts the shell detached from the console,
+	-- and the child then writes to a new console instead of the redirected file.
+	local function runScriptToFile(name: string, script: string): (process.ProcessResult, string)
+		local file = path.join(tmpDir, `{name}.luau`)
+		local outFile = path.join(tmpDir, `{name}.out`)
+		fs.writeStringToFile(file, script)
+		local result = process.system(`{lutePath} {path.format(file)} > {path.format(outFile)}`)
+		local output = fs.readFileToString(outFile)
+		fs.remove(file)
+		fs.remove(outFile)
+		return result, output
+	end
+
+	suite:case("writeToRedirectedFile", function(assert)
+		local r, output = runScriptToFile(
+			"io_write_file",
+			[[
+			local io = require("@std/io")
+			for i = 1, 3 do
+			    io.write(tostring(i) .. ",")
+			end
+		]]
+		)
+
+		assert.eq(r.exitcode, 0)
+		assert.eq(output, "1,2,3,")
+	end)
+
+	suite:case("writeToRedirectedFileThenExit", function(assert)
+		local r, output = runScriptToFile(
+			"io_write_file_exit",
+			[[
+			local io = require("@std/io")
+			local process = require("@std/process")
+			io.write("before exit")
+			process.exit(3)
+		]]
+		)
+
+		assert.eq(r.exitcode, 3)
+		assert.eq(output, "before exit")
+	end)
 end)

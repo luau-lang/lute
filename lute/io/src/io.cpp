@@ -1,6 +1,7 @@
 #include "lute/io.h"
 
 #include "lute/runtime.h"
+#include "lute/uvfile.h"
 
 #include "Luau/Variant.h"
 
@@ -10,6 +11,7 @@
 #include "uv.h"
 
 #include <memory>
+#include <string>
 
 
 namespace
@@ -89,7 +91,7 @@ static void onWrite(uv_write_t* req, int status)
     IOHandle* handle = static_cast<IOHandle*>(req->data);
 
     if (status < 0)
-        handle->resumeToken->fail(uv_strerror(status));
+        handle->resumeToken->fail(std::string("Failed to write: ") + uv_strerror(status) + " (error " + std::to_string(status) + ")");
     else
         handle->resumeToken->complete(
             [](lua_State* L)
@@ -99,6 +101,14 @@ static void onWrite(uv_write_t* req, int status)
         );
 
     handle->close();
+}
+
+// Closes the stream, which keeps `handle` alive until libuv releases it, then raises a Lua error.
+static void closeAndRaise(lua_State* L, const std::shared_ptr<IOHandle>& handle, const char* what, int status)
+{
+    handle->self = handle;
+    handle->close();
+    luaL_error(L, "%s: %s (error %d)", what, uv_strerror(status), status);
 }
 
 int write(lua_State* L)
@@ -118,37 +128,48 @@ int write(lua_State* L)
 
     auto handle = std::make_shared<IOHandle>();
     handle->loop = getRuntimeLoop(L);
-    handle->resumeToken = getResumeToken(L);
-    handle->self = handle;
-    handle->buffer.assign(toWrite.begin(), toWrite.end());
 
     uv_handle_type ht = uv_guess_handle(fileno(stdout));
-    if (ht == UV_TTY)
+    if (ht == UV_FILE)
     {
-        uv_tty_t& tty = handle->streamVariant.emplace<uv_tty_t>();
-        int status = uv_tty_init(handle->loop, &tty, fileno(stdout), 0);
-        if (status < 0)
-            luaL_error(L, "Failed to initialize TTY: %s", uv_strerror(status));
+        // A regular file is not a stream, and on Windows `uv_pipe_open` rejects file handles.
+        static fs::UVFile stdoutFile{fileno(stdout)};
+        return fs::write_impl(L, &stdoutFile, toWrite.data(), toWrite.size());
     }
-    else if (ht == UV_NAMED_PIPE || ht == UV_FILE)
+    else if (ht == UV_NAMED_PIPE)
     {
         uv_pipe_t& pipe = handle->streamVariant.emplace<uv_pipe_t>();
         int status = uv_pipe_init(handle->loop, &pipe, 0);
         if (status < 0)
-            luaL_error(L, "Failed to initialize pipe: %s", uv_strerror(status));
-        uv_pipe_open(&pipe, fileno(stdout));
+            luaL_error(L, "Failed to initialize pipe: %s (error %d)", uv_strerror(status), status);
+        pipe.data = handle.get();
+
+        status = uv_pipe_open(&pipe, fileno(stdout));
+        if (status < 0)
+            closeAndRaise(L, handle, "Failed to open stdout as a pipe", status);
+    }
+    else if (ht == UV_TTY)
+    {
+        uv_tty_t& tty = handle->streamVariant.emplace<uv_tty_t>();
+        int status = uv_tty_init(handle->loop, &tty, fileno(stdout), 0);
+        if (status < 0)
+            luaL_error(L, "Failed to initialize TTY: %s (error %d)", uv_strerror(status), status);
+        tty.data = handle.get();
     }
     else
     {
         luaL_error(L, "Unsupported stdout type");
     }
 
-    uv_stream_t* stream = handle->getStream();
-    stream->data = handle.get();
+    handle->buffer.assign(toWrite.begin(), toWrite.end());
     handle->iov = uv_buf_init(handle->buffer.data(), handle->buffer.size());
     handle->writeReq.data = handle.get();
-    uv_write(&handle->writeReq, stream, &handle->iov, 1, onWrite);
+    int status = uv_write(&handle->writeReq, handle->getStream(), &handle->iov, 1, onWrite);
+    if (status < 0)
+        closeAndRaise(L, handle, "Failed to write to stdout", status);
 
+    handle->resumeToken = getResumeToken(L);
+    handle->self = handle;
     return lua_yield(L, 0);
 }
 
