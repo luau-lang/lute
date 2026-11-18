@@ -2,6 +2,7 @@ local net = require("@std/net")
 local server = require("@lute/net/server")
 local task = require("@lute/task")
 local test = require("@std/test")
+local testtypes = require("@std/test/types")
 local time = require("@std/time")
 
 test.suite("NetTestSuite", function(suite)
@@ -290,5 +291,74 @@ test.suite("NetTestSuite", function(suite)
 
 		assert.eq(true, done)
 		assert.eq(true, failed)
+	end)
+
+	-- Requests a server that answers after 1 second and checks that `timeout` stops the request first.
+	local function assertSlowResponseTimesOut(assert: testtypes.Asserts, timeout: number)
+		local handlerDone = false
+		local instance = server.serve({
+			port = 0,
+			handler = function(_req: server.ReceivedRequest): server.ServerResponse
+				task.wait(1)
+				handlerDone = true
+				return { status = 200, body = "too late" }
+			end,
+		})
+
+		local start = time.now()
+		local ok, err = pcall(function()
+			return net.request(`http://{instance.hostname}:{instance.port}/`, {
+				timeout = timeout,
+			})
+		end)
+		local elapsed = time.since(start)
+
+		assert.eq(false, ok)
+		-- libcurl reports "timed out" or, if the time runs out while connecting, "time-out".
+		local message = tostring(err)
+		assert.that(
+			message:find("timed out", 1, true) ~= nil or message:find("time-out", 1, true) ~= nil,
+			`expected a timeout error, got "{message}"`
+		)
+		assert.that(elapsed < 0.9, `expected request to time out after {timeout}s, took {elapsed}s`)
+
+		while not handlerDone and time.since(start) < 5 do
+			task.wait()
+		end
+		instance.close()
+	end
+
+	suite:case("requestTimeoutFailsSlowResponse", function(assert)
+		assertSlowResponseTimesOut(assert, 0.1)
+	end)
+
+	suite:case("requestSubMillisecondTimeoutFailsSlowResponse", function(assert)
+		-- 0.1 ms must not round down to 0 ms, which libcurl treats as "no timeout".
+		assertSlowResponseTimesOut(assert, 0.0001)
+	end)
+
+	suite:case("requestTimeoutAllowsFastResponse", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(_req: server.ReceivedRequest): server.ServerResponse
+				return { status = 200, body = "ok" }
+			end,
+		})
+
+		local response = net.request(`http://{instance.hostname}:{instance.port}/`, {
+			timeout = 5,
+		})
+
+		assert.eq(true, response.ok)
+		assert.eq("ok", response.body)
+		instance.close()
+	end)
+
+	suite:case("rejectsNonPositiveTimeout", function(assert)
+		assert.throwsWith("request option 'timeout' must be a positive number", function()
+			net.request("http://example.test", {
+				timeout = 0,
+			})
+		end)
 	end)
 end)

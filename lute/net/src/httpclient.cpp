@@ -8,6 +8,7 @@
 
 #include "curl/curl.h"
 
+#include <cmath>
 #include <limits>
 #include <memory>
 #include <string>
@@ -567,6 +568,7 @@ static std::unique_ptr<HttpRequestState> createRequestState(
     std::string method,
     std::string body,
     std::vector<std::pair<std::string, std::string>> headers,
+    long timeoutMs,
     ResumeToken token,
     std::string& error
 )
@@ -589,7 +591,7 @@ static std::unique_ptr<HttpRequestState> createRequestState(
     curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, state->errorBuffer);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFunction);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, state.get());
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, kDefaultRequestTimeoutMs);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeoutMs);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, kDefaultConnectTimeoutMs);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 20L);
@@ -640,6 +642,7 @@ int request(lua_State* L)
     std::string method = "GET";
     std::string body = "";
     std::vector<std::pair<std::string, std::string>> headers;
+    long timeoutMs = kDefaultRequestTimeoutMs;
 
     if (lua_istable(L, 2))
     {
@@ -677,6 +680,23 @@ int request(lua_State* L)
             }
         }
         lua_pop(L, 1);
+
+        lua_getfield(L, 2, "timeout");
+        if (!lua_isnil(L, -1))
+        {
+            if (!lua_isnumber(L, -1))
+                luaL_error(L, "request option 'timeout' must be a number");
+
+            double timeoutSeconds = lua_tonumber(L, -1);
+            if (!(timeoutSeconds > 0))
+                luaL_error(L, "request option 'timeout' must be a positive number");
+
+            // libcurl treats 0 as "no timeout", so round up to at least 1 ms.
+            double ms = std::ceil(timeoutSeconds * 1000.0);
+            auto maxMs = static_cast<double>((std::numeric_limits<long>::max)());
+            timeoutMs = ms >= maxMs ? (std::numeric_limits<long>::max)() : static_cast<long>(ms);
+        }
+        lua_pop(L, 1);
     }
 
     if ((method == "GET" || method == "HEAD") && !body.empty())
@@ -695,7 +715,7 @@ int request(lua_State* L)
 
     std::string error;
     std::unique_ptr<HttpRequestState> state =
-        createRequestState(std::move(url), std::move(method), std::move(body), std::move(headers), token, error);
+        createRequestState(std::move(url), std::move(method), std::move(body), std::move(headers), timeoutMs, token, error);
 
     if (!state)
     {

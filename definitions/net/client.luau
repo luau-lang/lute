@@ -1,11 +1,12 @@
 -- lute-lint-global-ignore(unused_variable)
 local client = {}
 
---- HTTP request metadata, including optional method, body, and headers.
+--- HTTP request metadata, including optional method, body, headers, and timeout in seconds.
 export type Metadata = {
 	method: string?,
 	body: string?,
 	headers: { [string]: string }?,
+	timeout: number?,
 }
 
 --- An HTTP response, containing status code, headers, body, and a success flag.
