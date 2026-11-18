@@ -1,2 +1,2 @@
 --!strict
-print("malformed lockfile did not prevent execution")
+error("entry script ran despite malformed lockfile")
