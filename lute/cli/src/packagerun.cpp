@@ -1,6 +1,7 @@
 #include "lute/packagerun.h"
 
 #include "lute/common.h"
+#include "lute/result.h"
 #include "lute/userlandvfs.h"
 #include "lute/uvutils.h"
 
@@ -114,28 +115,33 @@ static std::string getEntryPoint(const std::string& packageRoot)
     return joinPaths(packageRoot, "src/init.luau");
 }
 
-std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Identifier, Package::Info>>> getDependenciesFromLockfile(
-    const std::string& lockfilePath
-)
+Lute::Result<LockfileDependencies> getDependenciesFromLockfile(const std::string& lockfilePath)
 {
+    using Result = Lute::Result<LockfileDependencies>;
+
     LUTE_ASSERT(isFile(lockfilePath));
 
     std::optional<std::string> contents = readFile(lockfilePath);
     if (!contents)
-        return {};
+        return Result::failure("failed to read lockfile");
 
-    std::optional<Luau::ConfigTable> configOpt = Luau::extractConfig(*contents, {});
+    std::string parseError;
+    std::optional<Luau::ConfigTable> configOpt = Luau::extractConfig(*contents, {}, &parseError);
     if (!configOpt)
-        return {};
+        return Result::failure(std::move(parseError));
 
     Luau::ConfigTable config = std::move(*configOpt);
 
-    if (!config.contains("packages") || !config.contains("dependencies"))
-        return {};
+    if (!config.contains("packages"))
+        return Result::failure("missing required field 'packages'");
+    if (!config.contains("dependencies"))
+        return Result::failure("missing required field 'dependencies'");
 
     Luau::ConfigTable* packagesTable = config["packages"].get_if<Luau::ConfigTable>();
-    if (!packagesTable || !config["dependencies"].get_if<Luau::ConfigTable>())
-        return {};
+    if (!packagesTable)
+        return Result::failure("field 'packages' must be a table");
+    if (!config["dependencies"].get_if<Luau::ConfigTable>())
+        return Result::failure("field 'dependencies' must be a table");
 
     std::unordered_map<std::string, std::string> rootAliases;
     readAliasMap(config, "dependencies", rootAliases);
@@ -143,7 +149,7 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
 
     std::optional<std::string> lockfileParentDir = getParentPath(lockfilePath);
     if (!lockfileParentDir)
-        return {};
+        return Result::failure("failed to determine lockfile directory");
 
     // First pass: parse all package entries
     std::unordered_map<std::string, Package::Identifier> keyToIdentifier;
@@ -154,15 +160,17 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
     {
         const std::string* packageKey = k.get_if<std::string>();
         if (!packageKey)
-            return {};
+            return Result::failure("keys in 'packages' must be strings");
 
         const Luau::ConfigTable* entry = v.get_if<Luau::ConfigTable>();
-        if (!entry || !entry->contains("name"))
-            return {};
+        if (!entry)
+            return Result::failure("package '" + *packageKey + "' must be a table");
+        if (!entry->contains("name"))
+            return Result::failure("package '" + *packageKey + "' is missing required field 'name'");
 
         const std::string* name = (*entry).find("name")->get_if<std::string>();
         if (!name)
-            return {};
+            return Result::failure("field 'name' of package '" + *packageKey + "' must be a string");
 
         const std::string* rev = entry->contains("rev") ? (*entry).find("rev")->get_if<std::string>() : nullptr;
 
@@ -180,7 +188,7 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
             {
                 std::optional<std::string> expanded = expandStorePath(*installPath);
                 if (!expanded)
-                    return {};
+                    return Result::failure("failed to determine home directory to expand installPath of package '" + *packageKey + "'");
                 if (isAbsolutePath(*expanded))
                     info.rootDirectory = normalizePath(*expanded);
                 else
@@ -291,5 +299,5 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
         }
     }
 
-    return {std::move(directDependencies), std::move(allDependencies)};
+    return Result::success({std::move(directDependencies), std::move(allDependencies)});
 }
