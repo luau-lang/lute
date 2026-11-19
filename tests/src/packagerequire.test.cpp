@@ -160,3 +160,41 @@ TEST_CASE_FIXTURE(LuteFixture, "pkgrun_uses_the_member_dependencies_from_a_virtu
 
     CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
 }
+
+static void checkMalformedLockfileFails(LuteFixture& fixture, const std::string& scenario, const std::string& expectedError)
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_malformed_lockfile/" + scenario + "/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), fixture.getReporter()), 1);
+
+    const std::vector<std::string>& errors = fixture.getReporter().getErrors();
+    REQUIRE_EQ(errors.size(), 1);
+    CHECK(errors[0].find("Invalid lockfile") != std::string::npos);
+    CHECK(errors[0].find("pkg.lock.luau") != std::string::npos);
+    CHECK(errors[0].find(expectedError) != std::string::npos);
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_fails_on_lockfile_with_invalid_syntax")
+{
+    checkMalformedLockfileFails(*this, "invalid_syntax", "config:5");
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_fails_on_lockfile_missing_dependencies")
+{
+    checkMalformedLockfileFails(*this, "missing_dependencies", "missing required field 'dependencies'");
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_fails_on_lockfile_with_non_table_packages")
+{
+    checkMalformedLockfileFails(*this, "non_table_packages", "field 'packages' must be a table");
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_fails_on_lockfile_package_missing_name")
+{
+    checkMalformedLockfileFails(*this, "missing_name", "package 'dep@1.0.0' is missing required field 'name'");
+}

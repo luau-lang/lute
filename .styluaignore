@@ -5,3 +5,4 @@ tests/src/debug/compile_error.luau
 tests/src/debug/xpcall.luau
 tests/src/debug/exception.luau
 definitions/syntax/mutablecst.luau
+tests/src/packages/pkgrun_malformed_lockfile/invalid_syntax/pkg.lock.luau
