@@ -517,6 +517,58 @@ return table.freeze({
 		end
 	end)
 
+	suite:case("luteLintRuleErrorExitsNonZero", function(assert)
+		lintTestHelper(assert, {
+			content = "local _x = 1\n",
+			expectedExitCode = 1,
+			customRuleContents = [[
+return table.freeze({
+	name = "AlwaysErrors",
+	lint = function(cst, sourcepath)
+		error("This rule always errors")
+	end,
+})
+]],
+			disableDefaultLints = true,
+			outputExpectations = { { expectedOutput = "Error applying lint rule 'AlwaysErrors'", count = 1 } },
+		})
+	end)
+
+	suite:case("luteLintInvalidRuleExitsNonZero", function(assert)
+		lintTestHelper(assert, {
+			content = "local _x = 1\n",
+			expectedExitCode = 1,
+			customRuleContents = [[
+return table.freeze({
+	name = "NoLintFunction",
+})
+]],
+			disableDefaultLints = true,
+			outputExpectations = {
+				{
+					expectedOutput = "custom_rule.luau: must return a table with a 'lint' function property",
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("luteLintFileThatFailsToParseExitsNonZero", function(assert)
+		local lintee = path.format(path.join(tmpDir, "lintee.luau"))
+		fs.writeStringToFile(lintee, "bogus")
+
+		for _, args in executionModeArgs do
+			local lintArgs = { lutePath, "lint", lintee }
+			tableext.extend(lintArgs, args)
+			local result = runProcess(lintArgs)
+
+			assert.eq(result.exitcode, 1)
+			assert.strContains(result.stdout, "Error linting file")
+		end
+
+		fs.remove(lintee)
+	end)
+
 	suite:case("luteLintMultipleInputFiles", function(assert)
 		-- Setup
 		-- Create multiple files that violate the rule
@@ -2694,7 +2746,7 @@ violator.luau:2:7-13 ──
 	suite:case("unusedVariableWithDeepNestingErrors", function(assert)
 		lintTestHelper(assert, {
 			content = "local x = 1",
-			expectedExitCode = 0,
+			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
 			disableDefaultLints = true,
 			configContents = [[
@@ -2724,7 +2776,7 @@ return {
 	suite:case("unusedVariableWithConflictingApiDefinitionsErrors", function(assert)
 		lintTestHelper(assert, {
 			content = "local x = 1",
-			expectedExitCode = 0,
+			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
 			disableDefaultLints = true,
 			configContents = [[

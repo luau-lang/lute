@@ -18,7 +18,7 @@ function worker.initialize(rulesPath: string?, noDefaults: boolean, configPath: 
 	lintRules, configData = lintCore.initialize(configPath, noDefaults, rulesPath, verbose)
 end
 
-function worker.lintFile(file: string, autofix: boolean, verbose: boolean): { types.LintViolation }
+function worker.lintFile(file: string, autofix: boolean, verbose: boolean): ({ types.LintViolation }, boolean)
 	return lintCore.lintFile(pathLib.resolve(file), lintRules, autofix, configData, verbose)
 end
 
