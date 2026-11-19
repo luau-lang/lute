@@ -18,7 +18,9 @@ local function runfile(
 ): Result<types.TestRunResult, string>
 	reset()
 
-	local ok, err = pcall(luau.loadModule, args.file, nil)
+	local ok, err = xpcall(luau.loadModule, function(err)
+		return debug.traceback(tostring(err), 2)
+	end, args.file, nil)
 	if not ok then
 		return { __tag = "err", error = tostring(err) }
 	end
