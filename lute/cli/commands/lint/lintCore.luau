@@ -308,7 +308,8 @@ function lintCore.lintString(
 	if VERBOSE then
 		print(`Parsing input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
 	end
-	local cst = syntax.parseBlock(source)
+	local parseResult = syntax.parse(source)
+	local cst = parseResult.root
 
 	if VERBOSE then
 		print(`Parsing global lint ignores in input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
@@ -333,6 +334,7 @@ function lintCore.lintString(
 		local context: types.RuleContext = {
 			globals = configData.globals,
 			options = if ruleConfig.options then ruleConfig.options else {},
+			eof = parseResult.eof,
 		}
 
 		local success, err = pcall(rule.lint, cst, inputFilePath, context)

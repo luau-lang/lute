@@ -24,6 +24,7 @@ export type RuleOptions = { [string]: unknown }
 export type RuleContext = {
 	globals: GlobalsConfig,
 	options: RuleOptions,
+	eof: syntax.CstEof,
 }
 
 export type LintRule = {
