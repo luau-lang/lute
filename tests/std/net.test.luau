@@ -314,10 +314,13 @@ test.suite("NetTestSuite", function(suite)
 		local elapsed = time.since(start)
 
 		assert.eq(false, ok)
-		-- libcurl reports "timed out" or, if the time runs out while connecting, "time-out".
+		-- libcurl words a timeout as "timed out", "time-out" or "Connection timeout", depending on the stage.
 		local message = tostring(err)
+		local lowered = string.lower(message)
 		assert.that(
-			message:find("timed out", 1, true) ~= nil or message:find("time-out", 1, true) ~= nil,
+			lowered:find("timed out", 1, true) ~= nil
+				or lowered:find("time-out", 1, true) ~= nil
+				or lowered:find("timeout", 1, true) ~= nil,
 			`expected a timeout error, got "{message}"`
 		)
 		assert.that(elapsed < 0.9, `expected request to time out after {timeout}s, took {elapsed}s`)
