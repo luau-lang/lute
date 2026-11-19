@@ -56,6 +56,8 @@ type Config = {
                     options: { [string]: unknown }?,
                     -- Disable a rule
                     off: boolean?,
+                    -- Set to false to make suppression comments not apply to this rule
+                    suppressible: boolean?,
                 },
             }?,
         }?,
@@ -86,6 +88,28 @@ Disables the default lint rules.
 ## Arguments
 
 Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
+
+## Suppression comments
+
+Comments in the linted code can suppress violations of a rule:
+
+- `-- lute-lint-ignore(RULE)` suppresses violations of `RULE` in the statement that follows the comment.
+- `-- lute-lint-report(RULE)` reports violations of `RULE` in the statement that follows the comment, even inside a suppressed scope.
+- `-- lute-lint-global-ignore(RULE)` at the start of a file suppresses violations of `RULE` in the whole file.
+
+To enforce a rule everywhere, set `suppressible = false` in its `ruleconfigs` entry. Suppression comments then do not apply to that rule:
+
+```luau
+return {
+    lute = {
+        lint = {
+            ruleconfigs = {
+                divide_by_zero = { suppressible = false },
+            },
+        },
+    },
+}
+```
 
 ## Examples
 
