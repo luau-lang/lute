@@ -1,1 +1,1 @@
-return require("./main")
+return require("@self/main")

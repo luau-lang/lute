@@ -17,6 +17,9 @@ static bool hasSuffix(std::string_view str, std::string_view suffix)
 
 static std::string_view removeExtension(std::string_view path)
 {
+    if (path == "init.luau" || path == "init.lua")
+        return {};
+
     for (std::string_view suffix : kInitSuffixes)
     {
         if (hasSuffix(path, suffix))
@@ -101,7 +104,7 @@ ResolvedRealPath ModulePath::getRealPath() const
         partialRealPath += modulePath;
     }
 
-    if (lastComponent != "init")
+    if (lastComponent != "init" && !modulePath.empty())
     {
         for (std::string_view potentialSuffix : kSuffixes)
         {

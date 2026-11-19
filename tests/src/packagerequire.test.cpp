@@ -40,7 +40,6 @@ TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
                 {{"dep", "1.0.0"},
                  {
                      packagesRoot + '/' + "internaldep",
-                     packagesRoot + '/' + "internaldep/init.luau",
                      {},
                  }}
             );
@@ -48,7 +47,6 @@ TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
                 {{"dep", "2.0.0"},
                  {
                      packagesRoot + '/' + "dep",
-                     packagesRoot + '/' + "dep/module.luau",
                      {{"dep", "1.0.0"}},
                  }}
             );
@@ -215,6 +213,19 @@ TEST_CASE_FIXTURE(LuteFixture, "pkgrun_does_not_match_install_roots_by_raw_strin
 TEST_CASE_FIXTURE(LuteFixture, "pkgrun_uses_the_most_specific_install_root_for_nested_packages")
 {
     std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_overlapping_roots/nested/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+    CHECK(getReporter().getErrors().empty());
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_lockfile_aliases_are_directory_aliases")
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_directory_aliases/packageentry/entry.luau";
 
     char executablePlaceholder[] = "lute";
     char command[] = "pkg";
