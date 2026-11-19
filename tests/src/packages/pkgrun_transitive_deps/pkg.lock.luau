@@ -9,7 +9,7 @@ return {
 			rev = "v1.2.3",
 			source = "owner/dep",
 			sourceKind = "github",
-			installPath = "Packages/dep@v1.2.3",
+			installPath = "Packages/dep@v1.2.3/src",
 			dependencies = {
 				internaldepAlias = "internaldep@v4.5.6",
 			},

@@ -93,28 +93,6 @@ static void readAliasMap(const Luau::ConfigTable& table, const char* field, std:
     }
 }
 
-// TODO: lockfile must specify entry file location; for now, we try out a few
-// likely candidates.
-static std::string getEntryPoint(const std::string& packageRoot)
-{
-    const std::vector<std::string> candidateEntryPoints = {
-        "src/init.luau",
-        "src/init.lua",
-        "init.luau",
-        "init.lua",
-    };
-
-    for (const std::string& candidate : candidateEntryPoints)
-    {
-        std::string candidatePath = joinPaths(packageRoot, candidate);
-        if (isFile(candidatePath))
-            return candidatePath;
-    }
-
-    // Fallback to a default even if it doesn't exist
-    return joinPaths(packageRoot, "src/init.luau");
-}
-
 Lute::Result<LockfileDependencies> getDependenciesFromLockfile(const std::string& lockfilePath)
 {
     using Result = Lute::Result<LockfileDependencies>;
@@ -202,7 +180,6 @@ Lute::Result<LockfileDependencies> getDependenciesFromLockfile(const std::string
             info.rootDirectory = joinPaths(*lockfileParentDir, "Packages/" + *packageKey);
         }
 
-        info.entryFile = getEntryPoint(info.rootDirectory);
         keyToInfo[*packageKey] = std::move(info);
 
         std::unordered_map<std::string, std::string> aliases;

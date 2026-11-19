@@ -15,21 +15,9 @@
 namespace Package
 {
 
-std::optional<Subtree> Subtree::create(Info info)
+std::optional<Subtree> Subtree::create(Info info, const std::string& pathInRoot)
 {
-    std::string_view entryFile = info.entryFile;
-    if (entryFile.rfind(info.rootDirectory, 0) != 0)
-        return std::nullopt;
-
-    if (entryFile.size() <= info.rootDirectory.size())
-        return std::nullopt;
-
-    if (entryFile[info.rootDirectory.size()] != '/' && entryFile[info.rootDirectory.size()] != '\\')
-        return std::nullopt;
-
-    std::string entryFileWithoutRoot = info.entryFile.substr(info.rootDirectory.size() + 1);
-
-    std::optional<ModulePath> currentModulePath = ModulePath::create(info.rootDirectory, entryFileWithoutRoot, isFile, isDirectory);
+    std::optional<ModulePath> currentModulePath = ModulePath::create(info.rootDirectory, pathInRoot, isFile, isDirectory);
     if (!currentModulePath)
         return std::nullopt;
 
@@ -158,7 +146,7 @@ const Identifier* UserlandVfs::findOwningDependency(const std::string& path) con
 NavigationStatus UserlandVfs::resetToPath(const std::string& path)
 {
     if (const Identifier* owner = findOwningDependency(path))
-        return jumpToDependencySubtree(*owner);
+        return jumpToDependencySubtree(*owner, path);
 
     currentSubtree = std::nullopt;
     vfsType = VFSType::Disk;
@@ -169,7 +157,7 @@ NavigationStatus UserlandVfs::resetToPath(const std::string& path)
 NavigationStatus UserlandVfs::jumpToAlias(const std::string& path)
 {
     if (const Identifier* owner = findOwningDependency(path))
-        return jumpToDependencySubtree(*owner);
+        return jumpToDependencySubtree(*owner, path);
 
     currentSubtree = std::nullopt;
     vfsType = VFSType::Disk;
@@ -199,13 +187,22 @@ NavigationStatus UserlandVfs::toAliasFallback(std::string_view aliasUnprefixed)
     return NavigationStatus::NotFound;
 }
 
-NavigationStatus UserlandVfs::jumpToDependencySubtree(const Identifier& dependency)
+NavigationStatus UserlandVfs::jumpToDependencySubtree(const Identifier& dependency, std::optional<std::string_view> absolutePath)
 {
     Info* info = allDependencies.find(dependency);
     if (!info)
         return NavigationStatus::NotFound;
 
-    std::optional<Subtree> st = Subtree::create(*info);
+    std::string pathInRoot;
+    if (absolutePath)
+    {
+        std::string_view relative = absolutePath->substr(info->rootDirectory.size());
+        if (!relative.empty() && (relative.front() == '/' || relative.front() == '\\'))
+            relative.remove_prefix(1);
+        pathInRoot = relative;
+    }
+
+    std::optional<Subtree> st = Subtree::create(*info, pathInRoot);
     if (!st)
         return NavigationStatus::NotFound;
 

@@ -9,7 +9,7 @@ return {
 			name = "app",
 			source = "packages/app",
 			sourceKind = "path",
-			installPath = "packages/app",
+			installPath = "packages/app/src",
 			dependencies = {
 				citrus = "citrus--registry-path@1.0.0",
 			},
@@ -20,7 +20,7 @@ return {
 			source = "citrus",
 			sourceKind = "registry",
 			registry = "https://root-registry.example.com",
-			installPath = "packages/citrus-root",
+			installPath = "packages/citrus-root/src",
 			dependencies = {},
 		},
 		["citrus--registry-path@1.0.0"] = {
@@ -29,7 +29,7 @@ return {
 			source = "citrus",
 			sourceKind = "registry",
 			registry = "https://path-registry.example.com",
-			installPath = "packages/citrus-path",
+			installPath = "packages/citrus-path/src",
 			dependencies = {},
 		},
 	},
