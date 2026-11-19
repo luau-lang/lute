@@ -1,0 +1,1 @@
+return "foobar-shared"

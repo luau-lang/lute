@@ -10,6 +10,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace Package
 {
@@ -119,13 +120,45 @@ UserlandVfs::UserlandVfs(std::vector<Identifier> directDependencies, DependencyM
 {
 }
 
-NavigationStatus UserlandVfs::resetToPath(const std::string& path)
+// Returns true if path is rootDirectory itself or lies inside it. 
+static bool isWithinRoot(std::string_view path, std::string_view rootDirectory)
 {
+    if (rootDirectory.empty() || path.rfind(rootDirectory, 0) != 0)
+        return false;
+
+    if (path.size() == rootDirectory.size())
+        return true;
+
+    char last = rootDirectory.back();
+    if (last == '/' || last == '\\')
+        return true;
+
+    char next = path[rootDirectory.size()];
+    return next == '/' || next == '\\';
+}
+
+// Install roots may overlap (e.g. a package vendored inside another package's
+// root), so the most specific root containing the path owns it.
+const Identifier* UserlandVfs::findOwningDependency(const std::string& path) const
+{
+    const Identifier* owner = nullptr;
+    size_t ownerRootLength = 0;
     for (const auto& [identifier, info] : allDependencies)
     {
-        if (path.rfind(info.rootDirectory, 0) == 0)
-            return jumpToDependencySubtree(identifier);
+        if (info.rootDirectory.size() > ownerRootLength && isWithinRoot(path, info.rootDirectory))
+        {
+            owner = &identifier;
+            ownerRootLength = info.rootDirectory.size();
+        }
     }
+
+    return owner;
+}
+
+NavigationStatus UserlandVfs::resetToPath(const std::string& path)
+{
+    if (const Identifier* owner = findOwningDependency(path))
+        return jumpToDependencySubtree(*owner);
 
     currentSubtree = std::nullopt;
     vfsType = VFSType::Disk;
@@ -135,11 +168,8 @@ NavigationStatus UserlandVfs::resetToPath(const std::string& path)
 
 NavigationStatus UserlandVfs::jumpToAlias(const std::string& path)
 {
-    for (const auto& [identifier, info] : allDependencies)
-    {
-        if (path.rfind(info.rootDirectory, 0) == 0)
-            return jumpToDependencySubtree(identifier);
-    }
+    if (const Identifier* owner = findOwningDependency(path))
+        return jumpToDependencySubtree(*owner);
 
     currentSubtree = std::nullopt;
     vfsType = VFSType::Disk;

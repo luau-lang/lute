@@ -95,6 +95,7 @@ private:
 
     UserlandVfs(std::vector<Identifier> directDependencies, DependencyMap allDependencies);
 
+    const Identifier* findOwningDependency(const std::string& path) const;
     NavigationStatus jumpToDependencySubtree(const Identifier& dependency);
 
     enum class VFSType
