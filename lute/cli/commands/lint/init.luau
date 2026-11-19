@@ -16,6 +16,9 @@ local types = require("@lint")
 local VERBOSE = false
 local SEQUENTIAL = false
 
+local EXIT_VIOLATIONS = 1
+local EXIT_LINT_FAILED = 2
+
 local function printHelp(args: cli.Parser)
 	print(args:usage("lute lint"))
 	print("\nLint the specified Luau file using the specified lint rules or using the default rules.\n")
@@ -24,6 +27,11 @@ local function printHelp(args: cli.Parser)
 
 PATHS:
   Paths to the Luau files or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
+
+EXIT CODES:
+  0  No lint violations were found. With --json, linting completed.
+  1  A lint rule reported a violation. Not used with --json.
+  2  Linting did not complete: a lint rule errored, a file could not be linted, or a lint rule could not be loaded.
 
 EXAMPLES:
   lute lint -r examples/lints/almost_swapped.luau bad_swap.luau
@@ -148,7 +156,7 @@ local function main(...: string)
 			local diagnostics = tableext.map(violations, lsp.diagnostic)
 			output(json.serialize(diagnostics :: json.Array, true))
 			if failed then
-				process.exit(1)
+				process.exit(EXIT_LINT_FAILED)
 			end
 		elseif #violations > 0 then
 			if VERBOSE then
@@ -157,13 +165,13 @@ local function main(...: string)
 
 			output(printer.formatLintsWithSource(violations, stringInput))
 
-			process.exit(1)
+			process.exit(if failed then EXIT_LINT_FAILED else EXIT_VIOLATIONS)
 		else
 			if VERBOSE then
 				print("No lint violations found.")
 			end
 
-			process.exit(if failed then 1 else 0)
+			process.exit(if failed then EXIT_LINT_FAILED else 0)
 		end
 	else
 		local autofixEnabled = args:has("auto-fix")
@@ -186,7 +194,7 @@ local function main(...: string)
 		if args:has("json") then
 			output(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.Object, true))
 			if failed then
-				process.exit(1)
+				process.exit(EXIT_LINT_FAILED)
 			end
 		else
 			if VERBOSE then
@@ -207,7 +215,7 @@ local function main(...: string)
 				output(table.concat(parts))
 			end
 
-			process.exit(if violationsFound or failed then 1 else 0)
+			process.exit(if failed then EXIT_LINT_FAILED elseif violationsFound then EXIT_VIOLATIONS else 0)
 		end
 	end
 end

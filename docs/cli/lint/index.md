@@ -111,6 +111,12 @@ return {
 }
 ```
 
+## Exit codes
+
+- `0`: No lint violations were found. With `--json`, linting completed, and any violations are in the JSON output.
+- `1`: A lint rule reported a violation. Not used with `--json`.
+- `2`: Linting did not complete: a lint rule errored, a file could not be linted (for example, it does not parse), or a lint rule could not be loaded. `lute lint` still lints everything else and reports all other violations. This code takes precedence over `1`.
+
 ## Examples
 
 ```bash
