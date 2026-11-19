@@ -168,8 +168,7 @@ local function maybeParseDirectives(
 			-- Store a sentinel value at this node to avoid reparsing suppressions
 			cache[node] = {}
 			-- Parse the rules that this node suppresses and attach them to the first statement of the block
-			local firstStatement = node.statements[1]
-			if firstStatement ~= nil then
+			if local firstStatement = node.statements[1] then
 				cache[firstStatement] = directives
 			end
 		end
