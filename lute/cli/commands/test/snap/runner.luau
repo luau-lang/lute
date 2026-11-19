@@ -113,15 +113,13 @@ function runner.runsnapshots(files: { path.Path }): snapty.SnapResult
 
 	-- Compute the normalized current working directory exactly once
 	--[[
-		Paths can have '.' characters in them, but gsub takes patterns as arguments and a '.' will match any single character.
-		E.g. Interpreting "/foo/bar.baz" as a pattern, will match "/foo/bar[any char]baz".
-		We need to replace any explicit '.' in a string that will be used as a pattern, with the escaped '.'
-		Gsub takes two patterns as its second and third argument, so we'll need to replace all '.' in the string(represented by the pattern '%.')
-		with the '.' matching pattern '%.'(itself represented by escaping the %, '%%.').
+		gsub takes a pattern, and paths can contain pattern magic characters such as '.', '-', '+', '(' or '%'.
+		E.g. Interpreting "/foo/my-dir" as a pattern matches "/foo/mydir", but not "/foo/my-dir".
+		Escape every magic character with '%' so that the path matches only itself.
 	]]
 	--
 	local cwd = posixify(path.format(process.cwd()))
-	cwd, _ = string.gsub(cwd, "%.", "%%.")
+	cwd, _ = string.gsub(cwd, "[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0")
 
 	local configCache: { [string]: snapty.SnapshotConfiguration | "missing" } = {}
 	for _, filepath in files do
