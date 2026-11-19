@@ -485,6 +485,38 @@ b = a
 		fs.removeDirectory(rulesDir, { recursive = true })
 	end)
 
+	suite:case("luteLintViolationInFileWithoutStatements", function(assert)
+		local wholeFileRule = [[
+return table.freeze({
+	name = "whole_file",
+	lint = function(cst, sourcepath)
+		return {
+			{
+				lintname = "whole_file",
+				location = cst.location,
+				message = "Reported for the whole file.",
+				severity = "warning",
+				sourcepath = sourcepath,
+			},
+		}
+	end,
+})
+]]
+
+		for _, content in { "", "-- only a comment\n" } do
+			lintTestHelper(assert, {
+				content = content,
+				expectedExitCode = 1,
+				customRuleContents = wholeFileRule,
+				disableDefaultLints = true,
+				outputExpectations = {
+					{ expectedOutput = "warning[whole_file]: Reported for the whole file.", count = 1 },
+					{ expectedOutput = "Error linting file", count = 0 },
+				},
+			})
+		end
+	end)
+
 	suite:case("luteLintMultipleInputFiles", function(assert)
 		-- Setup
 		-- Create multiple files that violate the rule
