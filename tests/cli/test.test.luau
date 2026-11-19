@@ -1,5 +1,7 @@
+local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
+local system = require("@std/system")
 local test = require("@std/test")
 local testutil = require("../testutil")
 
@@ -70,5 +72,29 @@ test.suite("LuteTestCommand", function(suite)
 		assert.eq(result.exitcode, 0)
 		assert.neq(result.stdout:find("of 1", 1, true), nil)
 		assert.neq(result.stdout:find("1 passed", 1, true), nil)
+	end)
+
+	suite:case("luteTestSnapshotsReplacesRootWithPatternCharacters", function(assert)
+		-- Setup: a working directory whose name contains Lua pattern magic characters
+		local rootDir = path.join(system.tmpdir(), "lute-snap root+(1)")
+		if fs.exists(rootDir) then
+			fs.removeDirectory(rootDir, { recursive = true })
+		end
+		fs.createDirectory(rootDir)
+		fs.writeStringToFile(
+			path.join(rootDir, "cwd.snap.luau"),
+			'print(require("@std/path").format(require("@std/process").cwd()))\n'
+		)
+		fs.writeStringToFile(path.join(rootDir, "cwd.snap"), "<ROOT>\n")
+
+		-- Run lute test snapshots from that directory
+		local result = process.run({ lutePath, "test", "snapshots", "." }, { cwd = path.format(rootDir) })
+
+		-- Check that the working directory in the output was replaced with <ROOT>
+		assert.eq(result.exitcode, 0)
+		assert.neq(result.stdout:find("1 passed", 1, true), nil)
+
+		-- Teardown
+		fs.removeDirectory(rootDir, { recursive = true })
 	end)
 end)
