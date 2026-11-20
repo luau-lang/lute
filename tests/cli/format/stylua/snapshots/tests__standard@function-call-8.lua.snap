@@ -1,0 +1,20 @@
+---
+source: tests/tests.rs
+expression: format(&contents)
+---
+function_call(
+	(
+		"hello"
+		.. "darkness"
+		.. "my"
+		.. "old"
+		.. "friend"
+		.. "hello"
+		.. "darkness"
+		.. "my"
+		.. "old"
+		.. "friend"
+		.. "!!!!!!!!!!!!"
+	):call()
+)
+
