@@ -44,8 +44,7 @@ end
 
 local function loadLintRule(path: string, loadErrors: { string }): types.LintRule?
 	local loaded = luau.loadModule(path)
-	local err = lintRuleError(loaded)
-	if err ~= nil then
+	if local err = lintRuleError(loaded) then
 		table.insert(loadErrors, `Error loading lint rule from {path}: {err}`)
 		return nil
 	end

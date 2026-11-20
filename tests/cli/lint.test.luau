@@ -40,6 +40,15 @@ local LINT_RULE_MESSAGES = {
 
 local USAGE = "Usage: lute lint [options] [paths...]"
 
+const alwaysErrorsRule = [[
+return table.freeze({
+	name = "AlwaysErrors",
+	lint = function(cst, sourcepath)
+		error("This rule always errors")
+	end,
+})
+]]
+
 local LUAURC_CONTENT = [[
 {
     "aliases": {
@@ -439,17 +448,7 @@ violator.luau:3:1-4:6 ──
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
 		fs.copy(defaultRulesPaths.almost_swapped, path.join(rulesDir, "almost_swapped.luau"))
 		-- Create a rule that fails
-		fs.writeStringToFile(
-			path.join(rulesDir, "erroring_rule.luau"),
-			[[
-return table.freeze({
-	name = "AlwaysErrors",
-	lint = function(cst, sourcepath)
-		error("This rule always errors")
-	end,
-})
-]]
-		)
+		fs.writeStringToFile(path.join(rulesDir, "erroring_rule.luau"), alwaysErrorsRule)
 
 		local output = lintTestHelper(assert, {
 			content = [[a = b
@@ -516,15 +515,6 @@ return table.freeze({
 			})
 		end
 	end)
-
-	local alwaysErrorsRule = [[
-return table.freeze({
-	name = "AlwaysErrors",
-	lint = function(cst, sourcepath)
-		error("This rule always errors")
-	end,
-})
-]]
 
 	suite:case("luteLintRuleErrorExitsWith2", function(assert)
 		lintTestHelper(assert, {
