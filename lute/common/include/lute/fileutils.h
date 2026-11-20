@@ -24,6 +24,8 @@ bool removeFile(const std::string& path);
 // Remove a directory (must be empty)
 bool removeDirectory(const std::string& path);
 
+// Check whether a path is a file or a directory, following symbolic links
+bool isFile(const std::string& path);
 bool isDirectory(const std::string& path);
 
 // Get the name of a file without its extension

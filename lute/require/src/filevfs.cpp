@@ -1,6 +1,7 @@
 #include "lute/filevfs.h"
 
 #include "lute/common.h"
+#include "lute/fileutils.h"
 #include "lute/modulepath.h"
 #include "lute/uvutils.h"
 
@@ -21,7 +22,7 @@ NavigationStatus FileVfs::resetToStdIn()
     size_t firstSlash = cwd->find_first_of("\\/");
     LUTE_ASSERT(firstSlash != std::string::npos);
 
-    modulePath = ModulePath::create(cwd->substr(0, firstSlash), cwd->substr(firstSlash + 1), isFile, isDirectory, "./");
+    modulePath = ModulePath::create(cwd->substr(0, firstSlash), cwd->substr(firstSlash + 1), Lute::isFile, Lute::isDirectory, "./");
     return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
 }
 
@@ -52,7 +53,7 @@ NavigationStatus FileVfs::doReset(const std::string& path, std::function<bool(co
         size_t firstSlash = normalizedPath.find_first_of('/');
         LUTE_ASSERT(firstSlash != std::string::npos);
 
-        modulePath = ModulePath::create(normalizedPath.substr(0, firstSlash), normalizedPath.substr(firstSlash + 1), isFile, isDirectory);
+        modulePath = ModulePath::create(normalizedPath.substr(0, firstSlash), normalizedPath.substr(firstSlash + 1), Lute::isFile, Lute::isDirectory);
     }
     else
     {
@@ -78,7 +79,9 @@ NavigationStatus FileVfs::resetToPath(const std::string& path)
             size_t firstSlash = joinedPath.find_first_of("\\/");
             LUTE_ASSERT(firstSlash != std::string::npos);
 
-            modulePath = ModulePath::create(joinedPath.substr(0, firstSlash), joinedPath.substr(firstSlash + 1), isFile, isDirectory, normalizedPath);
+            modulePath = ModulePath::create(
+                joinedPath.substr(0, firstSlash), joinedPath.substr(firstSlash + 1), Lute::isFile, Lute::isDirectory, normalizedPath
+            );
             return true;
         }
     );
@@ -118,7 +121,7 @@ NavigationStatus FileVfs::toChild(const std::string& name)
 
 bool FileVfs::isModulePresent() const
 {
-    return isFile(getAbsoluteFilePath());
+    return Lute::isFile(getAbsoluteFilePath());
 }
 
 std::string FileVfs::getFilePath() const
@@ -146,8 +149,8 @@ ConfigStatus FileVfs::getConfigStatus() const
 {
     LUTE_ASSERT(modulePath);
 
-    bool luaurcExists = isFile(modulePath->getPotentialConfigPath(Luau::kConfigName));
-    bool luauConfigExists = isFile(modulePath->getPotentialConfigPath(Luau::kLuauConfigName));
+    bool luaurcExists = Lute::isFile(modulePath->getPotentialConfigPath(Luau::kConfigName));
+    bool luauConfigExists = Lute::isFile(modulePath->getPotentialConfigPath(Luau::kLuauConfigName));
 
     if (luaurcExists && luauConfigExists)
         return ConfigStatus::Ambiguous;
