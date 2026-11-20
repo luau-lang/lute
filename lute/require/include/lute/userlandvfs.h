@@ -8,6 +8,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -43,14 +44,13 @@ struct IdentifierHashDefault
 struct Info
 {
     std::string rootDirectory;
-    std::string entryFile;
     std::vector<Identifier> dependencies;
 };
 
 class Subtree
 {
 public:
-    static std::optional<Subtree> create(Info info);
+    static std::optional<Subtree> create(Info info, const std::string& pathInRoot);
 
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);
@@ -95,7 +95,8 @@ private:
 
     UserlandVfs(std::vector<Identifier> directDependencies, DependencyMap allDependencies);
 
-    NavigationStatus jumpToDependencySubtree(const Identifier& dependency);
+    const Identifier* findOwningDependency(const std::string& path) const;
+    NavigationStatus jumpToDependencySubtree(const Identifier& dependency, std::optional<std::string_view> absolutePath = std::nullopt);
 
     enum class VFSType
     {

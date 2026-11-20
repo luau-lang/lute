@@ -40,7 +40,6 @@ TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
                 {{"dep", "1.0.0"},
                  {
                      packagesRoot + '/' + "internaldep",
-                     packagesRoot + '/' + "internaldep/init.luau",
                      {},
                  }}
             );
@@ -48,7 +47,6 @@ TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
                 {{"dep", "2.0.0"},
                  {
                      packagesRoot + '/' + "dep",
-                     packagesRoot + '/' + "dep/module.luau",
                      {{"dep", "1.0.0"}},
                  }}
             );
@@ -112,6 +110,19 @@ TEST_CASE_FIXTURE(LuteFixture, "pkgrun_transitive_deps")
     CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
 }
 
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_resolves_divergent_transitive_revisions_in_one_run")
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_divergent_transitive_deps/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+    CHECK(getReporter().getErrors().empty());
+}
+
 TEST_CASE_FIXTURE(LuteFixture, "pkgrun_deep_path_deps")
 {
     std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_deep_path_deps/packageentry/entry.luau";
@@ -146,4 +157,81 @@ TEST_CASE_FIXTURE(LuteFixture, "pkgrun_uses_the_member_dependencies_from_a_virtu
     std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
 
     CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+}
+
+static void checkMalformedLockfileFails(LuteFixture& fixture, const std::string& scenario, const std::string& expectedError)
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_malformed_lockfile/" + scenario + "/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), fixture.getReporter()), 1);
+
+    const std::vector<std::string>& errors = fixture.getReporter().getErrors();
+    REQUIRE_EQ(errors.size(), 1);
+    CHECK(errors[0].find("Invalid lockfile") != std::string::npos);
+    CHECK(errors[0].find("pkg.lock.luau") != std::string::npos);
+    CHECK(errors[0].find(expectedError) != std::string::npos);
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_fails_on_lockfile_with_invalid_syntax")
+{
+    checkMalformedLockfileFails(*this, "invalid_syntax", "config:5");
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_fails_on_lockfile_missing_dependencies")
+{
+    checkMalformedLockfileFails(*this, "missing_dependencies", "missing required field 'dependencies'");
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_fails_on_lockfile_with_non_table_packages")
+{
+    checkMalformedLockfileFails(*this, "non_table_packages", "field 'packages' must be a table");
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_fails_on_lockfile_package_missing_name")
+{
+    checkMalformedLockfileFails(*this, "missing_name", "package 'dep@1.0.0' is missing required field 'name'");
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_does_not_match_install_roots_by_raw_string_prefix")
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_overlapping_roots/prefix/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+    CHECK(getReporter().getErrors().empty());
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_uses_the_most_specific_install_root_for_nested_packages")
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_overlapping_roots/nested/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+    CHECK(getReporter().getErrors().empty());
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_lockfile_aliases_are_directory_aliases")
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_directory_aliases/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+    CHECK(getReporter().getErrors().empty());
 }

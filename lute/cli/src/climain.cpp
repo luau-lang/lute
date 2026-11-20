@@ -456,8 +456,15 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
             return 1;
         }
 
-        auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
-        setupPkgRunState(runtime, std::move(directDependencies), std::move(allDependencies));
+        Lute::Result<LockfileDependencies> dependencies = getDependenciesFromLockfile(*lockfile);
+        if (!dependencies.ok())
+        {
+            reporter.formatError("Error: Invalid lockfile '%s': %s", lockfile->c_str(), dependencies.error().c_str());
+            return 1;
+        }
+
+        LockfileDependencies deps = dependencies.value();
+        setupPkgRunState(runtime, std::move(deps.directDependencies), std::move(deps.allDependencies));
     }
     else
     {
