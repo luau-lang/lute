@@ -39,6 +39,10 @@ jobs:
           echo "Current Luau version: $CURRENT_BRANCH"
           echo "branch=$CURRENT_BRANCH" >> $GITHUB_OUTPUT
 
+      - name: Install Nix
+        if: steps.current-version.outputs.branch != steps.latest-release.outputs.tag
+        uses: cachix/install-nix-action@v31
+
       - name: Update version files
         if: steps.current-version.outputs.branch != steps.latest-release.outputs.tag
         run: |
@@ -46,6 +50,8 @@ jobs:
           if [ "${{ steps.current-version.outputs.branch }}" != "${{ steps.latest-release.outputs.tag }}" ]; then
             sed -i 's/^branch = ".*"/branch = "${{ steps.latest-release.outputs.tag }}"/' extern/luau.tune
             sed -i 's/^revision = ".*"/revision = "${{ steps.latest-release.outputs.commit }}"/' extern/luau.tune
+
+            nix run .#update_package -- --no-src
             
             echo "Updated luau.tune:"
             cat extern/luau.tune
@@ -108,9 +114,13 @@ jobs:
           echo "Current Lute version: $CURRENT_LUTE"
           echo "lute=$CURRENT_LUTE" >> $GITHUB_OUTPUT
 
+      - name: Install Nix
+        if: steps.current-version.outputs.lute != steps.latest-release.outputs.version
+        uses: cachix/install-nix-action@v31
+
       - name: Update version files
         run: |
-          # Update lute version in rokit.toml and foreman.toml
+          # Update lute version in nix/package.nix, rokit.toml and foreman.toml
           if [ "${{ steps.current-version.outputs.lute }}" != "${{ steps.latest-release.outputs.version }}" ]; then
             sed -i 's/^lute = "luau-lang\/lute@.*"/lute = "luau-lang\/lute@${{ steps.latest-release.outputs.version }}"/' rokit.toml
             echo "Updated rokit.toml:"
@@ -119,6 +129,8 @@ jobs:
             sed -i 's/^lute = { github = "luau-lang\/lute", version = ".*" }/lute = { github = "luau-lang\/lute", version = "=${{ steps.latest-release.outputs.version }}" }/' foreman.toml
             echo "Updated foreman.toml:"
             cat foreman.toml
+
+            nix run .#update_package -- --version="${{ steps.latest-release.outputs.version }}"
           fi
 
       - name: Create Pull Request
