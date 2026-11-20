@@ -11,7 +11,12 @@ return {
 	},
 	lute = {
 		lint = {
-			ignores = { "**/*.d.luau", "**/*.snap.luau", "tests/src/debug/*.luau" },
+			ignores = {
+				"**/*.d.luau",
+				"**/*.snap.luau",
+				"tests/src/debug/*.luau",
+				"tests/src/packages/pkgrun_malformed_lockfile/invalid_syntax/*.luau",
+			},
 		},
 		format = {
 			ignores = {
