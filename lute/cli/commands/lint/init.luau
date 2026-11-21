@@ -16,6 +16,9 @@ local types = require("@lint")
 local VERBOSE = false
 local SEQUENTIAL = false
 
+local EXIT_VIOLATIONS = 1
+local EXIT_LINT_FAILED = 2
+
 local function printHelp(args: cli.Parser)
 	print(args:usage("lute lint"))
 	print("\nLint the specified Luau file using the specified lint rules or using the default rules.\n")
@@ -24,6 +27,11 @@ local function printHelp(args: cli.Parser)
 
 PATHS:
   Paths to the Luau files or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
+
+EXIT CODES:
+  0  No lint violations were found. With --json, linting completed.
+  1  A lint rule reported a violation. Not used with --json.
+  2  Linting did not complete: a lint rule errored, a file could not be linted, or a lint rule could not be loaded.
 
 EXAMPLES:
   lute lint -r examples/lints/almost_swapped.luau bad_swap.luau
@@ -47,7 +55,7 @@ local function lintPaths(
 	passedConfigVal: string?,
 	autofixEnabled: boolean,
 	ignoreData: parseIgnores.GitignoreData
-): { [pathLib.Path]: { types.LintViolation } }
+): ({ [pathLib.Path]: { types.LintViolation } }, boolean)
 	if VERBOSE then
 		print("Filtering input files by gitignore")
 	end
@@ -128,19 +136,28 @@ local function main(...: string)
 		end
 	end
 
-	local lintRules, configContextData, ignoreData =
+	local lintRules, configContextData, ignoreData, loadErrors =
 		lintCore.initialize(passedConfigVal, noDefaultLints, rulesPath, VERBOSE)
+
+	for _, loadError in loadErrors do
+		print(loadError)
+	end
+	local loadFailed = #loadErrors > 0
 
 	if stringInput ~= nil then
 		if args:has("auto-fix") then
 			print("Auto-fix has no effect on string input.")
 		end
 
-		local violations = lintString(stringInput, lintRules, nil, configContextData, VERBOSE)
+		local violations, lintFailed = lintString(stringInput, lintRules, nil, configContextData, VERBOSE)
+		local failed = loadFailed or lintFailed
 
 		if args:has("json") then
 			local diagnostics = tableext.map(violations, lsp.diagnostic)
 			output(json.serialize(diagnostics :: json.Array, true))
+			if failed then
+				process.exit(EXIT_LINT_FAILED)
+			end
 		elseif #violations > 0 then
 			if VERBOSE then
 				print(`Printing violations from string input\n`)
@@ -148,13 +165,13 @@ local function main(...: string)
 
 			output(printer.formatLintsWithSource(violations, stringInput))
 
-			process.exit(1)
+			process.exit(if failed then EXIT_LINT_FAILED else EXIT_VIOLATIONS)
 		else
 			if VERBOSE then
 				print("No lint violations found.")
 			end
 
-			process.exit(0)
+			process.exit(if failed then EXIT_LINT_FAILED else 0)
 		end
 	else
 		local autofixEnabled = args:has("auto-fix")
@@ -162,7 +179,7 @@ local function main(...: string)
 			print("Auto-fix is enabled.")
 		end
 
-		local allViolations = lintPaths(
+		local allViolations, lintFailed = lintPaths(
 			inputFiles :: { string },
 			lintRules,
 			configContextData,
@@ -172,9 +189,13 @@ local function main(...: string)
 			autofixEnabled,
 			ignoreData
 		)
+		local failed = loadFailed or lintFailed
 
 		if args:has("json") then
 			output(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.Object, true))
+			if failed then
+				process.exit(EXIT_LINT_FAILED)
+			end
 		else
 			if VERBOSE then
 				print(`Printing violations from {#allViolations} files\n`)
@@ -194,7 +215,7 @@ local function main(...: string)
 				output(table.concat(parts))
 			end
 
-			process.exit(if violationsFound then 1 else 0)
+			process.exit(if failed then EXIT_LINT_FAILED elseif violationsFound then EXIT_VIOLATIONS else 0)
 		end
 	end
 end

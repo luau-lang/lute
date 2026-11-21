@@ -17,8 +17,9 @@ function lint.lintSequential(
 	autofixEnabled: boolean,
 	ignoreData: parseIgnores.GitignoreData,
 	verbose: boolean
-)
+): ({ [pathLib.Path]: { types.LintViolation } }, boolean)
 	local allViolations = {}
+	local failed = false
 	local hasIgnores = #ignoreData.ignores > 0
 	for _, inputPath in inputFiles do
 		local walker = fs.walk(inputPath, { recursive = true })
@@ -34,18 +35,21 @@ function lint.lintSequential(
 				end
 			end
 
-			local success, err = pcall(lintCore.lintFile, curr, lintRules, autofixEnabled, configData, verbose)
+			local success, err, ruleFailed =
+				pcall(lintCore.lintFile, curr, lintRules, autofixEnabled, configData, verbose)
 			if success then
 				-- Violations are returned as the second return value from pcall
 				allViolations[curr] = err
+				failed = failed or ruleFailed
 			else
 				print(`Error linting file '{curr}': {err}`)
+				failed = true
 			end
 
 			curr = walker()
 		end
 	end
-	return allViolations
+	return allViolations, failed
 end
 
 type Job = {
@@ -61,8 +65,9 @@ function lint.lintParallel(
 	autofixEnabled: boolean,
 	ignoreData: parseIgnores.GitignoreData,
 	verbose: boolean
-)
+): ({ [pathLib.Path]: { types.LintViolation } }, boolean)
 	local allViolations = {}
+	local failed = false
 	local hasIgnores = #ignoreData.ignores > 0
 	local maxWorkers = math.min(system.threadCount(), #inputFiles)
 	local curJob = 1
@@ -99,19 +104,22 @@ function lint.lintParallel(
 					local inputFilePathString = pathLib.format(activeJob.inputFile)
 					local isIgnored = hasIgnores and parseIgnores.isIgnored(ignoreData, inputFilePathString, false)
 					if not isIgnored then
-						local success, res = pcall(function()
+						local success, res, ruleFailed = pcall(function()
 							return worker.lintFile(inputFilePathString, job.autoFixEnabled, verbose)
 						end)
 						if success then
 							allViolations[activeJob.inputFile] = res :: { types.LintViolation }
+							failed = failed or ruleFailed == true
 						else
 							print(`(worker) Error linting file '{activeJob.inputFile}': {res}`)
+							failed = true
 						end
 					end
 					activeJob = lintNext()
 				end
 			end, function(err: any)
 				print(`worker errored: {tostring(err)}`)
+				failed = true
 			end)
 
 			doneWorkers += 1
@@ -126,7 +134,7 @@ function lint.lintParallel(
 		task.wait() -- wait for all jobs to run
 	end
 
-	return allViolations
+	return allViolations, failed
 end
 
 return table.freeze(lint)

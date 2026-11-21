@@ -40,6 +40,15 @@ local LINT_RULE_MESSAGES = {
 
 local USAGE = "Usage: lute lint [options] [paths...]"
 
+const alwaysErrorsRule = [[
+return table.freeze({
+	name = "AlwaysErrors",
+	lint = function(cst, sourcepath)
+		error("This rule always errors")
+	end,
+})
+]]
+
 local LUAURC_CONTENT = [[
 {
     "aliases": {
@@ -439,23 +448,13 @@ violator.luau:3:1-4:6 ──
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
 		fs.copy(defaultRulesPaths.almost_swapped, path.join(rulesDir, "almost_swapped.luau"))
 		-- Create a rule that fails
-		fs.writeStringToFile(
-			path.join(rulesDir, "erroring_rule.luau"),
-			[[
-return table.freeze({
-	name = "AlwaysErrors",
-	lint = function(cst, sourcepath)
-		error("This rule always errors")
-	end,
-})
-]]
-		)
+		fs.writeStringToFile(path.join(rulesDir, "erroring_rule.luau"), alwaysErrorsRule)
 
 		local output = lintTestHelper(assert, {
 			content = [[a = b
 b = a
 ]],
-			expectedExitCode = 1,
+			expectedExitCode = 2,
 			rulePath = rulesDir,
 			disableDefaultLints = true,
 			outputExpectations = {
@@ -515,6 +514,62 @@ return table.freeze({
 				},
 			})
 		end
+	end)
+
+	suite:case("luteLintRuleErrorExitsWith2", function(assert)
+		lintTestHelper(assert, {
+			content = "local _x = 1\n",
+			expectedExitCode = 2,
+			customRuleContents = alwaysErrorsRule,
+			disableDefaultLints = true,
+			outputExpectations = { { expectedOutput = "Error applying lint rule 'AlwaysErrors'", count = 1 } },
+		})
+	end)
+
+	suite:case("luteLintRuleErrorWithJsonExitsWith2", function(assert)
+		lintTestHelper(assert, {
+			content = "local _x = 1\n",
+			expectedExitCode = 2,
+			customRuleContents = alwaysErrorsRule,
+			disableDefaultLints = true,
+			extraOptions = { "--json" },
+			outputExpectations = { { expectedOutput = "Error applying lint rule 'AlwaysErrors'", count = 1 } },
+		})
+	end)
+
+	suite:case("luteLintInvalidRuleExitsWith2", function(assert)
+		lintTestHelper(assert, {
+			content = "local _x = 1\n",
+			expectedExitCode = 2,
+			customRuleContents = [[
+return table.freeze({
+	name = "NoLintFunction",
+})
+]],
+			disableDefaultLints = true,
+			outputExpectations = {
+				{
+					expectedOutput = "custom_rule.luau: must return a table with a 'lint' function property",
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("luteLintFileThatFailsToParseExitsWith2", function(assert)
+		local lintee = path.format(path.join(tmpDir, "lintee.luau"))
+		fs.writeStringToFile(lintee, "bogus")
+
+		for _, args in executionModeArgs do
+			local lintArgs = { lutePath, "lint", lintee }
+			tableext.extend(lintArgs, args)
+			local result = runProcess(lintArgs)
+
+			assert.eq(result.exitcode, 2)
+			assert.strContains(result.stdout, "Error linting file")
+		end
+
+		fs.remove(lintee)
 	end)
 
 	suite:case("luteLintMultipleInputFiles", function(assert)
@@ -623,7 +678,7 @@ b = a
 		local result = runProcess({ lutePath, "lint", lintee, violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 1)
+		assert.eq(result.exitcode, 2)
 
 		local expected = [[
 lintee.luau': @std/syntax/parser.luau:22: parsing failed:
@@ -2694,7 +2749,7 @@ violator.luau:2:7-13 ──
 	suite:case("unusedVariableWithDeepNestingErrors", function(assert)
 		lintTestHelper(assert, {
 			content = "local x = 1",
-			expectedExitCode = 0,
+			expectedExitCode = 2,
 			rulePath = defaultRulesPaths.unused_variable,
 			disableDefaultLints = true,
 			configContents = [[
@@ -2724,7 +2779,7 @@ return {
 	suite:case("unusedVariableWithConflictingApiDefinitionsErrors", function(assert)
 		lintTestHelper(assert, {
 			content = "local x = 1",
-			expectedExitCode = 0,
+			expectedExitCode = 2,
 			rulePath = defaultRulesPaths.unused_variable,
 			disableDefaultLints = true,
 			configContents = [[

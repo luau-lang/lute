@@ -22,41 +22,33 @@ local DEFAULT_RULES = {
 	"unused_variable",
 }
 
-local function isLintRule(rule: unknown, path: string, VERBOSE: boolean): boolean
+local function lintRuleError(rule: unknown): string?
 	if not rule then
-		if VERBOSE then
-			print(`Error loading lint rule from {path}: failed to require`)
-		end
-		return false
+		return "failed to require"
 	end
 
 	if typeof(rule) ~= "table" then
-		if VERBOSE then
-			print(`Error loading lint rule from {path}: must return a table`)
-		end
-		return false
+		return "must return a table"
 	end
 
 	if typeof(rule.name) ~= "string" then
-		if VERBOSE then
-			print(`Error loading lint rule from {path}: must return a table with a 'name' string property`)
-		end
-		return false
+		return "must return a table with a 'name' string property"
 	end
 
 	if typeof((rule :: { lint: unknown }).lint) ~= "function" then -- LUAUFIX: rule got refined to { read name : string } so accessing prop lint errors
-		if VERBOSE then
-			print(`Error loading lint rule from {path}: must return a table with a 'lint' function property`)
-		end
-		return false
+		return "must return a table with a 'lint' function property"
 	end
 
-	return true
+	return nil
 end
 
-local function loadLintRule(path: string, VERBOSE: boolean): types.LintRule?
+local function loadLintRule(path: string, loadErrors: { string }): types.LintRule?
 	local loaded = luau.loadModule(path)
-	return if isLintRule(loaded, path, VERBOSE) then loaded else nil -- Typecast isn't needed because loaded is refined to any bc of type error in isLintRule
+	if local err = lintRuleError(loaded) then
+		table.insert(loadErrors, `Error loading lint rule from {path}: {err}`)
+		return nil
+	end
+	return loaded
 end
 
 local function registerRule(
@@ -85,7 +77,7 @@ local function loadLintRules(
 	path: string,
 	config: internalTypes.LintConfig,
 	rootLocation: string,
-	VERBOSE: boolean
+	loadErrors: { string }
 ): ({ types.LintRule }, internalTypes.RuleConfigurations, internalTypes.RuleIgnores)
 	assert(fs.exists(path), `Lint rule at path '{path}' does not exist`)
 
@@ -100,7 +92,7 @@ local function loadLintRules(
 			local currentPathObj = pathLib.parse(currentPath)
 			local initPath = pathLib.format(pathLib.join(currentPathObj, "init.luau"))
 			if fs.exists(initPath) then
-				local rule = loadLintRule(initPath, VERBOSE)
+				local rule = loadLintRule(initPath, loadErrors)
 				if rule then
 					registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
 				end
@@ -112,7 +104,7 @@ local function loadLintRules(
 				tableext.extend(queue, childPaths)
 			end
 		elseif pathLib.extname(currentPath) == ".luau" then
-			local rule = loadLintRule(currentPath, VERBOSE)
+			local rule = loadLintRule(currentPath, loadErrors)
 			if rule then
 				registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
 			end
@@ -124,14 +116,13 @@ end
 
 local function loadDefaultRules(
 	config: internalTypes.LintConfig,
-	rootLocation: string,
-	VERBOSE: boolean
+	rootLocation: string
 ): ({ types.LintRule }, internalTypes.RuleConfigurations, internalTypes.RuleIgnores)
 	local rules, ruleConfigs, ruleIgnores = {}, {}, {}
 	for _, ruleName in DEFAULT_RULES do
 		local path = `./rules/{ruleName}`
 		local rule: types.LintRule = require(path) :: any -- Anycast to silence error from dynamic require
-		assert(isLintRule(rule, path, VERBOSE), `Invalid default lint rule: {path}`)
+		assert(lintRuleError(rule) == nil, `Invalid default lint rule: {path}`)
 		registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
 	end
 	return rules, ruleConfigs, ruleIgnores
@@ -304,7 +295,7 @@ function lintCore.lintString(
 	inputFilePath: pathLib.Path?,
 	configData: internalTypes.RuleConfigData,
 	VERBOSE: boolean
-): { types.LintViolation }
+): ({ types.LintViolation }, boolean)
 	if VERBOSE then
 		print(`Parsing input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
 	end
@@ -320,6 +311,7 @@ function lintCore.lintString(
 		print("Applying lint rules")
 	end
 	local violations: { types.LintViolation } = {}
+	local failed = false
 	local directiveCache = {}
 	for _, rule in lintRules do
 		if inputFilePath then
@@ -350,6 +342,7 @@ function lintCore.lintString(
 			end
 		else
 			print(`Error applying lint rule '{rule.name}': {err}`)
+			failed = true
 		end
 	end
 
@@ -360,7 +353,7 @@ function lintCore.lintString(
 		end
 	)
 
-	return violations
+	return violations, failed
 end
 
 function lintCore.lintFile(
@@ -369,16 +362,16 @@ function lintCore.lintFile(
 	autofixEnabled: boolean,
 	configData: internalTypes.RuleConfigData,
 	verbose: boolean
-): { types.LintViolation }
+): ({ types.LintViolation }, boolean)
 	if verbose then
 		print(`Reading input file '{inputFilePath}'`)
 	end
 	local fileContent = fs.readFileToString(inputFilePath)
 
-	local violations = lintCore.lintString(fileContent, lintRules, inputFilePath, configData, verbose)
+	local violations, failed = lintCore.lintString(fileContent, lintRules, inputFilePath, configData, verbose)
 
 	if not autofixEnabled then
-		return violations
+		return violations, failed
 	end
 
 	local hasSuggestedFixes = tableext.any(violations, function(violation)
@@ -386,7 +379,7 @@ function lintCore.lintFile(
 	end)
 
 	if not hasSuggestedFixes then
-		return violations
+		return violations, failed
 	end
 
 	if verbose then
@@ -405,7 +398,8 @@ function lintCore.lintFile(
 
 	fs.writeStringToFile(inputFilePath, newContent)
 
-	return lintCore.lintString(newContent, lintRules, inputFilePath, configData, verbose)
+	local fixedViolations, fixedFailed = lintCore.lintString(newContent, lintRules, inputFilePath, configData, verbose)
+	return fixedViolations, failed or fixedFailed
 end
 
 function lintCore.initialize(
@@ -413,7 +407,7 @@ function lintCore.initialize(
 	noDefaults: boolean,
 	rulePath: string?,
 	VERBOSE: boolean
-): ({ types.LintRule }, internalTypes.RuleConfigData, parseIgnores.GitignoreData)
+): ({ types.LintRule }, internalTypes.RuleConfigData, parseIgnores.GitignoreData, { string })
 	if passedConfigVal and fs.type(passedConfigVal) ~= "file" then
 		print(`Error: Configuration path must point to a file, not {fs.type(passedConfigVal)}`)
 		process.exit(1)
@@ -431,6 +425,7 @@ function lintCore.initialize(
 	local lintRules: { types.LintRule } = {}
 	local ruleConfigurations: internalTypes.RuleConfigurations = {}
 	local ruleIgnoreData: internalTypes.RuleIgnores = {}
+	local loadErrors: { string } = {}
 
 	local globalIgnores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
 	local globalIgnoreData = parseIgnores.parseIgnoreContents(rootLocation, globalIgnores)
@@ -441,7 +436,7 @@ function lintCore.initialize(
 		end
 	else
 		-- add path for each default rule to lintRulePaths
-		lintRules, ruleConfigurations, ruleIgnoreData = loadDefaultRules(lintConfig, rootLocation, VERBOSE)
+		lintRules, ruleConfigurations, ruleIgnoreData = loadDefaultRules(lintConfig, rootLocation)
 	end
 
 	if rulePath then
@@ -449,7 +444,7 @@ function lintCore.initialize(
 			print(`Loading lint rule(s) from '{rulePath}'`)
 		end
 
-		local customRules, customConfigs, customIgnores = loadLintRules(rulePath, lintConfig, rootLocation, VERBOSE)
+		local customRules, customConfigs, customIgnores = loadLintRules(rulePath, lintConfig, rootLocation, loadErrors)
 		tableext.extend(lintRules, customRules)
 		tableext.combine(ruleConfigurations, customConfigs)
 		tableext.combine(ruleIgnoreData, customIgnores)
@@ -460,7 +455,7 @@ function lintCore.initialize(
 	for _, path in configuredRulePaths do
 		local resolvedPath = pathLib.resolve(rootLocation, path)
 		local loadedRules, loadedConfigs, loadedIgnoreData =
-			loadLintRules(pathLib.format(resolvedPath), lintConfig, rootLocation, VERBOSE)
+			loadLintRules(pathLib.format(resolvedPath), lintConfig, rootLocation, loadErrors)
 		tableext.extend(lintRules, loadedRules)
 		tableext.combine(ruleConfigurations, loadedConfigs)
 		tableext.combine(ruleIgnoreData, loadedIgnoreData)
@@ -472,7 +467,7 @@ function lintCore.initialize(
 		ruleIgnores = ruleIgnoreData,
 	}
 
-	return lintRules, configContextData :: internalTypes.RuleConfigData, globalIgnoreData
+	return lintRules, configContextData :: internalTypes.RuleConfigData, globalIgnoreData, loadErrors
 end
 
 return table.freeze(lintCore)
