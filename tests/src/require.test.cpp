@@ -235,6 +235,83 @@ TEST_CASE_FIXTURE(LuteFixture, "require_by_string_semantics_in_cli")
     }
 }
 
+static bool createSymlink(const std::string& target, const std::string& linkPath, bool isDirectory)
+{
+    uv_fs_t req;
+    int result = uv_fs_symlink(uv_default_loop(), &req, target.c_str(), linkPath.c_str(), isDirectory ? UV_FS_SYMLINK_DIR : 0, nullptr);
+    uv_fs_req_cleanup(&req);
+    return result == 0;
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "require_through_symlinks")
+{
+    auto tmpDirResult = uvutils::getStringFromUv(uv_os_tmpdir);
+    REQUIRE(tmpDirResult.get_if<std::string>() != nullptr);
+
+    std::string rootTemplate = joinPaths(*tmpDirResult.get_if<std::string>(), "lute_require_symlinks_XXXXXX");
+    uv_fs_t mkdtempReq;
+    REQUIRE(uv_fs_mkdtemp(uv_default_loop(), &mkdtempReq, rootTemplate.c_str(), nullptr) == 0);
+    std::string root = mkdtempReq.path;
+    uv_fs_req_cleanup(&mkdtempReq);
+
+    std::string store = joinPaths(root, "store");
+    std::string project = joinPaths(root, "project");
+    std::string projectLink = joinPaths(root, "link");
+
+    std::vector<std::pair<std::string, std::string>> files = {
+        {joinPaths(store, "dep/init.luau"), "return \"result from symlinked package\"\n"},
+        {joinPaths(store, "module.luau"), "return \"result from symlinked module\"\n"},
+        {joinPaths(project, ".luaurc"), R"({ "aliases": { "dep": "./Packages/dep", "lib": "./lib" } })"},
+        {joinPaths(project, "lib/init.luau"), "return \"result from lib\"\n"},
+        {joinPaths(project, "alias_requirer.luau"), "assert(require(\"@lib\") == \"result from lib\")\n"},
+        {joinPaths(project, "package_requirer.luau"), "assert(require(\"@dep\") == \"result from symlinked package\")\n"},
+        {joinPaths(project, "module_requirer.luau"), "assert(require(\"./module\") == \"result from symlinked module\")\n"},
+    };
+
+    REQUIRE(Lute::createDirectories(joinPaths(store, "dep")));
+    REQUIRE(Lute::createDirectories(joinPaths(project, "lib")));
+    REQUIRE(Lute::createDirectories(joinPaths(project, "Packages")));
+    for (const auto& [path, contents] : files)
+        REQUIRE(Lute::writeFile(path, contents));
+
+    std::string packageLink = joinPaths(project, "Packages/dep");
+    std::string moduleLink = joinPaths(project, "module.luau");
+    REQUIRE(createSymlink(joinPaths(store, "dep"), packageLink, true));
+    REQUIRE(createSymlink(joinPaths(store, "module.luau"), moduleLink, false));
+    REQUIRE(createSymlink(project, projectLink, true));
+
+    char executablePlaceholder[] = "lute";
+    auto runEntry = [&](std::string entry)
+    {
+        std::vector<char*> argv = {executablePlaceholder, entry.data()};
+        return cliMain(argv.size(), argv.data(), getReporter());
+    };
+
+    SUBCASE("alias_in_symlinked_project")
+    {
+        CHECK_EQ(runEntry(joinPaths(projectLink, "alias_requirer.luau")), 0);
+    }
+
+    SUBCASE("alias_to_symlinked_package")
+    {
+        CHECK_EQ(runEntry(joinPaths(project, "package_requirer.luau")), 0);
+    }
+
+    SUBCASE("symlinked_module")
+    {
+        CHECK_EQ(runEntry(joinPaths(project, "module_requirer.luau")), 0);
+    }
+
+    // Directory links are removed with rmdir on Windows and unlink elsewhere.
+    for (const std::string& directoryLink : {projectLink, packageLink})
+        CHECK((Lute::removeFile(directoryLink) || Lute::removeDirectory(directoryLink)));
+    CHECK(Lute::removeFile(moduleLink));
+    for (const auto& [path, contents] : files)
+        CHECK(Lute::removeFile(path));
+    for (const std::string& directory : {joinPaths(project, "Packages"), joinPaths(project, "lib"), project, joinPaths(store, "dep"), store, root})
+        CHECK(Lute::removeDirectory(directory));
+}
+
 TEST_CASE_FIXTURE(LuteFixture, "require_check_tilde_path")
 {
     char executablePlaceholder[] = "lute";

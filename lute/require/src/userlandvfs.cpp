@@ -1,6 +1,7 @@
 #include "lute/userlandvfs.h"
 
 #include "lute/common.h"
+#include "lute/fileutils.h"
 #include "lute/modulepath.h"
 
 #include "Luau/Common.h"
@@ -17,7 +18,7 @@ namespace Package
 
 std::optional<Subtree> Subtree::create(Info info, const std::string& pathInRoot)
 {
-    std::optional<ModulePath> currentModulePath = ModulePath::create(info.rootDirectory, pathInRoot, isFile, isDirectory);
+    std::optional<ModulePath> currentModulePath = ModulePath::create(info.rootDirectory, pathInRoot, Lute::isFile, Lute::isDirectory);
     if (!currentModulePath)
         return std::nullopt;
 
@@ -42,8 +43,8 @@ NavigationStatus Subtree::toChild(const std::string& name)
 
 ConfigStatus Subtree::getConfigStatus() const
 {
-    bool luaurcExists = isFile(currentModulePath.getPotentialConfigPath(Luau::kConfigName));
-    bool luauConfigExists = isFile(currentModulePath.getPotentialConfigPath(Luau::kLuauConfigName));
+    bool luaurcExists = Lute::isFile(currentModulePath.getPotentialConfigPath(Luau::kConfigName));
+    bool luauConfigExists = Lute::isFile(currentModulePath.getPotentialConfigPath(Luau::kLuauConfigName));
 
     if (luaurcExists && luauConfigExists)
         return ConfigStatus::Ambiguous;
@@ -74,7 +75,7 @@ bool Subtree::isModulePresent() const
     if (result.status != NavigationStatus::Success)
         return false;
 
-    return isFile(result.realPath);
+    return Lute::isFile(result.realPath);
 }
 
 std::string Subtree::getCurrentPath() const
