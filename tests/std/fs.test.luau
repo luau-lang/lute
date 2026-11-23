@@ -232,6 +232,28 @@ test.suite("FsSuite", function(suite)
 		end
 	end)
 
+	-- deleting a watched dir used to spin libuv on Windows: task.wait never resumed and memory grew unbounded
+	suite:case("watchDeletedDirectory", function(assert)
+		local watchedDir = path.join(tmpdir, "watched_dir")
+		fs.createDirectory(watchedDir)
+
+		local watcher = fs.watch(watchedDir)
+		task.wait(0.1)
+		fs.removeDirectory(watchedDir)
+
+		-- the handle stays open across a wait: that is when the loop used to spin
+		task.wait(0.5)
+		local first = watcher:next()
+		local count = if first then 1 else 0
+		while watcher:next() do
+			count += 1
+		end
+		watcher:close()
+
+		assert.that(first ~= nil and first.rename)
+		assert.that(count < 10)
+	end)
+
 	suite:case("createDirectoryMakeparentsTrue", function(assert)
 		local nestedDir = path.join(tmpdir, "nested", "directory")
 		fs.createDirectory(nestedDir, { makeParents = true })
