@@ -5,7 +5,7 @@ local server = require("@lute/net/server")
 local task = require("@lute/task")
 
 test.suite("LuteNetSuite", function(suite)
-	suite:case("serveWebsocketAndConnect", function(assert)
+	suite:case("serveWebsocketSynchronousMessageEchoAndClose", function(assert)
 		local receivedEcho = false
 		local clientClosed = false
 		local clientCloseCode: number? = nil
@@ -168,6 +168,75 @@ test.suite("LuteNetSuite", function(suite)
 			error("binary server send result was not captured")
 		end
 		assert.eq(true, firstServerSendResult > 0)
+
+		instance.close()
+	end)
+
+	suite:case("serveWebsocketYieldedMessageHandler", function(assert)
+		local serverStarted = false
+		local serverResumed = false
+		local sendResult: number? = nil
+		local receivedEcho = false
+		local closed = false
+
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest, current: server.Server): server.ServerResponse?
+				if current:upgrade(req) then
+					return nil
+				end
+
+				return {
+					status = 200,
+					body = "no upgrade",
+				}
+			end,
+			websocket = {
+				message = function(ws, message)
+					serverStarted = true
+					task.wait()
+					serverResumed = true
+					sendResult = ws:send(`yielded:{message}`)
+				end,
+			},
+		})
+
+		local _ws: client.WebSocket?
+		_ws = client.websocket(`ws://{instance.hostname}:{instance.port}`, {
+			onopen = function()
+				if _ws then
+					_ws:send("hello")
+				end
+			end,
+			onmessage = function(message)
+				if type(message) == "string" and message == "yielded:hello" then
+					receivedEcho = true
+					if _ws then
+						_ws:close()
+					end
+				end
+			end,
+			onclose = function()
+				closed = true
+			end,
+			onerror = function(err: string)
+				error(err)
+			end,
+		})
+
+		local start = os.clock()
+		while (not receivedEcho or not closed or not serverResumed) and os.clock() - start < 5 do
+			task.deferSelf()
+		end
+
+		assert.eq(true, serverStarted)
+		assert.eq(true, serverResumed)
+		assert.eq(true, receivedEcho)
+		assert.eq(true, closed)
+		if sendResult == nil then
+			error("yielded server send result was not captured")
+		end
+		assert.eq(true, sendResult > 0)
 
 		instance.close()
 	end)

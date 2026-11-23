@@ -67,10 +67,11 @@ struct RequestUpgradeContext
     us_socket_context_t* socketContext = nullptr;
     bool attempted = false;
     bool upgraded = false;
+    bool expired = false;
 
     bool canAttempt() const
     {
-        return !attempted && res && req && socketContext;
+        return !expired && !attempted && res && req && socketContext;
     }
 
     void invalidatePointers()
@@ -78,6 +79,12 @@ struct RequestUpgradeContext
         res = nullptr;
         req = nullptr;
         socketContext = nullptr;
+    }
+
+    void expire()
+    {
+        expired = true;
+        invalidatePointers();
     }
 };
 
@@ -292,13 +299,18 @@ struct HttpYieldContext
 };
 
 template<typename ResT>
-static void finishHttpYield(lua_State* L, int status, const std::shared_ptr<HttpYieldContext<ResT>>& ctx)
+static void finishHttpYield(lua_State* L, int status, const std::shared_ptr<HttpYieldContext<ResT>>& ctx, Runtime* runtime)
 {
     if (!ctx)
     {
+        if (status != LUA_OK && runtime)
+            runtime->reportError(L);
         lua_settop(L, 0);
         return;
     }
+
+    if (status != LUA_OK && runtime)
+        runtime->reportError(L);
 
     ResT* res = ctx->res;
 
@@ -403,6 +415,9 @@ template<bool SSL>
 static int server_upgrade_do(lua_State* L)
 {
     auto* upgradeContext = getRequestUpgradeContext<SSL>(L);
+    if (upgradeContext && upgradeContext->expired)
+        luaL_errorL(L, "request.upgrade cannot be called after handler yields");
+
     if (!upgradeContext || !upgradeContext->canAttempt())
     {
         lua_pushboolean(L, 0);
@@ -610,6 +625,88 @@ static HandlerThread prepareHttpHandlerThread(
     return thread;
 }
 
+static void pushWebSocketMessage(lua_State* L, std::string_view message, bool binary)
+{
+    if (binary)
+    {
+        void* buf = lua_newbuffer(L, message.size());
+        if (!message.empty())
+            memcpy(buf, message.data(), message.size());
+    }
+    else
+    {
+        lua_pushlstring(L, message.data(), message.size());
+    }
+}
+
+static HandlerThread prepareWebSocketMessageThread(
+    const std::shared_ptr<ServerLoopState>& state,
+    const std::shared_ptr<ServerWebSocketHandle>& handle,
+    std::string_view message,
+    bool binary
+)
+{
+    LUTE_ASSERT(state);
+    LUTE_ASSERT(state->runtime);
+    LUTE_ASSERT(state->wsMessageRef);
+
+    HandlerThread thread = createHandlerThread(state->runtime);
+    lua_State* L = thread.L;
+
+    state->wsMessageRef->push(L);
+    pushServerWebSocket(L, handle);
+    pushWebSocketMessage(L, message, binary);
+    return thread;
+}
+
+struct WebSocketYieldContext
+{
+    std::shared_ptr<Ref> threadRef;
+};
+
+static void finishWebSocketYield(lua_State* L, int status, const std::shared_ptr<WebSocketYieldContext>&, Runtime* runtime)
+{
+    if (status != LUA_OK && runtime)
+        runtime->reportError(L);
+
+    lua_settop(L, 0);
+}
+
+static void processWebSocketMessage(
+    const std::shared_ptr<ServerLoopState>& state,
+    const std::shared_ptr<ServerWebSocketHandle>& handle,
+    std::string_view message,
+    bool binary
+)
+{
+    if (!state->wsMessageRef)
+        return;
+
+    HandlerThread thread = prepareWebSocketMessageThread(state, handle, message, binary);
+    lua_State* L = thread.L;
+    int status = lua_resume(L, nullptr, 2);
+
+    if (status == LUA_YIELD)
+    {
+        auto ctx = std::make_shared<WebSocketYieldContext>();
+        ctx->threadRef = std::move(thread.threadRef);
+
+        ThreadCompletionHandler completion;
+        completion.onFinish = [ctx, runtime = state->runtime](lua_State* L, int completionStatus)
+        {
+            finishWebSocketYield(L, completionStatus, ctx, runtime);
+        };
+
+        state->runtime->addThreadCompletionHandler(L, std::move(completion));
+        return;
+    }
+
+    if (status != LUA_OK)
+        state->runtime->reportError(L);
+
+    lua_settop(L, 0);
+}
+
 template<bool SSL>
 static HandlerThread prepareUpgradeHandlerThread(
     const std::shared_ptr<ServerLoopState>& state,
@@ -673,9 +770,9 @@ static void processRequest(
         );
 
         ThreadCompletionHandler completion;
-        completion.onFinish = [ctx](lua_State* L, int completionStatus)
+        completion.onFinish = [ctx, runtime = state->runtime](lua_State* L, int completionStatus)
         {
-            finishHttpYield<ResT>(L, completionStatus, ctx);
+            finishHttpYield<ResT>(L, completionStatus, ctx, runtime);
         };
 
         state->runtime->addThreadCompletionHandler(L, std::move(completion));
@@ -685,6 +782,7 @@ static void processRequest(
 
     if (status != LUA_OK)
     {
+        state->runtime->reportError(L);
         std::string error = lua_isstring(L, -1) ? lua_tostring(L, -1) : "Server error";
         lua_pop(L, 1);
 
@@ -727,23 +825,45 @@ static void installWebSocketRoutes(AppT* app, const std::shared_ptr<ServerLoopSt
         HandlerThread thread = prepareUpgradeHandlerThread<SSL>(state, headers, route, upgradeContext);
         lua_State* L = thread.L;
         int status = lua_resume(L, nullptr, 2);
-        upgradeContext->invalidatePointers();
         bool upgraded = upgradeContext->upgraded;
+        if (!upgraded)
+            upgradeContext->expire();
 
         if (status == LUA_YIELD)
         {
-            lua_resetthread(L);
-
-            if (!upgraded)
+            if (upgraded)
             {
-                res->writeStatus("500 Internal Server Error");
-                res->end("upgrade handler cannot yield");
+                lua_resetthread(L);
+                state->runtime->reporter.reportError("websocket upgrade handler cannot yield after upgrade");
+                return;
             }
+
+            auto ctx = std::make_shared<HttpYieldContext<uWS::HttpResponse<SSL>>>();
+            ctx->res = res;
+            ctx->threadRef = std::move(thread.threadRef);
+
+            res->onAborted(
+                [ctx]()
+                {
+                    ctx->aborted.store(true);
+                    ctx->res = nullptr;
+                }
+            );
+
+            ThreadCompletionHandler completion;
+            completion.onFinish = [ctx, runtime = state->runtime](lua_State* L, int completionStatus)
+            {
+                finishHttpYield<uWS::HttpResponse<SSL>>(L, completionStatus, ctx, runtime);
+            };
+
+            state->runtime->addThreadCompletionHandler(L, std::move(completion));
+            lua_settop(L, 0);
             return;
         }
 
         if (status != LUA_OK)
         {
+            state->runtime->reportError(L);
             std::string error = lua_isstring(L, -1) ? lua_tostring(L, -1) : "Server error";
             if (!upgraded)
             {
@@ -780,28 +900,9 @@ static void installWebSocketRoutes(AppT* app, const std::shared_ptr<ServerLoopSt
     behavior.message = [state](auto* ws, std::string_view message, uWS::OpCode opCode)
     {
         auto handle = ws->getUserData()->handle;
-        std::string payload(message.data(), message.size());
         bool binary = (opCode == uWS::OpCode::BINARY);
 
-        resumeWith(
-            state,
-            state->wsMessageRef,
-            [handle, payload = std::move(payload), binary](lua_State* L)
-            {
-                pushServerWebSocket(L, handle);
-                if (binary)
-                {
-                    void* buf = lua_newbuffer(L, payload.size());
-                    if (!payload.empty())
-                        memcpy(buf, payload.data(), payload.size());
-                }
-                else
-                {
-                    lua_pushlstring(L, payload.data(), payload.size());
-                }
-                return 2;
-            }
-        );
+        processWebSocketMessage(state, handle, message, binary);
     };
     behavior.drain = [state](auto* ws)
     {
