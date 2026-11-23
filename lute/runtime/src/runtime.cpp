@@ -323,7 +323,7 @@ void Runtime::scheduleLuauError(std::shared_ptr<Ref> ref, std::string error)
     std::unique_lock lock(continuationMutex);
 
     continuations.push_back(
-        [this, ref, error = std::move(error)]() mutable
+        [this, ref = std::move(ref), error = std::move(error)]() mutable
         {
             ref->push(GL);
             lua_State* L = lua_tothread(GL, -1);
@@ -342,7 +342,7 @@ void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua
     std::unique_lock lock(continuationMutex);
 
     continuations.push_back(
-        [this, ref, cont = std::move(cont)]() mutable
+        [this, ref = std::move(ref), cont = std::move(cont)]() mutable
         {
             ref->push(GL);
             lua_State* L = lua_tothread(GL, -1);
@@ -477,7 +477,8 @@ void ResumeTokenData::fail(std::string error)
     assert(!completed);
     completed = true;
 
-    runtime->scheduleLuauError(ref, std::move(error));
+    // The thread's Ref moves into the task so that it is released on the runtime that owns the thread
+    runtime->scheduleLuauError(std::move(ref), std::move(error));
     runtime->releasePendingToken();
 }
 
@@ -486,7 +487,7 @@ void ResumeTokenData::complete(std::function<int(lua_State*)> cont)
     assert(!completed);
     completed = true;
 
-    runtime->scheduleLuauResume(ref, std::move(cont));
+    runtime->scheduleLuauResume(std::move(ref), std::move(cont));
     runtime->releasePendingToken();
 }
 
