@@ -273,6 +273,20 @@ int fs_watch(lua_State* L)
 
             std::string filename = filenamePtr ? filenamePtr : "";
 
+            // libuv on Windows reports a deleted watched dir as a rename, then re-queues
+            // ReadDirectoryChangesW, which fails at once and reports it again: a tight loop that never
+            // yields to Luau. Stop once the watched path is gone (or pending delete, which our own open
+            // handle holds back, so stat fails with EPERM); the rename still reaches Luau below.
+            char watched[4096];
+            size_t size = sizeof(watched);
+            if ((events & UV_RENAME) && uv_fs_event_getpath(handle, watched, &size) == 0)
+            {
+                uv_fs_t req;
+                if (uv_fs_stat(eventHandle->runtime->getEventLoop(), &req, watched, nullptr) < 0)
+                    uv_fs_event_stop(handle);
+                uv_fs_req_cleanup(&req);
+            }
+
             eventHandle->runtime->scheduleLuauCallback(
                 eventHandle->callbackReference,
                 [filename = std::move(filename), events](lua_State* L)
