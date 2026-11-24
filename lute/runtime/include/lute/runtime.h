@@ -63,6 +63,11 @@ struct Runtime
     Runtime(LuteReporter& reporter, bool debugMode = false);
     ~Runtime();
 
+    // A runtime that is shared with callbacks running on its own run loop thread (see runContinuously) is created
+    // here. The destructor joins that thread, so when the thread itself drops the last owner, the runtime is
+    // destroyed by a helper thread after the loop returns.
+    static std::shared_ptr<Runtime> createShared(LuteReporter& reporter);
+
     bool runToCompletion();
     RuntimeStep runOnce();
 
@@ -156,6 +161,7 @@ struct Runtime
     bool runUncaughtExceptionCompletion(lua_State* L);
 
 private:
+    bool isRunLoopThread();
     void wakeUp();
     bool runThreadCompletionHandler(lua_State* L, int status);
     void clearThreadCompletionHandler(lua_State* L);

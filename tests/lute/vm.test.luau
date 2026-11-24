@@ -411,4 +411,83 @@ test.suite("LuteVmSuite", function(suite)
 		fs.remove(child_vm)
 		fs.remove(parent_vm)
 	end)
+
+	suite:case("workerOutlivesItsLastWrapperDuringCall", function(assert)
+		local tmpdir = system.tmpdir()
+		local child_vm = path.join(tmpdir, "child_vm_teardown.luau")
+		local parent_vm = path.join(tmpdir, "parent_vm_teardown.luau")
+		local release = path.join(tmpdir, "child_vm_teardown_release")
+
+		do
+			local handle = fs.open(child_vm, "w+")
+			assert.that(fs.exists(child_vm))
+			fs.write(
+				handle,
+				[[
+                local fs = require("@std/fs")
+
+                return {
+                    hold = function(release: string): number
+                        -- Runs until the parent has dropped its last reference to this worker. The call then fails,
+                        -- so no result is left that would keep the runtime alive on the parent side.
+                        local start = os.clock()
+                        while not fs.exists(release) and os.clock() - start < 30 do
+                        end
+                        error("released")
+                    end,
+                }
+            ]]
+			)
+			fs.close(handle)
+		end
+
+		do
+			local handle = fs.open(parent_vm, "w+")
+			assert.that(fs.exists(parent_vm))
+			fs.write(
+				handle,
+				string.format(
+					[[
+                local vm = require("@lute/vm")
+                local fs = require("@std/fs")
+                local task = require("@lute/task")
+                local worker = vm.create("./child_vm_teardown")
+
+                local call = coroutine.create(function()
+                    return worker.hold(%q)
+                end)
+                coroutine.resume(call)
+
+                -- Nothing in this VM refers to the worker now, but the call is still running in it
+                coroutine.close(call)
+                worker = nil
+
+                -- Luau has no collectgarbage, so allocate until a collection has freed the wrapper
+                for _ = 1, 100000 do
+                    local _ = buffer.create(4096)
+                end
+
+                local handle = fs.open(%q, "w+")
+                fs.close(handle)
+
+                -- Keep the process alive while the worker finishes
+                task.wait(1)
+                print("parent finished")
+            ]],
+					path.format(release),
+					path.format(release)
+				)
+			)
+			fs.close(handle)
+		end
+
+		local result = process.run({ path.format(process.execPath()), path.format(parent_vm) })
+		assert.eq(result.signal, nil)
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, "parent finished")
+
+		fs.remove(release)
+		fs.remove(child_vm)
+		fs.remove(parent_vm)
+	end)
 end)

@@ -13,6 +13,7 @@
 
 #include <assert.h>
 #include <string>
+#include <thread>
 
 static void lua_close_checked(lua_State* L)
 {
@@ -52,6 +53,9 @@ Runtime::Runtime(LuteReporter& reporter, bool debugMode)
 
 Runtime::~Runtime()
 {
+    // The join below cannot wait for the calling thread
+    LUTE_ASSERT(!isRunLoopThread());
+
     {
         std::unique_lock lock(continuationMutex);
 
@@ -79,6 +83,31 @@ Runtime::~Runtime()
     {
         LUTE_ASSERT(!"uv main loop failed to destruct due to active handles");
     }
+}
+
+std::shared_ptr<Runtime> Runtime::createShared(LuteReporter& reporter)
+{
+    return std::shared_ptr<Runtime>(
+        new Runtime(reporter),
+        [](Runtime* runtime)
+        {
+            if (runtime->isRunLoopThread())
+                std::thread(
+                    [runtime]
+                    {
+                        delete runtime;
+                    }
+                ).detach();
+            else
+                delete runtime;
+        }
+    );
+}
+
+bool Runtime::isRunLoopThread()
+{
+    uv_thread_t self = uv_thread_self();
+    return runLoopThreadStarted && uv_thread_equal(&self, &runLoopThread);
 }
 
 bool Runtime::hasWork()
