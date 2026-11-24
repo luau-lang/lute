@@ -95,8 +95,19 @@ bool Runtime::hasWork()
 
 RuntimeStep Runtime::runOnce()
 {
-    uv_run_mode mode = (hasContinuations() || hasThreads()) ? UV_RUN_NOWAIT : UV_RUN_ONCE;
-    uv_run(getEventLoop(), mode);
+    bool idle = !hasContinuations() && !hasThreads();
+
+    // With only tokens outstanding uv_run has no handle to wait on and returns at once.
+    // Counting the async handle makes it block until another thread sends it.
+    bool waitForWakeUp = idle && activeTokens.load() != 0 && !uv_loop_alive(getEventLoop());
+
+    if (waitForWakeUp)
+        uv_ref((uv_handle_t*)&wakeupEventLoop);
+
+    uv_run(getEventLoop(), idle ? UV_RUN_ONCE : UV_RUN_NOWAIT);
+
+    if (waitForWakeUp)
+        uv_unref((uv_handle_t*)&wakeupEventLoop);
 
     // Complete all C++ continuations
     std::vector<std::function<void()>> copy;
@@ -427,8 +438,14 @@ void Runtime::addPendingToken()
 
 void Runtime::releasePendingToken()
 {
+    // The destructor takes this lock before it closes the handle, so the runtime outlives the send below.
+    std::unique_lock lock(continuationMutex);
+
     [[maybe_unused]] int before = activeTokens.fetch_sub(1);
     assert(before > 0);
+
+    // The loop may have consumed the wake up of the continuation and still be waiting for this token.
+    uv_async_send(&wakeupEventLoop);
 }
 
 void Runtime::continueDebug()
