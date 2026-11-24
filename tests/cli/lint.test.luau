@@ -28,7 +28,7 @@ local defaultRulesPaths = {
 local LINT_RULE_MESSAGES = {
 	almost_swapped = "warning[almost_swapped]: This looks like a failed attempt to swap.",
 	constant_table_comparison = "warning[constant_table_comparison]: Comparing a table reference to a table literal will always evaluate to `false`.",
-	divide_by_zero = "warning[divide_by_zero]: Dividing by zero will always result in NaN, consider using `math.nan` instead.",
+	divide_by_zero = "warning[divide_by_zero]: Dividing by zero will always result in inf, consider using `math.huge` instead.",
 	duplicate_keys = "warning[duplicate_keys]: Duplicate keys in table literals will result in only the last one being included.",
 	empty_if_block = "warning[empty_if_block]: This `if` block is empty. Consider removing it or adding to it.",
 	global_function_in_scope = "warning[global_function_in_scope]: Non-local function declaration found inside a nested scope. Use 'local function' instead, or move this to the top level.",
@@ -240,6 +240,31 @@ violator.luau:1:11-16 ──
    │
 ]],
 					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("divideByZeroMessageMatchesResult", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local _inf = 1 / 0
+local _negInf = -3 // 0
+local _nan = 0 / 0
+local _rem = 4 % 0
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.divide_by_zero,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
+				{
+					expectedOutput = "Dividing by zero will always result in -inf, consider using `-math.huge` instead.",
+					count = 1,
+				},
+				{
+					expectedOutput = "Dividing by zero will always result in NaN, consider using `math.nan` instead.",
+					count = 2,
 				},
 			},
 		})
@@ -1059,7 +1084,7 @@ local x = 1 / 0
                     }
                 },
                 {
-                    "message": "Dividing by zero will always result in NaN, consider using `math.nan` instead.",
+                    "message": "Dividing by zero will always result in inf, consider using `math.huge` instead.",
                     "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html",
                     "source": "lute lint",
                     "code": "divide_by_zero",
@@ -1339,7 +1364,7 @@ b = a
         }
     },
     {
-        "message": "Dividing by zero will always result in NaN, consider using `math.nan` instead.",
+        "message": "Dividing by zero will always result in inf, consider using `math.huge` instead.",
         "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html",
         "source": "lute lint",
         "code": "divide_by_zero",
