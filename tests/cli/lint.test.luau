@@ -245,6 +245,18 @@ violator.luau:1:11-16 ──
 		})
 	end)
 
+	-- Fixes on one line are applied last-to-first so the columns of the earlier ones stay valid. A sort that mis-ordered
+	-- them (it did, once there were enough) wrote `math.hugemath.huge`-style output.
+	suite:case("autofixes many fixes on one line", function(assert)
+		lintTestHelper(assert, {
+			content = "local _t = {1 / 0, 2 / 0, 3 / 0, 4 / 0, 5 / 0, 6 / 0, 7 / 0, 8 / 0, 9 / 0, 10 / 0, 11 / 0, 12 / 0, 13 / 0, 14 / 0, 15 / 0, 16 / 0, 17 / 0, 18 / 0, 19 / 0, 20 / 0, 21 / 0, 22 / 0, 23 / 0, 24 / 0}\n",
+			expectedExitCode = 0,
+			expectedAutofixContents = "local _t = {math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge, math.huge}\n",
+			rulePath = defaultRulesPaths.divide_by_zero,
+			disableDefaultLints = true,
+		})
+	end)
+
 	suite:case("divideByZeroAutoFix", function(assert)
 		lintTestHelper(assert, {
 			content = [[

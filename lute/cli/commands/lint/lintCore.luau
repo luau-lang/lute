@@ -238,7 +238,7 @@ local function applySuggestedFixes(source: string, fixes: { fix }): string
 
 	-- Sort fixes by starting location descending to avoid messing up locations of earlier fixes
 	table.sort(fixes, function(a: fix, b: fix)
-		return not (a.location < b.location)
+		return b.location < a.location
 	end)
 
 	for _, fix in fixes do
