@@ -187,6 +187,18 @@ test.suite("ProcessSuite", function(suite)
 		assert.eq(r.stdout, "hello\n")
 	end)
 
+	suite:case("runConsoleProgramWithTimeoutOnWindows", function(assert)
+		if not system.win32 then
+			return
+		end
+
+		local script = "Start-Sleep -Milliseconds 300; Write-Output hi"
+		local r = process.run({ "powershell", "-NoProfile", "-NonInteractive", "-Command", script }, { timeout = 60 })
+		assert.eq(r.exitcode, 0)
+		assert.eq(r.timedOut, nil)
+		assert.eq(testutil.normalizeLineEndings(r.stdout), "hi\n")
+	end)
+
 	suite:case("systemTimesOutProcess", function(assert)
 		local lutePath = pathlib.format(process.execPath())
 		local scriptPath = pathlib.join(system.tmpdir(), "process_timeout_system.luau")
