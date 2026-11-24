@@ -87,7 +87,10 @@ bool Runtime::hasWork()
     // Unfortunately, we do currently have some places where we add/release
     // tokens that don't correspond to libuv activity, so for now we keep both.
     // uv_ref/unref could be used to patch tokens into the libuv loop itself.
-    return hasContinuations() || hasThreads() || activeTokens.load() != 0 || uv_loop_alive(getEventLoop());
+
+    // A token is released after its continuation is queued, so it has to be read before the continuations.
+    bool hasTokens = activeTokens.load() != 0;
+    return hasTokens || hasContinuations() || hasThreads() || uv_loop_alive(getEventLoop());
 }
 
 RuntimeStep Runtime::runOnce()

@@ -315,4 +315,54 @@ test.suite("LuteVmSuite", function(suite)
 		fs.remove(child_vm)
 		fs.remove(parent_vm)
 	end)
+
+	suite:case("serialCallsAllComplete", function(assert)
+		local tmpdir = system.tmpdir()
+		local child_vm = path.join(tmpdir, "child_vm_serial.luau")
+		local parent_vm = path.join(tmpdir, "parent_vm_serial.luau")
+
+		do
+			local handle = fs.open(child_vm, "w+")
+			assert.that(fs.exists(child_vm))
+			fs.write(
+				handle,
+				[[
+                return {
+                    work = function(i: number): number
+                        local start = os.clock()
+                        while os.clock() - start < 0.0002 do
+                        end
+                        return i * 2
+                    end,
+                }
+            ]]
+			)
+			fs.close(handle)
+		end
+
+		do
+			local handle = fs.open(parent_vm, "w+")
+			assert.that(fs.exists(parent_vm))
+			fs.write(
+				handle,
+				[[
+                local vm = require("@lute/vm")
+                local worker = vm.create("./child_vm_serial")
+
+                for i = 1, 500 do
+                    assert(worker.work(i) == i * 2)
+                end
+                print("all calls returned")
+            ]]
+			)
+			fs.close(handle)
+		end
+
+		local result = process.run({ path.format(process.execPath()), path.format(parent_vm) })
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, "all calls returned")
+
+		fs.remove(child_vm)
+		fs.remove(parent_vm)
+	end)
 end)
