@@ -365,4 +365,50 @@ test.suite("LuteVmSuite", function(suite)
 		fs.remove(child_vm)
 		fs.remove(parent_vm)
 	end)
+
+	suite:case("callReturnsWhileAnotherTimerIsPending", function(assert)
+		local tmpdir = system.tmpdir()
+		local child_vm = path.join(tmpdir, "child_vm_timer.luau")
+		local parent_vm = path.join(tmpdir, "parent_vm_timer.luau")
+
+		do
+			local handle = fs.open(child_vm, "w+")
+			assert.that(fs.exists(child_vm))
+			fs.write(handle, [[ return { double = function(x: number): number return x * 2 end } ]])
+			fs.close(handle)
+		end
+
+		do
+			local handle = fs.open(parent_vm, "w+")
+			assert.that(fs.exists(parent_vm))
+			fs.write(
+				handle,
+				[[
+                local vm = require("@lute/vm")
+                local task = require("@lute/task")
+                local time = require("@lute/time")
+                local worker = vm.create("./child_vm_timer")
+
+                -- The event loop waits on this timer while the call is in flight
+                task.spawn(function()
+                    task.wait(1)
+                end)
+
+                task.spawn(function()
+                    local start = time.now()
+                    local result = worker.double(21)
+                    print(result, time.since(start) < 0.5)
+                end)
+            ]]
+			)
+			fs.close(handle)
+		end
+
+		local result = process.run({ path.format(process.execPath()), path.format(parent_vm) })
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, "42\ttrue")
+
+		fs.remove(child_vm)
+		fs.remove(parent_vm)
+	end)
 end)
