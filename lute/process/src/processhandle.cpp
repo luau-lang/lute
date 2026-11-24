@@ -149,7 +149,11 @@ ProcessHandle::ProcessHandle(lua_State* L, ProcessOptions& opts, std::vector<std
 
     if (timeoutMs > 0)
     {
+#ifndef _WIN32
+        // A new process group lets onTimeout signal the child's descendants too. On Windows this flag means
+        // DETACHED_PROCESS, which gives console programs no console, so they exit at once with no output.
         options.flags |= UV_PROCESS_DETACHED;
+#endif
         uv_timer_init(loop, &timeoutTimer);
         timeoutTimer.data = this;
         timeoutTimerInitialized = true;
