@@ -63,6 +63,11 @@ struct Runtime
     Runtime(LuteReporter& reporter, bool debugMode = false);
     ~Runtime();
 
+    // A runtime that is shared with callbacks running on its own run loop thread (see runContinuously) is created
+    // here. The destructor joins that thread, so when the thread itself drops the last owner, the runtime is
+    // destroyed by a helper thread after the loop returns.
+    static std::shared_ptr<Runtime> createShared(LuteReporter& reporter);
+
     bool runToCompletion();
     RuntimeStep runOnce();
 
@@ -149,14 +154,15 @@ struct Runtime
     void stopDebug();
     void continueDebug();
     void waitForDebugContinue();
-    // Same as scheduleLuauCallback but we since we don't call this within a libuv completion callback
-    // we need to wake up the libuv event loop.
+    // Same as scheduleLuauCallback, for a runtime that has launched debuggees.
     void scheduleDebugLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher);
     // uncaught exceptions are handled by the runtime when we finish a thread that has an erroring state.
     std::function<bool(lua_State* L)> onUncaughtError;
     bool runUncaughtExceptionCompletion(lua_State* L);
 
 private:
+    bool isRunLoopThread();
+    void wakeUp();
     bool runThreadCompletionHandler(lua_State* L, int status);
     void clearThreadCompletionHandler(lua_State* L);
 

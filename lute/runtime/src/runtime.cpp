@@ -13,6 +13,7 @@
 
 #include <assert.h>
 #include <string>
+#include <thread>
 
 static void lua_close_checked(lua_State* L)
 {
@@ -41,7 +42,7 @@ Runtime::Runtime(LuteReporter& reporter, bool debugMode)
     {
         LUTE_ASSERT(!"Couldn't initialize runtime event loop");
     }
-    // We need a way to communicate from other uv threads to the main event loop for scheduleDebugLuauCallback.
+    // We need a way to communicate from other uv threads to the main event loop when they schedule a continuation.
     if (uv_async_init(&eventLoop, &wakeupEventLoop, [](uv_async_t*) {}) < 0)
     {
         LUTE_ASSERT(!"Couldn't initialize uv_async handle to wake up main event");
@@ -52,6 +53,9 @@ Runtime::Runtime(LuteReporter& reporter, bool debugMode)
 
 Runtime::~Runtime()
 {
+    // The join below cannot wait for the calling thread
+    LUTE_ASSERT(!isRunLoopThread());
+
     {
         std::unique_lock lock(continuationMutex);
 
@@ -81,19 +85,58 @@ Runtime::~Runtime()
     }
 }
 
+std::shared_ptr<Runtime> Runtime::createShared(LuteReporter& reporter)
+{
+    return std::shared_ptr<Runtime>(
+        new Runtime(reporter),
+        [](Runtime* runtime)
+        {
+            if (runtime->isRunLoopThread())
+                std::thread(
+                    [runtime]
+                    {
+                        delete runtime;
+                    }
+                ).detach();
+            else
+                delete runtime;
+        }
+    );
+}
+
+bool Runtime::isRunLoopThread()
+{
+    uv_thread_t self = uv_thread_self();
+    return runLoopThreadStarted && uv_thread_equal(&self, &runLoopThread);
+}
+
 bool Runtime::hasWork()
 {
     // TODO: activeTokens and uv_loop_alive have a decent amount of overlap.
     // Unfortunately, we do currently have some places where we add/release
     // tokens that don't correspond to libuv activity, so for now we keep both.
     // uv_ref/unref could be used to patch tokens into the libuv loop itself.
-    return hasContinuations() || hasThreads() || activeTokens.load() != 0 || uv_loop_alive(getEventLoop());
+
+    // A token is released after its continuation is queued, so it has to be read before the continuations.
+    bool hasTokens = activeTokens.load() != 0;
+    return hasTokens || hasContinuations() || hasThreads() || uv_loop_alive(getEventLoop());
 }
 
 RuntimeStep Runtime::runOnce()
 {
-    uv_run_mode mode = (hasContinuations() || hasThreads()) ? UV_RUN_NOWAIT : UV_RUN_ONCE;
-    uv_run(getEventLoop(), mode);
+    bool idle = !hasContinuations() && !hasThreads();
+
+    // With only tokens outstanding uv_run has no handle to wait on and returns at once.
+    // Counting the async handle makes it block until another thread sends it.
+    bool waitForWakeUp = idle && activeTokens.load() != 0 && !uv_loop_alive(getEventLoop());
+
+    if (waitForWakeUp)
+        uv_ref((uv_handle_t*)&wakeupEventLoop);
+
+    uv_run(getEventLoop(), idle ? UV_RUN_ONCE : UV_RUN_NOWAIT);
+
+    if (waitForWakeUp)
+        uv_unref((uv_handle_t*)&wakeupEventLoop);
 
     // Complete all C++ continuations
     std::vector<std::function<void()>> copy;
@@ -309,13 +352,20 @@ void Runtime::clearThreadCompletionHandler(lua_State* L)
     threadCompletionHandlers.erase(L);
 }
 
+void Runtime::wakeUp()
+{
+    // runContinuously waits on the condition variable, a loop blocked in uv_run waits on the async handle.
+    runLoopCv.notify_one();
+    uv_async_send(&wakeupEventLoop);
+}
+
 void Runtime::schedule(std::function<void()> f)
 {
     std::unique_lock lock(continuationMutex);
 
     continuations.push_back(std::move(f));
 
-    runLoopCv.notify_one();
+    wakeUp();
 }
 
 void Runtime::scheduleLuauError(std::shared_ptr<Ref> ref, std::string error)
@@ -323,7 +373,7 @@ void Runtime::scheduleLuauError(std::shared_ptr<Ref> ref, std::string error)
     std::unique_lock lock(continuationMutex);
 
     continuations.push_back(
-        [this, ref, error = std::move(error)]() mutable
+        [this, ref = std::move(ref), error = std::move(error)]() mutable
         {
             ref->push(GL);
             lua_State* L = lua_tothread(GL, -1);
@@ -334,7 +384,7 @@ void Runtime::scheduleLuauError(std::shared_ptr<Ref> ref, std::string error)
         }
     );
 
-    runLoopCv.notify_one();
+    wakeUp();
 }
 
 void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua_State*)> cont)
@@ -342,7 +392,7 @@ void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua
     std::unique_lock lock(continuationMutex);
 
     continuations.push_back(
-        [this, ref, cont = std::move(cont)]() mutable
+        [this, ref = std::move(ref), cont = std::move(cont)]() mutable
         {
             ref->push(GL);
             lua_State* L = lua_tothread(GL, -1);
@@ -357,7 +407,7 @@ void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua
         }
     );
 
-    runLoopCv.notify_one();
+    wakeUp();
 }
 
 void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher)
@@ -378,16 +428,13 @@ void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::functi
         }
     );
 
-    runLoopCv.notify_one();
+    wakeUp();
 }
 
 void Runtime::scheduleDebugLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher)
 {
     LUTE_ASSERT(numLaunchedDebuggees > 0);
     scheduleLuauCallback(callbackRef, std::move(argPusher));
-    // We may be blocked on uv_run(getEventLoop(), UV_RUN_ONCE) in runOnce().
-    // This signals the uv_loop and unblocks it to run the continuation.
-    uv_async_send(&wakeupEventLoop);
 }
 
 void Runtime::runInWorkQueue(std::function<void()> f)
@@ -420,8 +467,14 @@ void Runtime::addPendingToken()
 
 void Runtime::releasePendingToken()
 {
+    // The destructor takes this lock before it closes the handle, so the runtime outlives the send below.
+    std::unique_lock lock(continuationMutex);
+
     [[maybe_unused]] int before = activeTokens.fetch_sub(1);
     assert(before > 0);
+
+    // The loop may have consumed the wake up of the continuation and still be waiting for this token.
+    uv_async_send(&wakeupEventLoop);
 }
 
 void Runtime::continueDebug()
@@ -477,7 +530,8 @@ void ResumeTokenData::fail(std::string error)
     assert(!completed);
     completed = true;
 
-    runtime->scheduleLuauError(ref, std::move(error));
+    // The thread's Ref moves into the task so that it is released on the runtime that owns the thread
+    runtime->scheduleLuauError(std::move(ref), std::move(error));
     runtime->releasePendingToken();
 }
 
@@ -486,7 +540,7 @@ void ResumeTokenData::complete(std::function<int(lua_State*)> cont)
     assert(!completed);
     completed = true;
 
-    runtime->scheduleLuauResume(ref, std::move(cont));
+    runtime->scheduleLuauResume(std::move(ref), std::move(cont));
     runtime->releasePendingToken();
 }
 

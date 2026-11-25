@@ -91,6 +91,20 @@ static bool copyLuauObject(lua_State* from, lua_State* to, int fromIdx)
     return true;
 }
 
+// A Ref into a runtime's dataCopy VM is created, read and released under dataCopyMutex. It is handed between
+// threads, so the last owner can be either one, and lua_ref and lua_unref edit the VM's registry and free list.
+static std::shared_ptr<Ref> makeDataCopyRef(std::shared_ptr<Runtime> runtime, lua_State* to, int idx)
+{
+    return std::shared_ptr<Ref>(
+        new Ref(to, idx),
+        [runtime = std::move(runtime)](Ref* ref)
+        {
+            std::unique_lock lock(runtime->dataCopyMutex);
+            delete ref;
+        }
+    );
+}
+
 static std::shared_ptr<Ref> packStackValues(lua_State* from, std::shared_ptr<Runtime> runtime)
 {
     std::unique_lock lock(runtime->dataCopyMutex);
@@ -106,7 +120,7 @@ static std::shared_ptr<Ref> packStackValues(lua_State* from, std::shared_ptr<Run
         lua_rawseti(to, -2, i + 1);
     }
 
-    auto args = std::make_shared<Ref>(to, -1);
+    auto args = makeDataCopyRef(runtime, to, -1);
     lua_pop(to, 1);
 
     return args;
@@ -202,7 +216,7 @@ int VM::lua_spawn(lua_State* L)
 
     Runtime* parent = getRuntime(L);
 
-    auto child = std::make_shared<Runtime>(parent->reporter);
+    auto child = Runtime::createShared(parent->reporter);
     child->requireContextFactory = parent->requireContextFactory;
     LUTE_ASSERT(child->requireContextFactory);
 
@@ -253,9 +267,10 @@ int VM::lua_spawn(lua_State* L)
             // It has to be released in target runtime, so we copy it over
             TargetFunction* target = (TargetFunction*)userdata;
 
-            // Schedule references to be removed in target runtime
+            // Schedule references to be removed in target runtime. The Ref moves into the task, so it is
+            // never released on this thread
             target->runtime->schedule(
-                [func = target->func]() mutable
+                [func = std::move(target->func)]() mutable
                 {
                     func.reset();
                 }
