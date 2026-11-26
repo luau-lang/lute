@@ -385,6 +385,25 @@ local function decodeSurrogatePair(highHex: string, lowHex: string, cursor: numb
 	return utf8.char(codepoint)
 end
 
+-- Decodes the escape whose backslash is at `p`. Returns its value and the position after it.
+local function decodeEscape(src: string, p: number, cursor: number): (string, number)
+	local hex = string.match(src, "^u(%x%x%x%x)", p + 1)
+	if not hex then
+		local v = UNESCAPE[string.sub(src, p + 1, p + 1)]
+		if not v then
+			error(`JSON error - Invalid escape sequence around {cursor}`)
+		end
+		return v, p + 2
+	end
+
+	local lowHex = string.match(src, "^\\u([dD][c-fC-F]%x%x)", p + 6)
+	if lowHex and string.match(hex, "^[dD][89aAbB]") then
+		return decodeSurrogatePair(hex, lowHex, cursor), p + 12
+	end
+
+	return decodeUnicodeEscape(hex, cursor), p + 6
+end
+
 local function deserializeString(state: DeserializerState): string
 	if currentByte(state) ~= string.byte('"') then
 		return deserializerError(state, "Expected string opening quote")
@@ -407,13 +426,22 @@ local function deserializeString(state: DeserializerState): string
 		return deserializerError(state, "Unescaped control character in string")
 	end
 
+	-- Each escape is decoded once, so a decoded character is never read as the start of another escape.
+	local pieces: { string } = {}
+	local copied = startPos
 	local len = #src
 	while p <= len do
 		local c = string.byte(src, p)
 		if c == 0x5C then
-			p += 2
+			table.insert(pieces, string.sub(src, copied, p - 1))
+			local value, after = decodeEscape(src, p, state.cursor)
+			table.insert(pieces, value)
+			copied = after
+			p = after
 		elseif c == 0x22 then
-			break
+			table.insert(pieces, string.sub(src, copied, p - 1))
+			state.cursor = p + 1
+			return table.concat(pieces)
 		elseif c < 0x20 then
 			state.cursor = p
 			return deserializerError(state, "Unescaped control character in string")
@@ -421,37 +449,8 @@ local function deserializeString(state: DeserializerState): string
 			p += 1
 		end
 	end
-	if p > len then
-		return deserializerError(state, "Unterminated string")
-	end
 
-	local raw = string.sub(src, startPos, p - 1)
-	local cursor = state.cursor
-
-	-- Freeze raw `\\` as 0x01 so a `\\u0000` source isn't mis-parsed as
-	-- backslash + `\u0000`. The scan above guarantees no 0x01 in input.
-	raw = string.gsub(raw, "\\\\", "\1")
-	raw = string.gsub(
-		raw,
-		"\\u([dD][89aAbB]%x%x)\\u([dD][c-fC-F]%x%x)",
-		function(h, l)
-			return decodeSurrogatePair(h, l, cursor)
-		end :: any
-	)
-	raw = string.gsub(raw, "\\u(%x%x%x%x)", function(code)
-		return decodeUnicodeEscape(code, cursor)
-	end)
-	raw = string.gsub(raw, "\\(.)", function(esc)
-		local v = UNESCAPE[esc]
-		if not v then
-			error(`JSON error - Invalid escape sequence around {cursor}`)
-		end
-		return v
-	end)
-	raw = string.gsub(raw, "\1", "\\")
-
-	state.cursor = p + 1
-	return raw
+	return deserializerError(state, "Unterminated string")
 end
 
 local deserialize: (DeserializerState) -> (Array | Object | boolean | number | string)?

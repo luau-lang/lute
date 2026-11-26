@@ -79,6 +79,26 @@ test.suite("JSONParsingTestSuite", function(suite)
 		end
 	end)
 
+	suite:case("deserializeU0001IsNotABackslash", function(assert)
+		assert.eq(json.deserialize([["\u0001"]]), "\1")
+		assert.eq(json.deserialize([["a\u0001\\b"]]), "a\1\\b")
+	end)
+
+	suite:case("deserializeDecodesEachEscapeOnce", function(assert)
+		assert.eq(json.deserialize([["\u005cn"]]), [[\n]])
+		assert.eq(json.deserialize([["\u005cu0041"]]), [[\u0041]])
+		assert.eq(json.deserialize([["\u005c\n"]]), "\\\n")
+		assert.eq(json.deserialize([["\u005c\\"]]), [[\\]])
+		assert.eq(json.deserialize([["\\u0041\ud83d\ude00"]]), "\\u0041\u{1F600}")
+	end)
+
+	suite:case("asciiStringsRoundTrip", function(assert)
+		for byte = 0, 127 do
+			local value = `a{string.char(byte)}n`
+			assert.eq(json.deserialize(json.serialize(value)), value)
+		end
+	end)
+
 	suite:case("jsonObjectAndasObject", function(assert)
 		local obj = json.object({
 			name = "Alice",
