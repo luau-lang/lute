@@ -35,6 +35,23 @@ test.suite("LuteTaskSuite", function(suite)
 		end)
 	end)
 
+	suite:case("taskDelayReturnsScheduledThreadsAndPassesArguments", function(assert)
+		local called: { [string]: boolean } = {}
+		local function record(value: string)
+			called[value] = true
+		end
+
+		local newThread = task.delay(0, record, "function")
+		local existingThread = coroutine.create(record)
+		local returnedThread = task.delay(0, existingThread, "thread")
+
+		assert.eq(typeof(newThread), "thread")
+		assert.eq(returnedThread, existingThread)
+		task.wait(0.01)
+		assert.eq(called["function"], true)
+		assert.eq(called["thread"], true)
+	end)
+
 	suite:case("taskSpawnFunctionNoArgsCoroutineStatus", function(assert)
 		local thread = task.spawn(function()
 			task.wait(2)
