@@ -119,11 +119,13 @@ local function runtests(
 	ps.exit(0)
 end
 
-local function runsnapshots(searchpaths: { string }, update: boolean, interactive: boolean)
-	local files = finder.findsnapfiles(searchpaths)
+local function runsnapshots(searchpaths: { string }, update: boolean, interactive: boolean, caseName: string?)
+	local files = finder.findsnapfiles(searchpaths, caseName)
 
 	if #files == 0 then
-		print("No snapshot files (*.snap.luau) found.")
+		print(
+			if caseName then `No snapshot tests named '{caseName}' found.` else "No snapshot files (*.snap.luau) found."
+		)
 		ps.exit(0)
 		return
 	end
@@ -163,14 +165,15 @@ local function main(...: string)
 
 	-- Check if this is a snapshot subcommand
 	if paths[1] == "snapshots" then
+		local caseName = args:get("case")
 		if #paths == 1 then
-			runsnapshots({ "./tests" }, args:has("update"), args:has("interactive"))
+			runsnapshots({ "./tests" }, args:has("update"), args:has("interactive"), caseName)
 		else
 			local searchpaths = {}
 			for idx = 2, #paths do
 				table.insert(searchpaths, paths[idx])
 			end
-			runsnapshots(searchpaths, args:has("update"), args:has("interactive"))
+			runsnapshots(searchpaths, args:has("update"), args:has("interactive"), caseName)
 		end
 	end
 

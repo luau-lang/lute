@@ -7,10 +7,6 @@ local function istestfile(filename: string): boolean
 	return stringext.hasSuffix(filename, ".test.luau") or stringext.hasSuffix(filename, ".spec.luau")
 end
 
-local function issnapfile(filename: string): boolean
-	return stringext.hasSuffix(filename, ".snap.luau")
-end
-
 local function findfiles(paths: { string }, predicate: (string) -> boolean): { path.Path }
 	local files = {}
 	local resolver = ignore.new()
@@ -44,8 +40,13 @@ local function findtestfiles(paths: { string }): { path.Path }
 	return findfiles(paths, istestfile)
 end
 
-local function findsnapfiles(paths: { string }): { path.Path }
-	return findfiles(paths, issnapfile)
+local function findsnapfiles(paths: { string }, caseName: string?): { path.Path }
+	return findfiles(paths, function(filename)
+		if caseName then
+			return path.basename(filename) == caseName .. ".snap.luau"
+		end
+		return stringext.hasSuffix(filename, ".snap.luau")
+	end)
 end
 
 return table.freeze({ findtestfiles = findtestfiles, findsnapfiles = findsnapfiles })
