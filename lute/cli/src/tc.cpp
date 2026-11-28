@@ -1,14 +1,20 @@
 #include "lute/tc.h"
 
+#include "lute/clicommands.h"
 #include "lute/configresolver.h"
+#include "lute/requiresetup.h"
 #include "lute/result.h"
+#include "lute/runtime.h"
 #include "lute/tcmoduleresolver.h"
 
 #include "Luau/BuiltinDefinitions.h"
+#include "Luau/Compiler.h"
 #include "Luau/Error.h"
 #include "Luau/FileUtils.h"
 #include "Luau/Frontend.h"
 #include "Luau/LuauConfig.h"
+
+#include "lua.h"
 
 static void report(const char* name, const Luau::Location& loc, const char* type, const char* message, LuteReporter& reporter)
 {
@@ -121,13 +127,13 @@ struct DefinitionEntry
     }
 };
 
-static Lute::Result<std::vector<DefinitionEntry>> extractDefinitionEntries(const Luau::ConfigTable& configTable, const std::string& configDir)
+static Lute::Result<const Luau::ConfigTable*> getCheckConfig(const Luau::ConfigTable& configTable)
 {
-    using Result = Lute::Result<std::vector<DefinitionEntry>>;
+    using Result = Lute::Result<const Luau::ConfigTable*>;
 
     auto* luteValue = configTable.find("lute");
     if (!luteValue)
-        return Result::success({});
+        return Result::success(nullptr);
 
     auto* luteTable = luteValue->get_if<Luau::ConfigTable>();
     if (!luteTable)
@@ -135,11 +141,25 @@ static Lute::Result<std::vector<DefinitionEntry>> extractDefinitionEntries(const
 
     auto* checkValue = luteTable->find("check");
     if (!checkValue)
-        return Result::success({});
+        return Result::success(nullptr);
 
     auto* checkTable = checkValue->get_if<Luau::ConfigTable>();
     if (!checkTable)
         return Result::failure("configuration value for key \"lute.check\" must be a table");
+
+    return Result::success(checkTable);
+}
+
+static Lute::Result<std::vector<DefinitionEntry>> extractDefinitionEntries(const Luau::ConfigTable& configTable, const std::string& configDir)
+{
+    using Result = Lute::Result<std::vector<DefinitionEntry>>;
+
+    auto settings = getCheckConfig(configTable);
+    if (!settings.ok())
+        return Result::failure(settings.error());
+    const Luau::ConfigTable* checkTable = settings.value();
+    if (!checkTable)
+        return Result::success({});
 
     auto* defsValue = checkTable->find("definitions");
     if (!defsValue)
@@ -291,6 +311,110 @@ static int loadTypeDefinitions(Luau::Frontend& frontend, LuteReporter& reporter,
     return 0;
 }
 
+static bool applyIgnorePatterns(
+    const Luau::ConfigTable& patterns,
+    const std::string& configDir,
+    std::string_view filterSource,
+    std::vector<std::string>& sourceFiles,
+    LuteReporter& reporter
+)
+{
+    Runtime runtime{reporter};
+    lua_State* state = setupCliCommandState(runtime);
+    const std::string bytecode = Luau::compile(std::string(filterSource));
+    if (luau_load(state, "@@cli/lib/checkIgnores.luau", bytecode.data(), bytecode.size(), 0) == 0)
+    {
+        lua_pushstring(state, configDir.c_str());
+        lua_createtable(state, int(patterns.size()), 0);
+        for (size_t index = 1; index <= patterns.size(); ++index)
+        {
+            const auto* entry = patterns.find(double(index));
+            const auto* pattern = entry ? entry->get_if<std::string>() : nullptr;
+            if (!pattern)
+            {
+                reporter.reportError("configuration value for key \"lute.check.ignores\" must be an array of strings\n");
+                return false;
+            }
+            lua_pushlstring(state, pattern->data(), pattern->size());
+            lua_rawseti(state, -2, int(index));
+        }
+
+        lua_createtable(state, int(sourceFiles.size()), 0);
+        for (size_t index = 0; index < sourceFiles.size(); ++index)
+        {
+            lua_pushstring(state, sourceFiles[index].c_str());
+            lua_rawseti(state, -2, int(index + 1));
+        }
+
+        if (lua_pcall(state, 3, 1, 0) == 0)
+        {
+            sourceFiles.clear();
+            for (int index = 1, size = lua_objlen(state, -1); index <= size; ++index)
+            {
+                lua_rawgeti(state, -1, index);
+                sourceFiles.emplace_back(lua_tostring(state, -1));
+                lua_pop(state, 1);
+            }
+            return true;
+        }
+    }
+
+    const char* error = lua_tostring(state, -1);
+    reporter.formatError("Failed to apply lute.check.ignores: %s\n", error ? error : "unknown error");
+    return false;
+}
+
+static bool filterIgnoredSourceFiles(
+    std::vector<std::string>& sourceFiles,
+    LuteReporter& reporter,
+    const std::optional<std::string>& configPathOverride
+)
+{
+    const CliModuleResult filter = getCliModule("@cli/lib/checkIgnores.luau");
+    if (filter.type != CliModuleType::Module)
+        return true;
+
+    auto dir = configPathOverride ? std::optional{getParentPath(*configPathOverride).value_or("")} : getCurrentWorkingDirectory();
+    for (; dir; dir = configPathOverride ? std::nullopt : getParentPath(*dir))
+    {
+        const std::string candidate = configPathOverride ? *configPathOverride : joinPaths(*dir, Luau::kLuauConfigName);
+        const auto contents = readFile(candidate);
+        if (!contents)
+            continue;
+
+        std::string parseError;
+        const auto config = Luau::extractConfig(*contents, {}, &parseError);
+        if (!config)
+        {
+            reporter.formatError("%s\n", parseError.c_str());
+            return false;
+        }
+
+        const auto settings = getCheckConfig(*config);
+        if (!settings.ok())
+        {
+            reporter.formatError("%s\n", settings.error().c_str());
+            return false;
+        }
+
+        const auto* check = settings.value();
+        const auto* ignores = check ? check->find("ignores") : nullptr;
+        if (!ignores)
+            continue;
+
+        const auto* patterns = ignores->get_if<Luau::ConfigTable>();
+        if (!patterns)
+        {
+            reporter.reportError("configuration value for key \"lute.check.ignores\" must be an array of strings\n");
+            return false;
+        }
+
+        return patterns->size() == 0 || applyIgnorePatterns(*patterns, *dir, filter.contents, sourceFiles, reporter);
+    }
+
+    return true;
+}
+
 int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& reporter, std::optional<std::string> configPathOverride)
 {
     std::vector<std::string> sourceFiles = processSourceFiles(sourceFilesInput);
@@ -300,6 +424,11 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
         reporter.reportError("Error: lute check expects a file to type check.\n\n");
         return 1;
     }
+
+    if (!filterIgnoredSourceFiles(sourceFiles, reporter, configPathOverride))
+        return 1;
+    if (sourceFiles.empty())
+        return 0;
 
     Luau::Mode mode = Luau::Mode::Strict;
     bool annotate = true;
