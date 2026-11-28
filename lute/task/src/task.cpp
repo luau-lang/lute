@@ -147,6 +147,12 @@ struct LuaThread
         return 1;
     }
 
+    int delay(uint64_t milliseconds)
+    {
+        yieldLuaStateFor(child, milliseconds, false, resumeArgs);
+        return 1;
+    }
+
     int resume()
     {
         auto st = getChildThreadStatus();
@@ -247,37 +253,8 @@ int lua_delay(lua_State* L)
     // remove the wait time
     lua_remove(L, 1);
 
-    lua_State* passedLuaState;
-
-    if (lua_isfunction(L, 1))
-    {
-        lua_State* NL = lua_newthread(L);
-        lua_pop(L, 1);
-
-        passedLuaState = NL;
-
-        // get the function
-        lua_xpush(L, NL, 1);
-
-        // remove the function
-        lua_remove(L, 1);
-    }
-    else if (lua_isthread(L, 1))
-    {
-        passedLuaState = lua_tothread(L, 1);
-        lua_remove(L, 1);
-    }
-    else
-    {
-        luaL_error(L, "can only pass threads or functions to task.spawn");
-    };
-
-    int nargs = lua_gettop(L);
-    lua_xmove(L, passedLuaState, nargs);
-
-    yieldLuaStateFor(passedLuaState, milliseconds, false, nargs);
-
-    return 1;
+    LuaThread newThread{L, "task.delay"};
+    return newThread.delay(milliseconds);
 }
 
 int lua_wait(lua_State* L)
