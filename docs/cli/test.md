@@ -26,6 +26,8 @@ Run only tests in the specified suite
 
 Run only test cases matching the specified name
 
+For `lute test snapshots`, use the exact filename without the `.snap.luau` suffix.
+
 ## Arguments
 
 Directories or files to search for tests (default: ./)
@@ -60,6 +62,12 @@ Run all test cases named "some case":
 
 ```bash
 lute test --case "some case"
+```
+
+Run the snapshot test in `example.snap.luau`:
+
+```bash
+lute test snapshots --case example
 ```
 
 List tests that were discovered in my/other/testdir:

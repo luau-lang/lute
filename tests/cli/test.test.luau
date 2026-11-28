@@ -74,6 +74,20 @@ test.suite("LuteTestCommand", function(suite)
 		assert.neq(result.stdout:find("1 passed", 1, true), nil)
 	end)
 
+	suite:case("luteTestSnapshotsFiltersByCaseName", function(assert)
+		local snapshotDir = "tests/cli/format/snapshots"
+		local result = process.run({ lutePath, "test", "snapshots", "-c", "check_formatted_file", snapshotDir })
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, "check_formatted_file.snap.luau")
+		assert.strContains(result.stdout, "1 passed")
+		assert.strNotContains(result.stdout, "check_unformatted_file.snap.luau")
+
+		local missing = process.run({ lutePath, "test", "snapshots", "--case", "does_not_exist", snapshotDir })
+		assert.eq(missing.exitcode, 0)
+		assert.strContains(missing.stdout, "No snapshot tests named 'does_not_exist' found.")
+		assert.strNotContains(missing.stdout, ".snap.luau")
+	end)
+
 	suite:case("luteTestSnapshotsReplacesRootWithPatternCharacters", function(assert)
 		-- Setup: a working directory whose name contains Lua pattern magic characters
 		local rootDir = path.join(system.tmpdir(), "lute-snap root+(1)")
